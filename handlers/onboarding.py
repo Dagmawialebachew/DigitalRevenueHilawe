@@ -213,7 +213,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         await callback.message.edit_text(f"{step_text}")
 
     # 3. MATCH THE PRODUCT
-    product = await db.match_product(lang, data['gender'], data['level'], freq)
+    product = await db.match_product(lang, data['level'], freq)
     if not product:
         await callback.message.edit_text(get_text(lang, "no_product_found"))
         return

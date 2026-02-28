@@ -36,10 +36,12 @@ class AdminStates(StatesGroup):
 from aiogram.exceptions import TelegramBadRequest
 
 @router.message(Command("admin"), F.from_user.id.in_(settings.ADMIN_IDS))
+@router.message(F.text == "📊 Business Stats", F.from_user.id.in_(settings.ADMIN_IDS))
 @router.message(F.text == "💎 Back to Dashboard", F.from_user.id.in_(settings.ADMIN_IDS))
 @router.callback_query(F.data == "refresh_admin_stats")
 async def admin_dashboard(event: types.Message | types.CallbackQuery, db: Database, state: FSMContext):
     await state.clear()
+    await event.answer("📋 Admin Menu", reply_markup=akb.admin_main_menu())
     stats = await db.get_admin_stats()
     
     # 1. Prepare Data

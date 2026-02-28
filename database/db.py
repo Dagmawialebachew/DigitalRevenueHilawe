@@ -88,14 +88,16 @@ class Database:
         """
         await self._pool.execute(query, telegram_id, *values)
     # --- PRODUCT LOGIC ---
-    async def match_product(self, language: str, gender: str, level: str, frequency: int):
+    async def match_product(self, language: str, level: str, frequency: int):
         query = """
             SELECT * FROM products 
-            WHERE language = $1 AND gender = $2 AND level = $3 AND frequency = $4
-            AND is_active = TRUE 
+            WHERE language = $1 
+            AND level = $2 
+            AND frequency = $3
+            AND is_active = TRUE
             LIMIT 1
         """
-        return await self._pool.fetchrow(query, language, gender, level, frequency)
+        return await self._pool.fetchrow(query, language, level, frequency)
 
     async def add_product(self, title: str, lang: str, gender: str, level: str, freq: int, price: float, file_id: str):
         query = """

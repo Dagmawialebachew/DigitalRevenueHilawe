@@ -8,7 +8,6 @@ class ProductMatcher:
     async def get_plan_for_user(self, user_record: dict):
         return await self.db.match_product(
             language=user_record['language'],
-            gender=user_record['gender'],
             level=user_record['level'],
             frequency=user_record['frequency']
         )

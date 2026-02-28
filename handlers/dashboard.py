@@ -168,7 +168,7 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
             return await message.answer(text, parse_mode="Markdown")
 
     # --- 2. MATCH PRODUCT (For New Users) ---
-    product = await db.match_product(lang, user['gender'], user['level'], user['frequency'])
+    product = await db.match_product(lang, user['level'], user['frequency'])
     
     if not product:
         no_prod_text = (
