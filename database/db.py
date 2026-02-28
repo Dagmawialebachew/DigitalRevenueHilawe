@@ -249,3 +249,62 @@ class Database:
         """
         return await self._pool.fetchval(query, title, language, gender,
                                          level, frequency, price, file_id)
+        
+    
+    # --- ANALYTICS HELPERS ---
+
+    async def get_revenue_history(self, days: int = 7) -> List[asyncpg.Record]:
+        """
+        Aggregates daily revenue for the line chart.
+        Returns rows with 'date' and 'value'.
+        """
+        query = """
+            WITH date_series AS (
+                SELECT generate_series(
+                    CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day',
+                    CURRENT_DATE,
+                    '1 day'::interval
+                )::date AS day
+            )
+            SELECT 
+                to_char(ds.day, 'MM/DD') as date,
+                COALESCE(SUM(p.amount), 0) as value
+            FROM date_series ds
+            LEFT JOIN payments p ON ds.day = p.created_at::date AND p.status = 'approved'
+            GROUP BY ds.day
+            ORDER BY ds.day ASC
+        """
+        return await self._pool.fetch(query, days)
+
+    async def get_payment_distribution(self) -> asyncpg.Record:
+        """
+        Counts payments by status for the donut chart.
+        """
+        query = """
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'pending') as pending,
+                COUNT(*) FILTER (WHERE status = 'approved') as approved,
+                COUNT(*) FILTER (WHERE status = 'rejected') as rejected
+            FROM payments
+        """
+        return await self._pool.fetchrow(query)
+
+    # --- UPDATED KPI HELPER ---
+    
+    async def get_admin_stats(self) -> asyncpg.Record:
+        """
+        Enhanced KPI fetcher to ensure keys match the frontend 'kpi' mapping.
+        """
+        query = """
+            SELECT 
+                (SELECT count(*) FROM users) as active_users,
+                (SELECT count(*) FROM payments WHERE status = 'pending') as pending_payments,
+                (SELECT COALESCE(sum(amount), 0) FROM payments WHERE status = 'approved') as total_revenue,
+                (SELECT 
+                    CASE 
+                        WHEN count(*) = 0 THEN 0 
+                        ELSE ROUND((COUNT(*) FILTER (WHERE status = 'approved')::numeric / count(*)::numeric) * 100, 1)
+                    END 
+                 FROM payments) as conversion_rate
+        """
+        return await self._pool.fetchrow(query)

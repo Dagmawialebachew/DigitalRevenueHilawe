@@ -361,24 +361,22 @@ async def about_the_coach(message: types.Message, db: Database):
     # THE SCRIPT: Pure Authority and Empathy
     if lang == "AM":
         caption = (
-            "🏆 *አሰልጣኝ ህላዌ፦ ከስም በላይ፣ ለውጥ!*\n\n"
+            "🏆 *አሰልጣኝ ህላዌ!*\n\n"
             "ባለፉት አመታት ከ *300,000* በላይ ተከታዮችን በማህበራዊ ገጾች በማፍራት "
             "እና በሺዎች የሚቆጠሩ ሰዎችን ህይወት በመቀየር የሚታወቅ ባለሙያ ነው።\n\n"
-            "• *ልምድ:* 6+ አመታት በፊቲነስ ኢንዱስትሪ\n"
+            "• *ልምድ:* 8+ አመታት በፊቲነስ ኢንዱስትሪ\n"
             "• *ፍልስፍና:* ሳይንስን እና ትጋትን በማጣመር የሚገኝ ውጤት\n"
-            "• *ውጤት:* ከ 5,000 በላይ የተሳኩ የሰውነት ለውጦች\n\n"
             "እዚህ የመጣሁት ላሰለጥንህ ብቻ አይደለም፤ ማንነትህን እንድትቀይር ለማገዝ ጭምር ነው። "
             "ለውጥህን ለመጀመር ዝግጁ ነህ?"
         )
         cta_text = "🚀 ጉዞዬን ልጀምር"
     else:
         caption = (
-            "🏆 *COACH HILAWE: BEYOND THE HYPE.*\n\n"
+            "🏆 *COACH HILAWE*\n\n"
             "With a community of over *300,000* followers and years of deep-level coaching, "
             "Hilawe has become Ethiopia's leading voice in science-based body transformation.\n\n"
-            "• *Experience:* 6+ Years in Elite Fitness\n"
+            "• *Experience:* 8+ Years in Elite Fitness\n"
             "• *Philosophy:* Precision science meets raw discipline\n"
-            "• *Results:* 5,000+ Verified transformations\n\n"
             "I’m not here to just give you a PDF. I’m here to redefine what you see in the mirror. "
             "Are you ready to be next?"
         )
@@ -387,8 +385,8 @@ async def about_the_coach(message: types.Message, db: Database):
 
     # BUILD THE GALLERY
     album = MediaGroupBuilder(caption=caption)
-    album.add_photo("AgACAgQAAxkBAAIB3GminFYzrTlyER9Fq2HXXCy-8wl-AAJVDGsbwIwZUYqpTCjlEFJ7AQADAgADeQADOgQ") # Use your actual file ID
-    # album.add_photo(media=settings.TRANSFORMATION_1_ID)
+    album.add_photo("AgACAgQAAxkBAAICkGmjBaYwVMA-T4Umx_Nz87gCMSOpAAJ0DWsbZFQYUWoJ6IIDLj7VAQADAgADeQADOgQ") # Use your actual file ID
+    album.add_photo("AgACAgQAAxkBAAICjmmjBYWs5UG-eCePehQbSeK-uUxfAAJzDWsbZFQYUYHRaHc6PNjNAQADAgADeQADOgQ")
     # album.add_photo(media=settings.TRANSFORMATION_2_ID)
 
     await message.answer_media_group(media=album.build())
@@ -436,14 +434,14 @@ async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
     # 4. Send the message (The user will then see their existing Reply Keyboard)
     await callback.message.answer(text, parse_mode="Markdown")
     
-# @router.message(F.photo)
-# async def get_photo_id(message: types.Message):
-#     # message.photo is a list of different sizes; [-1] is the highest quality
-#     file_id = message.photo[-1].file_id
+@router.message(F.photo)
+async def get_photo_id(message: types.Message):
+    # message.photo is a list of different sizes; [-1] is the highest quality
+    file_id = message.photo[-1].file_id
     
-#     response = (
-#         f"✅ *High-Res File ID Captured:*\n\n"
-#         f"`{file_id}`\n\n"
-#         f"Copy the ID above and paste it into your MediaGroupBuilder."
-#     )
-#     await message.reply(response, parse_mode="Markdown")
+    response = (
+        f"✅ *High-Res File ID Captured:*\n\n"
+        f"`{file_id}`\n\n"
+        f"Copy the ID above and paste it into your MediaGroupBuilder."
+    )
+    await message.reply(response, parse_mode="Markdown")

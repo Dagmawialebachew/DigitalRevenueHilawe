@@ -1,6 +1,8 @@
 # handlers/admin_api.py
 import logging
+import time
 from decimal import Decimal
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from aiohttp import web
@@ -10,30 +12,26 @@ LOG = logging.getLogger("admin_api")
 
 # --- Utilities --------------------------------------------------------------
 
-def record_to_dict(record: Optional[Any]) -> Dict[str, Any]:
-    """Convert asyncpg.Record (or None) to a JSON-serializable dict."""
+def record_to_dict(record):
+    """Convert asyncpg.Record to dict with JSON-serializable values."""
     if record is None:
         return {}
     d = dict(record)
     for k, v in list(d.items()):
         if isinstance(v, Decimal):
-            # monetary / numeric fields -> float for JSON
-            d[k] = float(v)
+            d[k] = float(v)   # convert Decimal -> float
+        elif isinstance(v, datetime):
+            d[k] = v.isoformat()  # convert datetime -> ISO string
         elif isinstance(v, bytes):
             d[k] = v.decode(errors="ignore")
-        # add other conversions here if needed (datetime -> isoformat, etc.)
     return d
 
-
-def records_to_list(rows: Iterable[Any]) -> List[Dict[str, Any]]:
+def records_to_list(rows):
     return [record_to_dict(r) for r in rows]
 
 
 # --- Lightweight in-memory cache for hot endpoints --------------------------
-# Stored on app as app["admin_cache"] = {"stats": (timestamp, payload), ...}
-# TTL in seconds
 _STATS_TTL = 5
-
 
 def _get_cached(app: web.Application, key: str, ttl: int):
     cache = app.get("admin_cache", {})
@@ -41,31 +39,23 @@ def _get_cached(app: web.Application, key: str, ttl: int):
     if not entry:
         return None
     ts, payload = entry
-    if (web.time.time() - ts) > ttl:
-        # expired
+    if (time.time() - ts) > ttl:
         cache.pop(key, None)
         app["admin_cache"] = cache
         return None
     return payload
 
-
 def _set_cached(app: web.Application, key: str, payload: Any):
     cache = app.get("admin_cache", {})
-    cache[key] = (web.time.time(), payload)
+    cache[key] = (time.time(), payload)
     app["admin_cache"] = cache
 
 
 # --- Handlers ---------------------------------------------------------------
 
 async def get_admin_stats(request: web.Request) -> web.Response:
-    """
-    GET /api/admin/stats
-    Uses Database.get_admin_stats() helper to return KPIs.
-    Cached for a short TTL to reduce DB pressure from dashboard polling.
-    """
+    """GET /api/admin/stats - Basic KPIs"""
     db = request.app["db"]
-
-    # Try cache first
     cached = _get_cached(request.app, "stats", _STATS_TTL)
     if cached is not None:
         return web.json_response(cached)
@@ -75,22 +65,52 @@ async def get_admin_stats(request: web.Request) -> web.Response:
         payload = record_to_dict(stats_record)
         _set_cached(request.app, "stats", payload)
         return web.json_response(payload)
-    except Exception as e:
+    except Exception:
         LOG.exception("get_admin_stats failed")
         return web.json_response({"error": "internal_server_error"}, status=500)
 
 
-async def get_recent_payments(request: web.Request) -> web.Response:
+async def get_revenue_stats(request: web.Request) -> web.Response:
     """
-    GET /api/admin/payments/recent
-    Returns the most recent payments (limit query param supported).
-    Uses Database.get_recent_payments helper.
+    GET /api/admin/stats/revenue?days=7
+    Returns time-series data for the line chart.
     """
     db = request.app["db"]
     try:
+        days = int(request.query.get("days", 7))
+    except ValueError:
+        days = 7
+
+    try:
+        # Expected from DB: list of records with 'date' and 'value'
+        rows = await db.get_revenue_history(days=days)
+        return web.json_response(records_to_list(rows))
+    except Exception:
+        LOG.exception("get_revenue_stats failed")
+        return web.json_response([], status=500)
+
+
+async def get_distribution_stats(request: web.Request) -> web.Response:
+    """
+    GET /api/admin/stats/distribution
+    Returns counts for the donut chart.
+    """
+    db = request.app["db"]
+    try:
+        # Expected from DB: record with 'pending', 'approved', 'rejected'
+        record = await db.get_payment_distribution()
+        return web.json_response(record_to_dict(record))
+    except Exception:
+        LOG.exception("get_distribution_stats failed")
+        return web.json_response({"pending": 0, "approved": 0, "rejected": 0})
+
+
+async def get_recent_payments(request: web.Request) -> web.Response:
+    """GET /api/admin/payments/recent"""
+    db = request.app["db"]
+    try:
         limit = int(request.query.get("limit", 10))
-        if limit <= 0 or limit > 200:
-            limit = 10
+        limit = max(1, min(limit, 200))
     except Exception:
         limit = 10
 
@@ -103,24 +123,15 @@ async def get_recent_payments(request: web.Request) -> web.Response:
 
 
 async def verify_payment(request: web.Request) -> web.Response:
-    """
-    POST /api/admin/payments/{payment_id}/verify
-    Body: { "status": "approved" | "rejected" }
-    - Approve: uses Database.approve_payment (atomic) and returns delivery info.
-    - Reject: uses Database.reject_payment helper.
-    """
+    """POST /api/admin/payments/{payment_id}/verify"""
     db = request.app["db"]
     try:
         payment_id = int(request.match_info.get("payment_id"))
-    except Exception:
-        return web.json_response({"error": "invalid_payment_id"}, status=400)
-
-    try:
         data = await request.json()
+        status = (data.get("status") or "").lower()
     except Exception:
-        return web.json_response({"error": "invalid_json"}, status=400)
+        return web.json_response({"error": "bad_request"}, status=400)
 
-    status = (data.get("status") or "").lower()
     if status not in {"approved", "rejected"}:
         return web.json_response({"error": "invalid_status"}, status=400)
 
@@ -128,44 +139,26 @@ async def verify_payment(request: web.Request) -> web.Response:
         if status == "approved":
             result = await db.approve_payment(payment_id)
             if not result:
-                return web.json_response({"error": "payment_not_found"}, status=404)
+                return web.json_response({"error": "not_found"}, status=404)
+        else:
+            ok = await db.reject_payment(payment_id)
+            if not ok:
+                return web.json_response({"error": "not_found"}, status=404)
 
-            # Clear stats cache so dashboard reflects new counts quickly
-            request.app.get("admin_cache", {}).pop("stats", None)
-
-            return web.json_response({
-                "status": "success",
-                "message": "payment_approved",
-                "delivery": record_to_dict(result)
-            })
-
-        # rejected
-        ok = await db.reject_payment(payment_id)
-        if not ok:
-            return web.json_response({"error": "payment_not_found"}, status=404)
-
+        # Invalidate stats cache
         request.app.get("admin_cache", {}).pop("stats", None)
-        return web.json_response({"status": "success", "message": "payment_rejected"})
-
+        return web.json_response({"status": "success"})
     except Exception:
-        LOG.exception("verify_payment failed for id=%s", payment_id)
-        return web.json_response({"error": "internal_server_error"}, status=500)
+        LOG.exception("verify_payment failed")
+        return web.json_response({"error": "internal_error"}, status=500)
 
 
 async def get_products(request: web.Request) -> web.Response:
-    """
-    GET /api/admin/products
-    Query params: limit, offset
-    Uses Database.get_products helper.
-    """
+    """GET /api/admin/products"""
     db = request.app["db"]
     try:
         limit = int(request.query.get("limit", 100))
         offset = int(request.query.get("offset", 0))
-        if limit < 1 or limit > 500:
-            limit = 100
-        if offset < 0:
-            offset = 0
     except Exception:
         return web.json_response({"error": "invalid_pagination"}, status=400)
 
@@ -174,37 +167,19 @@ async def get_products(request: web.Request) -> web.Response:
         return web.json_response(records_to_list(rows))
     except Exception:
         LOG.exception("get_products failed")
-        return web.json_response({"error": "internal_server_error"}, status=500)
+        return web.json_response({"error": "internal_error"}, status=500)
 
 
 async def create_product(request: web.Request) -> web.Response:
-    """
-    POST /api/admin/products/create
-    Body: { title, language, gender, level, frequency, price, file_id }
-    Uses Database.create_product helper.
-    """
+    """POST /api/admin/products/create"""
     db = request.app["db"]
     try:
-        payload = await request.json()
-    except Exception:
-        return web.json_response({"error": "invalid_json"}, status=400)
-
-    required = ("title", "language", "gender", "level", "frequency", "price", "file_id")
-    missing = [k for k in required if k not in payload]
-    if missing:
-        return web.json_response({"error": "missing_fields", "fields": missing}, status=400)
-
-    try:
+        p = await request.json()
         product_id = await db.create_product(
-            title=payload["title"],
-            language=payload["language"],
-            gender=payload["gender"],
-            level=payload["level"],
-            frequency=int(payload["frequency"]),
-            price=float(payload["price"]),
-            file_id=payload["file_id"]
+            title=p["title"], language=p["language"], gender=p["gender"],
+            level=p["level"], frequency=int(p["frequency"]),
+            price=float(p["price"]), file_id=p["file_id"]
         )
-        # Invalidate product-related caches if you add any later
         return web.json_response({"status": "deployed", "id": product_id})
     except Exception:
         LOG.exception("create_product failed")
@@ -214,11 +189,16 @@ async def create_product(request: web.Request) -> web.Response:
 # --- Route registration ----------------------------------------------------
 
 def setup_admin_routes(app: web.Application):
-    """
-    Register admin routes on the aiohttp app.
-    """
+    """Register admin routes on the aiohttp app."""
+    # Stats & Charts
     app.router.add_get("/api/admin/stats", get_admin_stats)
+    app.router.add_get("/api/admin/stats/revenue", get_revenue_stats)
+    app.router.add_get("/api/admin/stats/distribution", get_distribution_stats)
+    
+    # Payments
     app.router.add_get("/api/admin/payments/recent", get_recent_payments)
     app.router.add_post("/api/admin/payments/{payment_id}/verify", verify_payment)
+    
+    # Products
     app.router.add_get("/api/admin/products", get_products)
     app.router.add_post("/api/admin/products/create", create_product)

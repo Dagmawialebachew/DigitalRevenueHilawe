@@ -2,7 +2,8 @@ from aiogram.types import (
     ReplyKeyboardMarkup, 
     KeyboardButton, 
     InlineKeyboardMarkup, 
-    InlineKeyboardButton
+    InlineKeyboardButton,
+    WebAppInfo
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
@@ -13,15 +14,20 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 def admin_main_menu() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(
-        KeyboardButton(text="📊 Business Stats"),
-        KeyboardButton(text="⏳ Pending Payments")
+        KeyboardButton(text="⏳ Pending Payments"),
+        KeyboardButton(text="📦 Add New Product")
     )
     builder.row(
-        KeyboardButton(text="📦 Add New Product"),
-        KeyboardButton(text="📢 Global Broadcast")
-    )
-    builder.row(
+        KeyboardButton(text="📢 Global Broadcast"),
         KeyboardButton(text="🛠 Manage Products")
+    )
+    builder.row(
+         
+                KeyboardButton(
+                    text="🧺 Asbeza 🧺",
+                    web_app=WebAppInfo(url=f"https://digital-revenue-hilawe-mini-app.vercel.app")
+                )
+        
     )
     return builder.as_markup(resize_keyboard=True, placeholder="Hilawe Elite Admin Panel")
 
