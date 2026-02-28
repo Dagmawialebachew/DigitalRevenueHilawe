@@ -20,6 +20,7 @@ for r in all_routers:
 # Middlewares
 from middlewares.throttling_middleware import ThrottlingMiddleware
 from middlewares.error_handling_middleware import router as error_router
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

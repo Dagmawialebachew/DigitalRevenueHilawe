@@ -4,8 +4,18 @@ from pydantic import BaseModel
 import asyncpg
 import os
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="DigitalRevenue Admin API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or ["http://127.0.0.1:5500"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 # DB Connection Logic
 async def get_db():
