@@ -199,3 +199,53 @@ class Database:
 
     async def count_products(self):
         return await self._pool.fetchval("SELECT count(*) FROM products")
+    async def get_recent_payments(self, limit: int = 10) -> List[Dict]:
+        """
+        Return the most recent payments (any status) with user and product info.
+        """
+        query = """
+            SELECT p.id, p.amount, p.status, p.created_at,
+                   u.full_name, u.username,
+                   pr.title
+            FROM payments p
+            JOIN users u ON p.user_id = u.telegram_id
+            JOIN products pr ON p.product_id = pr.id
+            ORDER BY p.created_at DESC
+            LIMIT $1
+        """
+        return await self._pool.fetch(query, limit)
+
+    async def reject_payment(self, payment_id: int) -> bool:
+        """
+        Mark a payment as rejected. Returns True if updated, False if not found.
+        """
+        result = await self._pool.execute(
+            "UPDATE payments SET status = 'rejected' WHERE id = $1",
+            payment_id
+        )
+        return result != "UPDATE 0"
+
+    async def get_products(self, limit: int = 100, offset: int = 0) -> List[Dict]:
+        """
+        Return products list for admin view.
+        """
+        query = """
+            SELECT id, title, price, is_active, language, gender, level, frequency, created_at
+            FROM products
+            ORDER BY created_at DESC
+            LIMIT $1 OFFSET $2
+        """
+        return await self._pool.fetch(query, limit, offset)
+
+    async def create_product(self, title: str, language: str, gender: str,
+                             level: str, frequency: int, price: float, file_id: str) -> int:
+        """
+        Insert a new product and return its id.
+        """
+        query = """
+            INSERT INTO products (title, language, gender, level, frequency, price, telegram_file_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+        """
+        return await self._pool.fetchval(query, title, language, gender,
+                                         level, frequency, price, file_id)

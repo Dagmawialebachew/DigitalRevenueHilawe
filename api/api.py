@@ -11,28 +11,16 @@ async def get_admin_stats(request: web.Request) -> web.Response:
     """
     db = request.app["db"]
     stats = await db.get_admin_stats()
-    # db.get_admin_stats returns an asyncpg.Record — convert to plain dict
     return web.json_response(dict(stats or {}))
 
 
 async def get_recent_payments(request: web.Request) -> web.Response:
     """
     GET /api/admin/payments/recent
-    Uses Database.get_pending_payments() helper (or a dedicated helper).
-    Returns the 10 most recent payments (pending + approved + rejected).
+    Uses Database.get_recent_payments() helper to return the 10 most recent payments.
     """
     db = request.app["db"]
-    # If you want all recent payments (not only pending), use a direct query via helper if available.
-    # We have get_pending_payments for pending; for recent regardless of status, use a small inline query
-    # via the pool (safe because it's a single, simple read).
-    rows = await db._pool.fetch("""
-        SELECT p.id, p.amount, p.status, p.created_at, u.full_name, u.username, pr.title
-        FROM payments p
-        JOIN users u ON p.user_id = u.telegram_id
-        JOIN products pr ON p.product_id = pr.id
-        ORDER BY p.created_at DESC
-        LIMIT 10
-    """)
+    rows = await db.get_recent_payments(limit=10)
     return web.json_response([dict(r) for r in rows])
 
 
@@ -41,10 +29,14 @@ async def verify_payment(request: web.Request) -> web.Response:
     POST /api/admin/payments/{payment_id}/verify
     Body: { "status": "approved" | "rejected" }
     - If approved: use Database.approve_payment to atomically approve and fetch product/user info.
-    - If rejected: update status to 'rejected' and return success.
+    - If rejected: use Database.reject_payment helper.
     """
     db = request.app["db"]
-    payment_id = int(request.match_info["payment_id"])
+    try:
+        payment_id = int(request.match_info["payment_id"])
+    except (KeyError, ValueError):
+        return web.json_response({"error": "invalid payment_id"}, status=400)
+
     data = await request.json()
     status = (data.get("status") or "").lower()
 
@@ -52,12 +44,9 @@ async def verify_payment(request: web.Request) -> web.Response:
         return web.json_response({"error": "invalid status"}, status=400)
 
     if status == "approved":
-        # approve_payment updates status and returns product/user info (or None if not found)
         result = await db.approve_payment(payment_id)
         if not result:
             return web.json_response({"error": "Payment not found"}, status=404)
-
-        # result is an asyncpg.Record with telegram_file_id, language, user_id
         return web.json_response({
             "status": "success",
             "message": "Payment approved",
@@ -65,8 +54,8 @@ async def verify_payment(request: web.Request) -> web.Response:
         })
 
     # status == 'rejected'
-    res = await db._pool.execute("UPDATE payments SET status = 'rejected' WHERE id = $1", payment_id)
-    if res == "UPDATE 0":
+    ok = await db.reject_payment(payment_id)
+    if not ok:
         return web.json_response({"error": "Payment not found"}, status=404)
     return web.json_response({"status": "success", "message": "Payment rejected"})
 
@@ -74,10 +63,17 @@ async def verify_payment(request: web.Request) -> web.Response:
 async def get_products(request: web.Request) -> web.Response:
     """
     GET /api/admin/products
-    Uses Database.get_all_products() helper.
+    Uses Database.get_products() helper.
     """
     db = request.app["db"]
-    rows = await db.get_all_products(limit=100, offset=0)
+    # optional query params for pagination
+    try:
+        limit = int(request.query.get("limit", 100))
+        offset = int(request.query.get("offset", 0))
+    except ValueError:
+        return web.json_response({"error": "invalid pagination parameters"}, status=400)
+
+    rows = await db.get_products(limit=limit, offset=offset)
     return web.json_response([dict(r) for r in rows])
 
 
@@ -85,7 +81,7 @@ async def create_product(request: web.Request) -> web.Response:
     """
     POST /api/admin/products/create
     Body: { title, language, gender, level, frequency, price, file_id }
-    Uses Database.add_product() helper.
+    Uses Database.create_product() helper.
     """
     db = request.app["db"]
     data = await request.json()
@@ -95,16 +91,21 @@ async def create_product(request: web.Request) -> web.Response:
     if missing:
         return web.json_response({"error": f"missing fields: {', '.join(missing)}"}, status=400)
 
-    await db.add_product(
-        title=data["title"],
-        lang=data["language"],
-        gender=data["gender"],
-        level=data["level"],
-        freq=int(data["frequency"]),
-        price=float(data["price"]),
-        file_id=data["file_id"]
-    )
-    return web.json_response({"status": "deployed"})
+    try:
+        product_id = await db.create_product(
+            title=data["title"],
+            language=data["language"],
+            gender=data["gender"],
+            level=data["level"],
+            frequency=int(data["frequency"]),
+            price=float(data["price"]),
+            file_id=data["file_id"]
+        )
+    except Exception as e:
+        # keep error message generic in production; log details server-side
+        return web.json_response({"error": "failed to create product"}, status=500)
+
+    return web.json_response({"status": "deployed", "id": product_id})
 
 
 def setup_admin_routes(app: web.Application):
