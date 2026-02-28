@@ -63,7 +63,7 @@ async def cancel_payment(message: types.Message, state: FSMContext, lang: str = 
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."
     await message.answer(text, reply_markup=types.ReplyKeyboardRemove()) # Remove the cancel button
     # Here you can trigger your main menu handler
-    await message.answer("🏠 *DASHBOARD*", reply_markup=kb.main_menu(lang))
+    await message.answer("🏠 *DASHBOARD*", reply_markup=rb.main_menu(lang))
     
 @router.message(PaymentStates.awaiting_proof, F.photo)
 async def handle_payment_proof(message: types.Message, state: FSMContext, db: Database, bot: Bot):
