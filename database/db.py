@@ -114,7 +114,7 @@ class Database:
         """
         return await self._pool.fetchval(query, user_id, product_id, proof_id, amount)
 
-    async def get_admin_stats(self):
+    async def get_admin_stats_bot(self):
         """Fetches elite-level business intelligence including pending tasks."""
         query = """
             SELECT 

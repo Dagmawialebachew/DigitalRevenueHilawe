@@ -42,7 +42,7 @@ from aiogram.exceptions import TelegramBadRequest
 async def admin_dashboard(event: types.Message | types.CallbackQuery, db: Database, state: FSMContext):
     await state.clear()
     await event.answer("📋 Admin Menu", reply_markup=akb.admin_main_menu())
-    stats = await db.get_admin_stats()
+    stats = await db.get_admin_stats_bot()
     
     # 1. Prepare Data
     pending_val = stats['pending_count']

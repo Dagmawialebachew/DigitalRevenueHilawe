@@ -24,7 +24,7 @@ def admin_main_menu() -> ReplyKeyboardMarkup:
     builder.row(
          
                 KeyboardButton(
-                    text="🧺 Asbeza 🧺",
+                    text="📈 Dashboard",
                     web_app=WebAppInfo(url=f"https://digital-revenue-hilawe-mini-app.vercel.app")
                 )
         
