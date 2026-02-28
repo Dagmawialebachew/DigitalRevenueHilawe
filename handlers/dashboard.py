@@ -31,7 +31,7 @@ async def send_user_plan(event: types.Message | types.CallbackQuery, db: Databas
         caption = (
             f"🏆 *{plan_data['title'].upper()}*\n"
             f"————————————————————\n"
-            "Your transformation protocol is active. 🔥"
+            "Your transformation program is active. 🔥"
         ) if lang == "EN" else (
             f"🏆 *{plan_data['title'].upper()}*\n"
             f"————————————————————\n"
@@ -60,7 +60,7 @@ async def send_user_plan(event: types.Message | types.CallbackQuery, db: Databas
     else:
         no_plan_text = (
             "❌ *NO ACTIVE PLAN FOUND*\n\n"
-            "You haven't unlocked your transformation protocol yet. "
+            "You haven't unlocked your transformation program yet. "
             "Go to the main menu and tap 'Unlock Plan' to start."
         ) if lang == "EN" else (
             "❌ *ምንም አይነት እቅድ አልተገኘም*\n\n"
@@ -119,7 +119,7 @@ async def settings_view(message: types.Message, db: Database):
     
 @router.message(F.text.in_({"💳 Unlock Plan", "💳 እቅዴን ክፈት"}))
 async def initiate_unlock_flow(message: types.Message, db: Database):
-    user_id = message.from_user.id
+    user_id = message.from_user.id if message.from_user else message.chat.id
     user = await db.get_user(user_id)
     lang = user['language']
     
@@ -140,7 +140,7 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
         if status == 'approved':
             # Case: Already bought it
             text = (
-                f"✅ *PROTOCOL ACTIVE*\n\n"
+                f"✅ *PROGRAM ACTIVE*\n\n"
                 f"I have already activated the *{existing_payment['title']}* for you."
                 f"Check your 'My Plan' section to start your transformation."
             ) if lang == "EN" else (
@@ -172,7 +172,7 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
     
     if not product:
         no_prod_text = (
-            "🚧 *REFINING PROTOCOL*\n\n"
+            "🚧 *REFINING PROGRAM*\n\n"
             "I'm currently optimizing the perfect plan for your specific metrics. "
             "Please check back in a few hours."
         ) if lang == "EN" else (
@@ -186,7 +186,7 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
         f"👤 *COACH HILAWE'S REVIEW*\n\n"
         f"I have reviewed your profile, `{message.from_user.first_name}`. "
         f"Based on your *{user['level']}* experience and *{user['goal']}* goal, "
-        f"I have prepared a high-intensity *{user['frequency']}-day* protocol for you.\n\n"
+        f"I have prepared a high-intensity *{user['frequency']}-day* program for you.\n\n"
         f"⚠️ *Wait!* If these details are incorrect, go to *Settings* to update them now. "
         f"If you are ready to transform, proceed to the secure invoice below."
     ) if lang == "EN" else (
@@ -295,7 +295,7 @@ async def process_surgical_update(callback: types.CallbackQuery, state: FSMConte
         return await callback.answer("⚠️ Invalid selection. Please try again.")
 
     # 4. Update Database
-    await db.create_or_update_user(callback.from_user.id, **{field: val})
+    await db.create_or_update_user(callback.from_user.id, *{field: val})
     
     # 5. UI Feedback
     user = await db.get_user(callback.from_user.id)
@@ -348,3 +348,102 @@ async def refresh_settings_view(callback: types.CallbackQuery, db: Database):
     builder.adjust(2)
     
     await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+
+
+from aiogram.utils.media_group import MediaGroupBuilder
+from aiogram.types import InputMediaPhoto   
+from config import settings
+@router.message(F.text.in_({"ℹ️ About me", "ℹ️ ስለ እኔ"}))
+async def about_the_coach(message: types.Message, db: Database):
+    user_data = await db.get_user(message.from_user.id)
+    lang = user_data.get('language', 'EN')
+
+    # THE SCRIPT: Pure Authority and Empathy
+    if lang == "AM":
+        caption = (
+            "🏆 *አሰልጣኝ ህላዌ፦ ከስም በላይ፣ ለውጥ!*\n\n"
+            "ባለፉት አመታት ከ *300,000* በላይ ተከታዮችን በማህበራዊ ገጾች በማፍራት "
+            "እና በሺዎች የሚቆጠሩ ሰዎችን ህይወት በመቀየር የሚታወቅ ባለሙያ ነው።\n\n"
+            "• *ልምድ:* 6+ አመታት በፊቲነስ ኢንዱስትሪ\n"
+            "• *ፍልስፍና:* ሳይንስን እና ትጋትን በማጣመር የሚገኝ ውጤት\n"
+            "• *ውጤት:* ከ 5,000 በላይ የተሳኩ የሰውነት ለውጦች\n\n"
+            "እዚህ የመጣሁት ላሰለጥንህ ብቻ አይደለም፤ ማንነትህን እንድትቀይር ለማገዝ ጭምር ነው። "
+            "ለውጥህን ለመጀመር ዝግጁ ነህ?"
+        )
+        cta_text = "🚀 ጉዞዬን ልጀምር"
+    else:
+        caption = (
+            "🏆 *COACH HILAWE: BEYOND THE HYPE.*\n\n"
+            "With a community of over *300,000* followers and years of deep-level coaching, "
+            "Hilawe has become Ethiopia's leading voice in science-based body transformation.\n\n"
+            "• *Experience:* 6+ Years in Elite Fitness\n"
+            "• *Philosophy:* Precision science meets raw discipline\n"
+            "• *Results:* 5,000+ Verified transformations\n\n"
+            "I’m not here to just give you a PDF. I’m here to redefine what you see in the mirror. "
+            "Are you ready to be next?"
+        )
+        cta_text = "🚀 Start My Evolution"
+        
+
+    # BUILD THE GALLERY
+    album = MediaGroupBuilder(caption=caption)
+    album.add_photo("AgACAgQAAxkBAAIB3GminFYzrTlyER9Fq2HXXCy-8wl-AAJVDGsbwIwZUYqpTCjlEFJ7AQADAgADeQADOgQ") # Use your actual file ID
+    # album.add_photo(media=settings.TRANSFORMATION_1_ID)
+    # album.add_photo(media=settings.TRANSFORMATION_2_ID)
+
+    await message.answer_media_group(media=album.build())
+    
+    # Delayed Button for a "Natural" feeling
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=cta_text, 
+        callback_data="trigger_unlock"  # Changed from "initiate_onboarding_or_payment"
+)   
+    await asyncio.sleep(1) # Let them look at the photos first
+    await message.answer(
+        "👇 Tap below to get your personalized program" if lang == "EN" else "👇 የእርስዎን እቅድ ለማግኘት ከታች ይጫኑ።",
+        reply_markup=builder.as_markup()
+    )
+@router.callback_query(F.data == "trigger_unlock")
+async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
+    # 1. Stop the loading spinner on the button
+    await callback.answer()
+
+    # 2. Identify user and language
+    user_id = callback.from_user.id
+    user_data = await db.get_user(user_id)
+    
+    # Safety check
+    if not user_data:
+        return await callback.message.answer("👋 Please type /start to register first!")
+
+    lang = user_data.get('language', 'EN')
+
+    # 3. Instruction Text
+    if lang == "AM":
+        text = (
+            "🎯 *ድንቅ ምርጫ!*\n\n"
+            "የስልጠና እቅድዎን ለማየት እና ክፍያውን ለመፈጸም ከታች ያለውን "
+            "*'💳 እቅዴን ክፈት'* የሚለውን ቁልፍ ይጫኑ።"
+        )
+    else:
+        text = (
+            "🎯 *GREAT CHOICE.*\n\n"
+            "To review your custom program and complete the process, "
+            "please tap the *'💳 Unlock Plan'* button on your main menu below."
+        )
+
+    # 4. Send the message (The user will then see their existing Reply Keyboard)
+    await callback.message.answer(text, parse_mode="Markdown")
+    
+# @router.message(F.photo)
+# async def get_photo_id(message: types.Message):
+#     # message.photo is a list of different sizes; [-1] is the highest quality
+#     file_id = message.photo[-1].file_id
+    
+#     response = (
+#         f"✅ *High-Res File ID Captured:*\n\n"
+#         f"`{file_id}`\n\n"
+#         f"Copy the ID above and paste it into your MediaGroupBuilder."
+#     )
+#     await message.reply(response, parse_mode="Markdown")

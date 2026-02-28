@@ -67,7 +67,7 @@ def level_markup(lang: str) -> InlineKeyboardMarkup:
     ]
     for en, am, val in levels:
         builder.button(text=en if lang == "EN" else am, callback_data=f"level_{val}")
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()
 
 def obstacle_markup(lang: str) -> InlineKeyboardMarkup:

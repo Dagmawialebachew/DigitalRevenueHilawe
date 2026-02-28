@@ -23,41 +23,56 @@ class OnboardingStepping(StatesGroup):
 async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Database):
     await state.clear()
     user_id = message.from_user.id
-    # user_data = await db.get_user(user_id)
-    # print('User Data:', user_data)  # Debugging line to check what we get from the database
-    # if user_data:
-    #     # --- EXISTING USER FLOW ---
-    #     await state.clear()
-    #     lang = user_data['language']
+    user_data = False
+    if user_data:
+    # --- EXISTING USER FLOW ---
+        await state.clear()
+        lang = user_data.get('language', 'EN')
+        user_id = message.from_user.id
         
-    #     # Logic for Profile Card
-    #     gender_icon = "👨" if user_data['gender'] == "MALE" else "👩"
-    #     freq = user_data['frequency']
-    #     full_name = message.from_user.full_name
+        # Logic for Profile Card
+        gender_icon = "👨" if user_data['gender'] == "MALE" else "👩"
+        freq = user_data['frequency']
+        full_name = message.from_user.full_name
         
-    #     profile_card = (
-    #         f"🛡️ *ELITE PROFILE CARD*\n"
-    #         f"————————————————————\n"
-    #         f"👤 *NAME:* `{full_name.upper()}`\n"
-    #         f"📊 *LEVEL:* `{user_data['level'].upper()}`\n"
-    #         f"🆔 *ID:* `HE-{user_id % 10000:04d}`\n"
-    #         f"————————————————————\n"
-    #         f"🧬 *BIO:* {gender_icon} | {freq}x Weekly\n"
-    #         f"🎯 *TARGET:* {user_data['goal'].replace('_', ' ')}\n"
-    #         f"🌍 *LANG:* {lang}\n"
-    #         f"————————————————————\n"
-    #         f"Welcome back, Champion. Ready for today's session?" if lang == "EN" else
-    #         f"እንኳን ደህና መጡ ሻምፒዮን። ለዛሬው ስልጠና ዝግጁ ነዎት?"
-    #     )
-        
-    #     # Send Profile Card with the Main Menu (Reply Keyboard)
-    #     return await message.answer(
-    #         profile_card, 
-    #         reply_markup=rkb.main_menu(lang),
-    #         parse_mode="Markdown"
-    #     )
+        # --- BILINGUAL PROFILE CARD ---
+        if lang == "AM":
+            profile_card = (
+                f"🛡️ *የአባልነት መታወቂያ*\n"
+                f"————————————————————\n"
+                f"👤 *ስም:* `{full_name.upper()}`\n"
+                f"📊 *ደረጃ:* `{user_data['level'].upper()}`\n"
+                f"🆔 *መለያ:* `HE-{user_id % 10000:04d}`\n"
+                f"————————————————————\n"
+                f"🧬 *ጾታ:* {gender_icon} | በሳምንት {freq} ቀን\n"
+                f"🎯 *አላማ:* {user_data['goal'].replace('_', ' ')}\n"
+                f"🌍 *ቋንቋ:* አማርኛ\n"
+                f"————————————————————\n"
+                f"እንኳን ደህና መጡ ሻምፒዮን። ለዛሬው ስልጠና ዝግጁ ነዎት?"
+            )
+        else:
+            profile_card = (
+                f"🛡️ *PROFILE CARD*\n"
+                f"————————————————————\n"
+                f"👤 *NAME:* `{full_name.upper()}`\n"
+                f"📊 *LEVEL:* `{user_data['level'].upper()}`\n"
+                f"🆔 *ID:* `HE-{user_id % 10000:04d}`\n"
+                f"————————————————————\n"
+                f"🧬 *BIO:* {gender_icon} | {freq}x Weekly\n"
+                f"🎯 *TARGET:* {user_data['goal'].replace('_', ' ')}\n"
+                f"🌍 *LANG:* English\n"
+                f"————————————————————\n"
+                f"Welcome back, Champion. Ready for today's session?"
+            )
+            
+        # Send Profile Card with the Main Menu (Reply Keyboard)
+        return await message.answer(
+            profile_card, 
+            reply_markup=rkb.main_menu(lang),
+            parse_mode="Markdown"
+        )
 
-    # --- NEW USER FLOW (Onboarding) ---
+    #--- NEW USER FLOW (Onboarding) ---
     await state.clear()
     
     # Precise delay to mimic Hilawe sizing up the client
@@ -67,18 +82,24 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     welcome_text = (
         "I’ve spent years coaching over *300,000 people* on social media, but today, "
         "it’s just you and me. I am *Coach Hilawe*. 🤝\n\n"
-        "You’re here because you’re done with average results. You want the exact "
-        "program I use to transform lives. Let’s stop talking and start building.\n"
-        "🏁 *Step 1:* Choose your language to begin your assessment.\n\n"
-        "------\n\n"
-        "በተለያዩ ማህበራዊ ገጾች ከ *300,000 በላይ* ሰዎችን በማሰልጠን አመታትን አሳልፌያለሁ፤ ዛሬ ግን ትኩረቴ በእርስዎ ላይ ብቻ ነው። "
+        "You’re here because you’re done with average results. You want a science-based "
+        "transformation blueprint designed for your specific body type and goals. 🏆\n\n"
+        "🏁 *Step 1:* Choose your language to begin. \n"
+        "*(Note: Your personalized 8-week program will be prepared in the language you select below.)*\n\n"
+        "——————————————————\n\n"
+        "በማህበራዊ ገጾች ከ *300,000 በላይ* ሰዎችን በማሰልጠን አመታትን አሳልፌያለሁ፤ ዛሬ ግን ትኩረቴ በእርስዎ ላይ ብቻ ነው። "
         "እኔ *አሰልጣኝ ህላዌ* ነኝ። 🤝\n\n"
-        "እዚህ የተገኙት ተራ ለውጥ ስለፈለጉ አይደለም፤ የብዙዎችን ህይወት የለወጥኩበትን ትክክለኛ ዘዴ ለመጠቀም ፈልገው ነው። "
-        "ለውጥህ የማይቀር ነው። ለስራው ዝግጁ ነህ?\n\n"
-        "🏁 *ምዕራፍ 1፦* ግምገማውን ለመጀመር ቋንቋ ይምረጡ።"
+        "እዚህ የተገኙት ተራ ለውጥ ፈልገው አይደለም፤ የሺዎችን ህይወት የለወጥኩበትን ሳይንሳዊ ዘዴ ተጠቅመው ማንነትዎን ለመቀየር ነው። 🏆\n\n"
+        "🏁 *ምዕራፍ 1፦* ለመጀመር ቋንቋ ይምረጡ።\n"
+        "*(ማሳሰቢያ፦ የእርስዎ የ8-ሳምንት ፕሮግራም የሚዘጋጀው እዚህ በሚመርጡት ቋንቋ ይሆናል።)*"
     )
-    
-    await message.answer(welcome_text, reply_markup=kb.language_markup())
+    from keyboards import inline as kb
+    await message.answer_photo(
+    photo="AgACAgQAAxkBAAIB3GminFYzrTlyER9Fq2HXXCy-8wl-AAJVDGsbwIwZUYqpTCjlEFJ7AQADAgADeQADOgQ",
+    caption=welcome_text,
+    reply_markup=kb.language_markup(),
+    parse_mode="Markdown"
+)
     await state.set_state(OnboardingStepping.language)
 @router.callback_query(OnboardingStepping.language)
 async def process_language(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
@@ -86,21 +107,33 @@ async def process_language(callback: types.CallbackQuery, state: FSMContext, db:
     await state.update_data(language=lang)
     await db.create_or_update_user(callback.from_user.id, language=lang)
     
-    # --- ULTRA-PREMIUM ANIMATION ---
-    # We replace the language buttons with a loading sequence
-    stages = ["Initializing...", "Setting up...", "Ready!"] if lang == "EN" else ["በማዘጋጀት ላይ...", "በማስተካከል ላይ...", "ተዘጋጅቷል!"]
+    # 1. Delete the welcome photo to clear the screen for the text animation
+    await callback.message.delete()
     
+    # 2. Start the loading sequence in a new text message
+    # We create the message first so we can edit it in the loop
+    loading_msg = await callback.message.answer("✨")
+    
+    stages = (
+        ["Initializing...", "Setting up...", "Ready!"] 
+        if lang == "EN" else 
+        ["በማዘጋጀት ላይ...", "በማስተካከል ላይ...", "ተዘጋጅቷል!"]
+    )
+    
+    # 3. ULTRA-PREMIUM ANIMATION (Loop through the new message)
     for stage in stages:
-        await asyncio.sleep(0.4)
-        await callback.message.edit_text(f"✨ *{stage}*")
+        await asyncio.sleep(0.5)
+        # Use the handle of the new message we just sent
+        await loading_msg.edit_text(f"✨ *{stage}*", parse_mode="Markdown")
 
     # Brief pause for dramatic effect
     await asyncio.sleep(0.3)
     
-    # Move to the actual assessment
+    # 4. Move to the actual assessment (Gender Selection)
     text = get_text(lang, "ask_gender")
-    await callback.message.edit_text(text, reply_markup=kb.gender_markup(lang))
+    await loading_msg.edit_text(text, reply_markup=kb.gender_markup(lang))
     await state.set_state(OnboardingStepping.gender)
+    
     
 @router.callback_query(OnboardingStepping.gender)
 async def process_gender(callback: types.CallbackQuery, state: FSMContext):
@@ -212,24 +245,37 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     complete_label = get_text(lang, "analysis_complete")
 
     if lang == "EN":
+        actual_price = int(float(price) / 0.7)  # reverse the 30% discount
         pitch = (
             f"🎯 *{complete_label}*\n\n"
             f"I have engineered the *{title}* specifically for your profile. 🏆\n\n"
             "*Your program includes:*\n"
-            "✅ Science-based workout structure\n"
-            "✅ Nutritional guidance for your level\n"
-            "✅ The 'Hilawe-Method' for rapid results\n\n"
-            f"💰 *Investment:* `{price} ETB`"
+        "✅ *8-Week Transformation Roadmap*\n"
+        "✅ *Precision Nutrition*\n"
+        "✅ *The Logbook System*\n"
+        "✅ *Exclusive Video Links*\n\n"
+            "🌟 *Founder's Launch Offer (1 day only)*\n\n"
+            f"~{actual_price} ETB~ ➡️ `{price} ETB`\n"
+            "💎 You are receiving an exclusive *30% discount* reserved for Founding Members.\n"
+            "⚠️ After this launch window, the full price applies and discount vanish.\n\n"
+            "⏳ Secure your access now — hesitation means losing your Founder’s advantage."
         )
-    else:
+
+    elif lang == "AM":
+        actual_price = int(price / 0.7)
         pitch = (
             f"🎯 *{complete_label}*\n\n"
-            f"ለእርስዎ ተስማሚ የሆነውን *{title}* የተባለውን ልዩ እቅድ አውጥቻለሁ። 🏆\n\n"
-            "*በዚህ እቅድ ውስጥ፦*\n"
-            "✅ የልምምድ መዋቅር\n"
-            "✅ የአመጋገብ መመሪያ\n"
-            "✅ የ 'ህላዌ ዘዴ' ይካተታሉ\n\n"
-            f"💰 *ኢንቨስትመንት፦* `{price} ብር`"
+            f"የእርስዎን *{title}* ስልጠና በእርስዎ ማንነት እና ብቃት ልክ አዘጋጅቼ ጨርሻለሁ። 🏆\n\n"
+            "*የእርስዎ እቅድ የሚያካትታቸው፦*\n"
+        "✅ *የ8-ሳምንት የለውጥ ፕሮግራም፦* ከሳምንት 1 እስከ 8 ደረጃ በደረጃ የሚጨምር ስልጠና።\n"
+        "✅ *ሳይንሳዊ የአመጋገብ ስርአት፦* የ'80/20' መመሪያን ያካተተ ተለዋዋጭ የአመጋገብ ዘዴ።\n"
+        "✅ *የቪዲዮ መመሪያ፦* ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር የሚያሳይ የቪዲዮ ሊንክ።\n"
+        "✅ *የሂደት መከታተያ፦* ውጤትዎን በየሳምንቱ የሚመዘግቡበት ገጽ።\n\n"
+            "🌟 *የመስራች አባላት ልዩ ቅናሽ (ለ72 ሰአት ብቻ)*\n"
+            f"~{actual_price} ብር~ ➡️ `{price} ብር`\n"
+            "💎 ለመስራች አባላት ብቻ የተዘጋጀ ልዩ የ*30% ቅናሽ* አግኝተዋል።\n"
+            "⚠️ ይህ የመክፈቻ ጊዜ(1ቀን) ካለፈ በኋላ ሙሉ ዋጋው ተፈጻሚ ይሆናል።\n\n"
+            "*⏳ አሁኑኑ ቦታዎን ያስይዙ — መዘግየት የዚህን ልዩ ቅናሽ ተጠቃሚነት ያሰጣዎታል።*"
         )
 
     await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']))

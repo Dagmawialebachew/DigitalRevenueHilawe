@@ -57,7 +57,7 @@ async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db:
     await callback.answer()
 
 
-@router.message(PaymentStates.awaiting_proof, F.text.contains("Cancel") | F.text.contains("ሰርዝ"))
+@router.message(F.text.in_({"❌ Cancel Payment", "❌ ክፍያውን ሰርዝ"}))
 async def cancel_payment(message: types.Message, state: FSMContext, lang: str = "EN"):
     await state.clear()
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."

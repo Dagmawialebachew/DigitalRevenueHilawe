@@ -12,6 +12,7 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
     # Secondary Actions
     builder.button(text="⚙️ Settings" if lang == "EN" else "⚙️ ማስተካከያ")
     builder.button(text="❓ Help" if lang == "EN" else "❓ እርዳታ")
+    builder.button(text="ℹ️ About me" if lang == "EN" else "ስለ እኔ")
     
     # Standard: 2 columns per row
     builder.adjust(2)
