@@ -1,112 +1,217 @@
 # handlers/admin_api.py
-from aiohttp import web
-from typing import List, Dict, Any
+import logging
+from decimal import Decimal
+from typing import Any, Dict, Iterable, List, Optional
 
-# --- Admin API handlers using Database helper methods (Option 1) ---
+from aiohttp import web
+
+LOG = logging.getLogger("admin_api")
+
+
+# --- Utilities --------------------------------------------------------------
+
+def record_to_dict(record: Optional[Any]) -> Dict[str, Any]:
+    """Convert asyncpg.Record (or None) to a JSON-serializable dict."""
+    if record is None:
+        return {}
+    d = dict(record)
+    for k, v in list(d.items()):
+        if isinstance(v, Decimal):
+            # monetary / numeric fields -> float for JSON
+            d[k] = float(v)
+        elif isinstance(v, bytes):
+            d[k] = v.decode(errors="ignore")
+        # add other conversions here if needed (datetime -> isoformat, etc.)
+    return d
+
+
+def records_to_list(rows: Iterable[Any]) -> List[Dict[str, Any]]:
+    return [record_to_dict(r) for r in rows]
+
+
+# --- Lightweight in-memory cache for hot endpoints --------------------------
+# Stored on app as app["admin_cache"] = {"stats": (timestamp, payload), ...}
+# TTL in seconds
+_STATS_TTL = 5
+
+
+def _get_cached(app: web.Application, key: str, ttl: int):
+    cache = app.get("admin_cache", {})
+    entry = cache.get(key)
+    if not entry:
+        return None
+    ts, payload = entry
+    if (web.time.time() - ts) > ttl:
+        # expired
+        cache.pop(key, None)
+        app["admin_cache"] = cache
+        return None
+    return payload
+
+
+def _set_cached(app: web.Application, key: str, payload: Any):
+    cache = app.get("admin_cache", {})
+    cache[key] = (web.time.time(), payload)
+    app["admin_cache"] = cache
+
+
+# --- Handlers ---------------------------------------------------------------
 
 async def get_admin_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/stats
     Uses Database.get_admin_stats() helper to return KPIs.
+    Cached for a short TTL to reduce DB pressure from dashboard polling.
     """
     db = request.app["db"]
-    stats = await db.get_admin_stats()
-    return web.json_response(dict(stats or {}))
+
+    # Try cache first
+    cached = _get_cached(request.app, "stats", _STATS_TTL)
+    if cached is not None:
+        return web.json_response(cached)
+
+    try:
+        stats_record = await db.get_admin_stats()
+        payload = record_to_dict(stats_record)
+        _set_cached(request.app, "stats", payload)
+        return web.json_response(payload)
+    except Exception as e:
+        LOG.exception("get_admin_stats failed")
+        return web.json_response({"error": "internal_server_error"}, status=500)
 
 
 async def get_recent_payments(request: web.Request) -> web.Response:
     """
     GET /api/admin/payments/recent
-    Uses Database.get_recent_payments() helper to return the 10 most recent payments.
+    Returns the most recent payments (limit query param supported).
+    Uses Database.get_recent_payments helper.
     """
     db = request.app["db"]
-    rows = await db.get_recent_payments(limit=10)
-    return web.json_response([dict(r) for r in rows])
+    try:
+        limit = int(request.query.get("limit", 10))
+        if limit <= 0 or limit > 200:
+            limit = 10
+    except Exception:
+        limit = 10
+
+    try:
+        rows = await db.get_recent_payments(limit=limit)
+        return web.json_response(records_to_list(rows))
+    except Exception:
+        LOG.exception("get_recent_payments failed")
+        return web.json_response({"error": "internal_server_error"}, status=500)
 
 
 async def verify_payment(request: web.Request) -> web.Response:
     """
     POST /api/admin/payments/{payment_id}/verify
     Body: { "status": "approved" | "rejected" }
-    - If approved: use Database.approve_payment to atomically approve and fetch product/user info.
-    - If rejected: use Database.reject_payment helper.
+    - Approve: uses Database.approve_payment (atomic) and returns delivery info.
+    - Reject: uses Database.reject_payment helper.
     """
     db = request.app["db"]
     try:
-        payment_id = int(request.match_info["payment_id"])
-    except (KeyError, ValueError):
-        return web.json_response({"error": "invalid payment_id"}, status=400)
+        payment_id = int(request.match_info.get("payment_id"))
+    except Exception:
+        return web.json_response({"error": "invalid_payment_id"}, status=400)
 
-    data = await request.json()
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid_json"}, status=400)
+
     status = (data.get("status") or "").lower()
-
     if status not in {"approved", "rejected"}:
-        return web.json_response({"error": "invalid status"}, status=400)
+        return web.json_response({"error": "invalid_status"}, status=400)
 
-    if status == "approved":
-        result = await db.approve_payment(payment_id)
-        if not result:
-            return web.json_response({"error": "Payment not found"}, status=404)
-        return web.json_response({
-            "status": "success",
-            "message": "Payment approved",
-            "delivery": dict(result)
-        })
+    try:
+        if status == "approved":
+            result = await db.approve_payment(payment_id)
+            if not result:
+                return web.json_response({"error": "payment_not_found"}, status=404)
 
-    # status == 'rejected'
-    ok = await db.reject_payment(payment_id)
-    if not ok:
-        return web.json_response({"error": "Payment not found"}, status=404)
-    return web.json_response({"status": "success", "message": "Payment rejected"})
+            # Clear stats cache so dashboard reflects new counts quickly
+            request.app.get("admin_cache", {}).pop("stats", None)
+
+            return web.json_response({
+                "status": "success",
+                "message": "payment_approved",
+                "delivery": record_to_dict(result)
+            })
+
+        # rejected
+        ok = await db.reject_payment(payment_id)
+        if not ok:
+            return web.json_response({"error": "payment_not_found"}, status=404)
+
+        request.app.get("admin_cache", {}).pop("stats", None)
+        return web.json_response({"status": "success", "message": "payment_rejected"})
+
+    except Exception:
+        LOG.exception("verify_payment failed for id=%s", payment_id)
+        return web.json_response({"error": "internal_server_error"}, status=500)
 
 
 async def get_products(request: web.Request) -> web.Response:
     """
     GET /api/admin/products
-    Uses Database.get_products() helper.
+    Query params: limit, offset
+    Uses Database.get_products helper.
     """
     db = request.app["db"]
-    # optional query params for pagination
     try:
         limit = int(request.query.get("limit", 100))
         offset = int(request.query.get("offset", 0))
-    except ValueError:
-        return web.json_response({"error": "invalid pagination parameters"}, status=400)
+        if limit < 1 or limit > 500:
+            limit = 100
+        if offset < 0:
+            offset = 0
+    except Exception:
+        return web.json_response({"error": "invalid_pagination"}, status=400)
 
-    rows = await db.get_products(limit=limit, offset=offset)
-    return web.json_response([dict(r) for r in rows])
+    try:
+        rows = await db.get_products(limit=limit, offset=offset)
+        return web.json_response(records_to_list(rows))
+    except Exception:
+        LOG.exception("get_products failed")
+        return web.json_response({"error": "internal_server_error"}, status=500)
 
 
 async def create_product(request: web.Request) -> web.Response:
     """
     POST /api/admin/products/create
     Body: { title, language, gender, level, frequency, price, file_id }
-    Uses Database.create_product() helper.
+    Uses Database.create_product helper.
     """
     db = request.app["db"]
-    data = await request.json()
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid_json"}, status=400)
 
     required = ("title", "language", "gender", "level", "frequency", "price", "file_id")
-    missing = [k for k in required if k not in data]
+    missing = [k for k in required if k not in payload]
     if missing:
-        return web.json_response({"error": f"missing fields: {', '.join(missing)}"}, status=400)
+        return web.json_response({"error": "missing_fields", "fields": missing}, status=400)
 
     try:
         product_id = await db.create_product(
-            title=data["title"],
-            language=data["language"],
-            gender=data["gender"],
-            level=data["level"],
-            frequency=int(data["frequency"]),
-            price=float(data["price"]),
-            file_id=data["file_id"]
+            title=payload["title"],
+            language=payload["language"],
+            gender=payload["gender"],
+            level=payload["level"],
+            frequency=int(payload["frequency"]),
+            price=float(payload["price"]),
+            file_id=payload["file_id"]
         )
-    except Exception as e:
-        # keep error message generic in production; log details server-side
-        return web.json_response({"error": "failed to create product"}, status=500)
+        # Invalidate product-related caches if you add any later
+        return web.json_response({"status": "deployed", "id": product_id})
+    except Exception:
+        LOG.exception("create_product failed")
+        return web.json_response({"error": "internal_server_error"}, status=500)
 
-    return web.json_response({"status": "deployed", "id": product_id})
 
+# --- Route registration ----------------------------------------------------
 
 def setup_admin_routes(app: web.Application):
     """
