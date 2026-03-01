@@ -146,15 +146,22 @@ async def process_gender(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(OnboardingStepping.goal)
 async def process_goal(callback: types.CallbackQuery, state: FSMContext):
+    # Extract the goal from callback data (e.g., "goal_FATLOSS" -> "FATLOSS")
+    selected_goal = callback.data.replace("goal_", "")
+    
+    # CRITICAL: Save it to state so process_frequency can find it later
+    await state.update_data(goal=selected_goal)
+    
     data = await state.get_data()
     lang = data['language']
     gender = data.get('gender')
+    
     await callback.message.edit_text(
         get_text(lang, "ask_level"), 
         reply_markup=kb.level_markup(lang, gender)
     )
     await state.set_state(OnboardingStepping.level)
-
+    
 @router.callback_query(OnboardingStepping.level)
 async def process_level(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
