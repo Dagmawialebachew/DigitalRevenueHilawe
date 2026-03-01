@@ -29,7 +29,7 @@ def admin_main_menu() -> ReplyKeyboardMarkup:
                 )
         
     )
-    return builder.as_markup(resize_keyboard=True, placeholder="Hilawe Elite Admin Panel")
+    return builder.as_markup(resize_keyboard=True, placeholder="Hilawe Admin Panel")
 
 
 # --- [ SECTION 2: ONBOARDING ENGINE (INLINE) ] ---
@@ -63,16 +63,22 @@ def goal_markup(lang: str) -> InlineKeyboardMarkup:
     builder.adjust(1)
     return builder.as_markup()
 
-def level_markup(lang: str) -> InlineKeyboardMarkup:
+def level_markup(lang: str, gender: str = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    
     levels = [
         ("Beginner", "ጀማሪ", "BEGINNER"),
         ("Intermediate", "መካከለኛ", "INTERMEDIATE"),
-        ("Glute Focused", "ዳሌ ላይ ያተኮረ", "GLUTE_FOCUSED"),
         ("Advanced/Elite", "የላቀ", "ADVANCED"),
     ]
+    
+    # Only add Glute Focused if gender is NOT MALE
+    if gender != "MALE":
+        levels.insert(2, ("Glute Focused", "ዳሌ ላይ ያተኮረ", "GLUTE_FOCUSED"))
+
     for en, am, val in levels:
         builder.button(text=en if lang == "EN" else am, callback_data=f"level_{val}")
+    
     builder.adjust(2)
     return builder.as_markup()
 

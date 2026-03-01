@@ -12,12 +12,12 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
     # Secondary Actions
     builder.button(text="⚙️ Settings" if lang == "EN" else "⚙️ ማስተካከያ")
     builder.button(text="❓ Help" if lang == "EN" else "❓ እርዳታ")
-    builder.button(text="ℹ️ About me" if lang == "EN" else "ስለ እኔ")
+    builder.button(text="ℹ️ About me" if lang == "EN" else "ℹ️ ስለ እኔ")
     
     # Standard: 2 columns per row
     builder.adjust(2)
     
-    return builder.as_markup(resize_keyboard=True, input_field_placeholder="Hilawi Elite Dashboard")
+    return builder.as_markup(resize_keyboard=True, input_field_placeholder="Coach Hilawe Dashboard" if lang == "EN" else "ኮች ሂላዌ ዳሽቦርድ")
 
 def cancel_payment_kb(lang: str):
     text = "❌ Cancel Payment" if lang == "EN" else "❌ ክፍያውን ሰርዝ"

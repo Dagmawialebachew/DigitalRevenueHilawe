@@ -238,6 +238,7 @@ async def start_surgical_edit(callback: types.CallbackQuery, state: FSMContext, 
     field = callback.data.split("_")[1] # goal, level, freq, lang
     user = await db.get_user(callback.from_user.id)
     lang = user['language']
+    gender = user.get('gender') # 👈 FETCH GENDER HERE
     
     await state.update_data(editing_field=field)
     await state.set_state(EditStates.waiting_for_value)
@@ -245,16 +246,26 @@ async def start_surgical_edit(callback: types.CallbackQuery, state: FSMContext, 
     # Map fields to their specific keyboards
     if field == "goal":
         await callback.message.edit_text(get_text(lang, "ask_goal"), reply_markup=ikb.goal_markup(lang))
+    
     elif field == "level":
-        await callback.message.edit_text(get_text(lang, "ask_level"), reply_markup=ikb.level_markup(lang))
+        # 👈 PASS GENDER HERE so the button is filtered correctly during editing
+        await callback.message.edit_text(
+            get_text(lang, "ask_level"), 
+            reply_markup=ikb.level_markup(lang, gender) 
+        )
+        
     elif field == "frequency":
         await callback.message.edit_text(get_text(lang, "ask_freq"), reply_markup=ikb.freq_markup(lang))
+        
     elif field == "lang":
         new_lang = "AM" if lang == "EN" else "EN"
         await db.create_or_update_user(callback.from_user.id, language=new_lang)
-        await state.clear() # Clear state BEFORE returning
+        await state.clear() 
+        
         await callback.answer("Language Changed" if new_lang == "EN" else "ቋንቋ ተቀይሯል")
-        return await refresh_settings_view(callback, db)
+        
+        # We call the refresh with a special flag to send a NEW message
+        return await refresh_settings_view(callback, db, force_new=True)
 
     await callback.answer()
 
@@ -333,23 +344,54 @@ async def get_bio_card_text(user: dict) -> str:
         f"————————————————————\n"
         f"💡 *መረጃዎን ለመቀየር ከታች ያሉትን ምርጫዎች ይጠቀሙ።*"
     )
-
-async def refresh_settings_view(callback: types.CallbackQuery, db: Database):
+async def refresh_settings_view(callback: types.CallbackQuery, db: Database, force_new: bool = False):
     user = await db.get_user(callback.from_user.id)
     text = await get_bio_card_text(user)
-    
-    # Inline Keyboard Builder for Surgical Edits
-    builder = InlineKeyboardBuilder()
     lang = user['language']
+    
+    # 1. Build the Inline Keyboard
+    builder = InlineKeyboardBuilder()
     builder.button(text="🎯 Goal" if lang == "EN" else "🎯 ግብ", callback_data="edit_goal")
     builder.button(text="📊 Level" if lang == "EN" else "📊 ብቃት", callback_data="edit_level")
     builder.button(text="📅 Freq" if lang == "EN" else "📅 ቀናት", callback_data="edit_frequency")
     builder.button(text="🌍 Lang" if lang == "EN" else "🌍 ቋንቋ", callback_data="edit_lang")
     builder.adjust(2)
     
-    await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    inline_markup = builder.as_markup()
 
+    if force_new:
+        # 2. Delete the old message safely
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass # Message already deleted or missing
 
+        # 3. Send ONE fresh message containing:
+        #    - The Bio Text
+        #    - The Inline Buttons (Surgical edits)
+        #    - The NEW Reply Keyboard (Main Menu refresh)
+        from keyboards import reply as rkb
+        await callback.message.answer(
+            text, 
+            reply_markup=inline_markup, # Inline buttons go here
+            parse_mode="Markdown"
+        )
+        
+        # 4. Trigger the bottom Reply Keyboard update with a small confirmation
+        # This is the secret to changing the main menu buttons!
+        await callback.message.answer(
+            "✅ Menu Updated" if lang == "EN" else "✅ ዝርዝር ተቀይሯል",
+            reply_markup=rkb.main_menu(lang)
+        )
+        
+    else:
+        # Standard edit for Goal/Level/Freq (Fastest UX)
+        await callback.message.edit_text(
+            text, 
+            reply_markup=inline_markup, 
+            parse_mode="Markdown"
+        )
+        
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram.types import InputMediaPhoto   
 from config import settings

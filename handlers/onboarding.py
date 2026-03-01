@@ -23,7 +23,7 @@ class OnboardingStepping(StatesGroup):
 async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Database):
     await state.clear()
     user_id = message.from_user.id
-    user_data = False
+    user_data = await db.get_user(user_id)
     if user_data:
     # --- EXISTING USER FLOW ---
         await state.clear()
@@ -148,9 +148,11 @@ async def process_gender(callback: types.CallbackQuery, state: FSMContext):
 async def process_goal(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data['language']
-    await state.update_data(goal=callback.data.replace("goal_", ""))
-    
-    await callback.message.edit_text(get_text(lang, "ask_level"), reply_markup=kb.level_markup(lang))
+    gender = data.get('gender')
+    await callback.message.edit_text(
+        get_text(lang, "ask_level"), 
+        reply_markup=kb.level_markup(lang, gender)
+    )
     await state.set_state(OnboardingStepping.level)
 
 @router.callback_query(OnboardingStepping.level)
