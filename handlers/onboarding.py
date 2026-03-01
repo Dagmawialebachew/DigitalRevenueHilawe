@@ -219,12 +219,14 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     for en, am in analysis_steps:
         step_text = en if lang == "EN" else am
         await asyncio.sleep(0.7)
-        # We use try/except here so an animation error never kills the whole script
         try:
-            await callback.message.edit_text(step_text, parse_mode="Markdown")
-        except:
-            await callback.message.edit_text(step_text) # Fallback to plain text
-
+            # Change parse_mode to "HTML"
+            await callback.message.edit_text(step_text, parse_mode="HTML")
+        except Exception as e:
+            # If HTML fails, we strip ALL tags manually to ensure it NEVER crashes
+            import re
+            clean_text = re.sub('<[^<]+?>', '', step_text)
+            await callback.message.edit_text(clean_text, parse_mode=None)
     # 3. MATCH THE PRODUCT
     product = await db.match_product(lang, data['level'], freq)
     if not product:
@@ -275,7 +277,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         )
 
     elif lang == "AM":
-        actual_price = int(price / 0.7)
+        actual_price = int(float(price) / 0.7)  # reverse the 30% discount
         pitch = (
             f"🎯 *{complete_label}*\n\n"
             f"የእርስዎን *{title}* ስልጠና በእርስዎ ማንነት እና ብቃት ልክ አዘጋጅቼ ጨርሻለሁ። 🏆\n\n"
