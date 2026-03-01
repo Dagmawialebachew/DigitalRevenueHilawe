@@ -95,7 +95,7 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     )
     from keyboards import inline as kb
     await message.answer_photo(
-    photo="AgACAgQAAxkBAAICkGmjBaYwVMA-T4Umx_Nz87gCMSOpAAJ0DWsbZFQYUWoJ6IIDLj7VAQADAgADeQADOgQ",
+    photo="AgACAgQAAxkBAAMPaaSW8rZGVHX4iomy-d_6CkZkZWkAAooNaxucgCFRzaGmw9gML6QBAAMCAAN5AAM6BA",
     caption=welcome_text,
     reply_markup=kb.language_markup(),
     parse_mode="Markdown"

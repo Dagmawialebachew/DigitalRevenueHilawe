@@ -121,6 +121,17 @@ async def settings_view(message: types.Message, db: Database):
 async def initiate_unlock_flow(message: types.Message, db: Database):
     user_id = message.from_user.id if message.from_user else message.chat.id
     user = await db.get_user(user_id)
+    if not user:
+        # If the user isn't in the DB, they must start the bot properly
+        # We use a neutral bilingual message or detect from their Telegram locale
+        text = (
+            "⚠️ *Account Not Found*\n\n"
+            "Please type /start to register and set up your profile first!"
+            "\n\n——————————————————\n\n"
+            "⚠️ *ፕሮፋይልዎ አልተገኘም*\n\n"
+            "እባክዎ በመጀመሪያ /start ብለው በመጻፍ ይመዝገቡ።"
+        )
+        return await message.answer(text, parse_mode="Markdown")
     lang = user['language']
     
     # --- 1. STATUS CHECK (Approved or Pending) ---
@@ -427,8 +438,8 @@ async def about_the_coach(message: types.Message, db: Database):
 
     # BUILD THE GALLERY
     album = MediaGroupBuilder(caption=caption)
-    album.add_photo("AgACAgQAAxkBAAICkGmjBaYwVMA-T4Umx_Nz87gCMSOpAAJ0DWsbZFQYUWoJ6IIDLj7VAQADAgADeQADOgQ") # Use your actual file ID
-    album.add_photo("AgACAgQAAxkBAAICjmmjBYWs5UG-eCePehQbSeK-uUxfAAJzDWsbZFQYUYHRaHc6PNjNAQADAgADeQADOgQ")
+    album.add_photo("AgACAgQAAxkBAAMPaaSW8rZGVHX4iomy-d_6CkZkZWkAAooNaxucgCFRzaGmw9gML6QBAAMCAAN5AAM6BA") # Use your actual file ID
+    album.add_photo("AgACAgQAAxkBAAMRaaSXPyaKV2xgueaW5n0rL-nQi1gAAosNaxucgCFR8OIMU3D3T0oBAAMCAAN5AAM6BA")
     # album.add_photo(media=settings.TRANSFORMATION_2_ID)
 
     await message.answer_media_group(media=album.build())
