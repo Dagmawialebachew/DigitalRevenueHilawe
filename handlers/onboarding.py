@@ -219,7 +219,11 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     for en, am in analysis_steps:
         step_text = en if lang == "EN" else am
         await asyncio.sleep(0.7)
-        await callback.message.edit_text(f"{step_text}")
+        # We use try/except here so an animation error never kills the whole script
+        try:
+            await callback.message.edit_text(step_text, parse_mode="Markdown")
+        except:
+            await callback.message.edit_text(step_text) # Fallback to plain text
 
     # 3. MATCH THE PRODUCT
     product = await db.match_product(lang, data['level'], freq)
