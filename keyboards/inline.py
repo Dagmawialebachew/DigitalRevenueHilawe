@@ -121,9 +121,9 @@ def gender_choice() -> InlineKeyboardMarkup:
 
 def level_choice() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for lvl in ["BEGINNER", "INTERMEDIATE", "ADVANCED"]:
+    for lvl in ["BEGINNER", "INTERMEDIATE", "ADVANCED", "GLUTE_FOCUSED"]:
         builder.button(text=lvl.capitalize(), callback_data=f"set_lvl_{lvl}")
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()
 
 def freq_choice() -> InlineKeyboardMarkup:
