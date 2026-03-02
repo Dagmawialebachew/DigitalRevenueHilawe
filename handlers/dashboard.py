@@ -493,14 +493,14 @@ async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
     # 4. Send the message (The user will then see their existing Reply Keyboard)
     await callback.message.answer(text, parse_mode="Markdown")
     
-@router.message(F.photo)
-async def get_photo_id(message: types.Message):
-    # message.photo is a list of different sizes; [-1] is the highest quality
-    file_id = message.photo[-1].file_id
+# @router.message(F.photo)
+# async def get_photo_id(message: types.Message):
+#     # message.photo is a list of different sizes; [-1] is the highest quality
+#     file_id = message.photo[-1].file_id
     
-    response = (
-        f"✅ *High-Res File ID Captured:*\n\n"
-        f"`{file_id}`\n\n"
-        f"Copy the ID above and paste it into your MediaGroupBuilder."
-    )
-    await message.reply(response, parse_mode="Markdown")
+#     response = (
+#         f"✅ *High-Res File ID Captured:*\n\n"
+#         f"`{file_id}`\n\n"
+#         f"Copy the ID above and paste it into your MediaGroupBuilder."
+#     )
+#     await message.reply(response, parse_mode="Markdown")
