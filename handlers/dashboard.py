@@ -445,8 +445,7 @@ async def about_the_coach(message: types.Message, db: Database):
 
     # BUILD THE GALLERY
     album = MediaGroupBuilder(caption=caption)
-    album.add_photo("AgACAgQAAxkBAAMPaaSW8rZGVHX4iomy-d_6CkZkZWkAAooNaxucgCFRzaGmw9gML6QBAAMCAAN5AAM6BA") # Use your actual file ID
-    album.add_photo("AgACAgQAAxkBAAMRaaSXPyaKV2xgueaW5n0rL-nQi1gAAosNaxucgCFR8OIMU3D3T0oBAAMCAAN5AAM6BA")
+    album.add_photo("AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ") # Use your actual file ID
     # album.add_photo(media=settings.TRANSFORMATION_2_ID)
 
     await message.answer_media_group(media=album.build())
