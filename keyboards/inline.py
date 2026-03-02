@@ -60,7 +60,7 @@ def goal_markup(lang: str) -> InlineKeyboardMarkup:
         builder.button(text="🔥 ስብ መቀነስ/ማስተካከል", callback_data="goal_FATLOSS")
         builder.button(text="💪 ጡንቻ መገንባት", callback_data="goal_MUSCLE")
         builder.button(text="🏃 አጠቃላይ የአካል ብቃት", callback_data="goal_ATHLETE")
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()
 
 def level_markup(lang: str, gender: str = None) -> InlineKeyboardMarkup:
@@ -92,7 +92,7 @@ def obstacle_markup(lang: str) -> InlineKeyboardMarkup:
         builder.button(text="🥗 የአመጋገብ ስርዓት", callback_data="obs_DIET")
         builder.button(text="⏳ ተነሳሽነት ማጣት", callback_data="obs_CONSISTENCY")
         builder.button(text="📋 የተዋቀረ እቅድ ማጣት", callback_data="obs_NOPLAN")
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()
 
 def freq_markup(lang: str) -> InlineKeyboardMarkup:

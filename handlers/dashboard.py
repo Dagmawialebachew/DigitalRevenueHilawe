@@ -7,7 +7,7 @@ import logging
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 
-from utils.localization import get_text
+from utils.localization import get_level_prompt, get_text
 
 router = Router(name="dashboard")
 async def send_user_plan(event: types.Message | types.CallbackQuery, db: Database):
@@ -259,11 +259,13 @@ async def start_surgical_edit(callback: types.CallbackQuery, state: FSMContext, 
         await callback.message.edit_text(get_text(lang, "ask_goal"), reply_markup=ikb.goal_markup(lang))
     
     elif field == "level":
-        # 👈 PASS GENDER HERE so the button is filtered correctly during editing
+        prompt_text = get_level_prompt(lang, gender)
         await callback.message.edit_text(
-            get_text(lang, "ask_level"), 
-            reply_markup=ikb.level_markup(lang, gender) 
+            prompt_text,
+            reply_markup=ikb.level_markup(lang, gender),
+            parse_mode="HTML"
         )
+
         
     elif field == "frequency":
         await callback.message.edit_text(get_text(lang, "ask_freq"), reply_markup=ikb.freq_markup(lang))
@@ -317,7 +319,12 @@ async def process_surgical_update(callback: types.CallbackQuery, state: FSMConte
         return await callback.answer("⚠️ Invalid selection. Please try again.")
 
     # 4. Update Database
-    await db.create_or_update_user(callback.from_user.id, *{field: val})
+    # 4. Update Database
+    await db.create_or_update_user(
+        callback.from_user.id,
+        **{field: val}
+    )
+
     
     # 5. UI Feedback
     user = await db.get_user(callback.from_user.id)

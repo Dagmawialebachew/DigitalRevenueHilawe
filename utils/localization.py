@@ -33,7 +33,7 @@ STRINGS = {
             "📍 *Processing Strategy* ⚙️\n\n"
             "I'm engineering the best product for your profile. Stand by..."
         ),
-        "analysis_complete": "🎯 *STRATEGY ENGINEERED*",
+        "analysis_complete": "<b>🎯 PLAN COMPLETED</b>",
         "investment": "Program Access Fee 💵",
         "no_product_found": "🚧 *Hold on.* I'm still refining a plan that fits your needs. Check back soon."
     },
@@ -71,7 +71,7 @@ STRINGS = {
             "📍 *ሲስተም የተቀናጀ* ⚙️\n\n"
             "ለሰውነትዎ የሚሆን ትክክለኛውን ስልት እያወጣሁ ነው..."
         ),
-        "analysis_complete": "🎯 *ትክክለኛውን እቅድ አውጥቼሎታለው*",
+        "analysis_complete": "🎯 <b>ትክክለኛውን እቅድ አውጥቼሎታለው</b>",
         "investment": "የእቅዱ ዋጋ 💵",
         "no_product_found": "🚧 *ቆይ።* ለእርስዎ የሚሆን ትክክለኛ እቅድ ገና እያዘጋጀሁ ነው።"
     }
@@ -79,3 +79,30 @@ STRINGS = {
 
 def get_text(lang: str, key: str) -> str:
     return STRINGS.get(lang, STRINGS.get("EN", {})).get(key, "")
+
+
+def get_level_prompt(lang: str, gender: str = None) -> str:
+    if lang == "EN":
+        base = (
+            "📍 <b>Step 3 of 5 — Experience Baseline</b> ⚖️\n"
+            "`▰▰▰▱▱` 60%\n\n"
+            "Be real with me. Where are you actually at?\n\n"
+            "• <b>Beginner:</b> Just starting or restarting.\n"
+            "• <b>Intermediate:</b> Consistent, but results have stalled.\n"
+        )
+        if gender != "MALE":
+            base += "• <b>Glute Focused:</b> Specifically targeting lower body growth.\n"
+        base += "• <b>Advanced:</b> Pushing for elite performance."
+        return base
+    else:  # Amharic
+        base = (
+            "📍 <b>ምዕራፍ 3 ከ 5 — የልምምድ ዳራ</b> ⚖️\n"
+            "`▰▰▰▱▱` 60%\n\n"
+            "እውነቱን እንነጋገር፤ አሁን ያለዎት ብቃት የትኛው ነው?\n\n"
+            "• <b>ጀማሪ:</b> አዲስ ወይም አሁን የጀመሩ።\n"
+            "• <b>መካከለኛ:</b> የሚሰሩ ግን ለውጥ የቆመባቸው።\n"
+        )
+        if gender != "MALE":
+            base += "• <b>ዳሌ ላይ ያተኮረ:</b> ልዩ ትኩረት ለዳሌ እድገት የሚፈልጉ።\n"
+        base += "• <b>የላቀ:</b> ከፍተኛ ውጤት የሚፈልጉ።"
+        return base

@@ -4,10 +4,11 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatAction
+import logging
 from database.db import Database
 from keyboards import inline as kb
 from keyboards import reply as rkb
-from utils.localization import get_text
+from utils.localization import get_level_prompt, get_text
 from config import settings
 router = Router(name="onboarding")
 
@@ -24,8 +25,7 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     await state.clear()
     user_id = message.from_user.id
     user_data = await db.get_user(user_id)
-    if user_data:
-    # --- EXISTING USER FLOW ---
+    if user_data and user_data.get("onboarding_completed"):    # --- EXISTING USER FLOW ---
         await state.clear()
         lang = user_data.get('language', 'EN')
         user_id = message.from_user.id
@@ -101,6 +101,8 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     parse_mode="Markdown"
 )
     await state.set_state(OnboardingStepping.language)
+
+
 @router.callback_query(OnboardingStepping.language)
 async def process_language(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
     lang = callback.data.replace("lang_", "")
@@ -145,23 +147,27 @@ async def process_gender(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(OnboardingStepping.goal)
 
 @router.callback_query(OnboardingStepping.goal)
-async def process_goal(callback: types.CallbackQuery, state: FSMContext):
+async def process_goal(callback: types.CallbackQuery, state: FSMContext, db: Database):
     # Extract the goal from callback data (e.g., "goal_FATLOSS" -> "FATLOSS")
     selected_goal = callback.data.replace("goal_", "")
     
-    # CRITICAL: Save it to state so process_frequency can find it later
+    # Save it to state so process_frequency can find it later
     await state.update_data(goal=selected_goal)
     
     data = await state.get_data()
     lang = data['language']
     gender = data.get('gender')
-    
+
+    # Build gender-aware prompt text
+    prompt_text = get_level_prompt(lang, gender)
+
     await callback.message.edit_text(
-        get_text(lang, "ask_level"), 
-        reply_markup=kb.level_markup(lang, gender)
+        prompt_text,
+        reply_markup=kb.level_markup(lang, gender),
+        parse_mode="HTML"
     )
     await state.set_state(OnboardingStepping.level)
-    
+
 @router.callback_query(OnboardingStepping.level)
 async def process_level(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -234,20 +240,36 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         return
 
     # 4. SEND THE PROFILE CARD (Edit existing message)
+    # 4. SEND THE PROFILE CARD (Edit existing message)
     gender_icon = "👨" if data['gender'] == "MALE" else "👩"
-    profile_card = (
-        f"💳 *PROFILE CARD*\n"
-        f"————————————————————\n"
-        f"👤 *NAME:* `{full_name.upper()}`\n"
-        f"📊 *LEVEL:* `{data['level']}`\n"
-        f"🆔 *ID:* `HE-{user_id % 10000:04d}`\n"
-        f"————————————————————\n"
-        f"🧬 *BIO:* {gender_icon} | {freq}x Weekly\n"
-        f"🎯 *TARGET:* {data['goal'].replace('_', ' ')}\n"
-        f"————————————————————"
-    )
-    
-    await callback.message.edit_text(profile_card)
+
+    if lang == "EN":
+        profile_card = (
+            f"💳 <b>PROFILE CARD</b>\n"
+            "————————————————————\n"
+            f"👤 <b>NAME:</b> {full_name.upper()}\n"
+            f"📊 <b>LEVEL:</b> {data['level']}\n"
+            f"🆔 <b>ID:</b> HE-{user_id % 10000:04d}\n"
+            "————————————————————\n"
+            f"🧬 <b>BIO:</b> {gender_icon} | {freq}x Weekly\n"
+            f"🎯 <b>TARGET:</b> {data['goal'].replace('_', ' ')}\n"
+            "————————————————————"
+        )
+    else:  # Amharic
+        profile_card = (
+            f"💳 <b>መገለጫ ካርድ</b>\n"
+            "————————————————————\n"
+            f"👤 <b>ስም:</b> {full_name.upper()}\n"
+            f"📊 <b>ደረጃ:</b> {data['level']}\n"
+            f"🆔 <b>መለያ:</b> HE-{user_id % 10000:04d}\n"
+            "————————————————————\n"
+            f"🧬 <b>ጾታ:</b> {gender_icon} | {freq} ጊዜ በሳምንት\n"
+            f"🎯 <b>ግብ:</b> {data['goal'].replace('_', ' ')}\n"
+            "————————————————————"
+        )
+
+    await callback.message.edit_text(profile_card, parse_mode="HTML")
+
 
     # --- THE DRAMATIC PAUSE ---
     # We wait 2 seconds while showing the typing indicator
@@ -262,16 +284,16 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     if lang == "EN":
         actual_price = int(float(price) / 0.7)  # reverse the 30% discount
         pitch = (
-            f"🎯 *{complete_label}*\n\n"
-            f"I have engineered the *{title}* specifically for your profile. 🏆\n\n"
-            "*Your program includes:*\n"
-        "✅ *8-Week Transformation Roadmap*\n"
-        "✅ *Precision Nutrition*\n"
-        "✅ *The Logbook System*\n"
-        "✅ *Exclusive Video Links*\n\n"
-            "🌟 *Founder's Launch Offer (48 hrs only)*\n\n"
-            f"~{actual_price} ETB~ ➡️ `{price} ETB`\n"
-            "💎 You are receiving an exclusive *30% discount* reserved for Founding Members.\n"
+            f"🎯 <b>{complete_label}</b>\n\n"
+            f"I have engineered the <b>{title}</b> specifically for your profile. 🏆\n\n"
+            "<b>Your program includes:</b>\n"
+            "✅ <b>8-Week Transformation Roadmap</b>\n"
+            "✅ <b>Precision Nutrition</b>\n"
+            "✅ <b>The Logbook System</b>\n"
+            "✅ <b>Exclusive Video Links</b>\n\n"
+            "🌟 <b>Founder's Launch Offer (48 hrs only)</b>\n\n"
+            f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
+            "💎 You are receiving an exclusive <b>30% discount</b> reserved for Founding Members.\n"
             "⚠️ After this launch window, the full price applies and discount vanish.\n\n"
             "⏳ Secure your access now — hesitation means losing your Founder’s advantage."
         )
@@ -279,59 +301,61 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     elif lang == "AM":
         actual_price = int(float(price) / 0.7)  # reverse the 30% discount
         pitch = (
-            f"🎯 *{complete_label}*\n\n"
-            f"የእርስዎን *{title}* ስልጠና በእርስዎ ማንነት እና ብቃት ልክ አዘጋጅቼ ጨርሻለሁ። 🏆\n\n"
-            "*የእርስዎ እቅድ የሚያካትታቸው፦*\n"
-        "✅ *የ8-ሳምንት የለውጥ ፕሮግራም፦* ከሳምንት 1 እስከ 8 ደረጃ በደረጃ የሚጨምር ስልጠና።\n"
-        "✅ *ሳይንሳዊ የአመጋገብ ስርአት፦* የ'80/20' መመሪያን ያካተተ ተለዋዋጭ የአመጋገብ ዘዴ።\n"
-        "✅ *የቪዲዮ መመሪያ፦* ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር የሚያሳይ የቪዲዮ ሊንክ።\n"
-        "✅ *የሂደት መከታተያ፦* ውጤትዎን በየሳምንቱ የሚመዘግቡበት ገጽ።\n\n"
-            "🌟 *የመስራች አባላት ልዩ ቅናሽ (ለ48 ሰአት ብቻ)*\n"
-            f"~{actual_price} ብር~ ➡️ `{price} ብር`\n"
-            "💎 ለመስራች አባላት ብቻ የተዘጋጀ ልዩ የ*30% ቅናሽ* አግኝተዋል።\n"
+            f"🎯 <b>{complete_label}</b>\n\n"
+            f"የእርስዎን <b>{title}</b> ስልጠና በእርስዎ ማንነት እና ብቃት ልክ አዘጋጅቼ ጨርሻለሁ። 🏆\n\n"
+            "<b>የእርስዎ እቅድ የሚያካትታቸው፦</b>\n"
+            "✅ <b>የ8-ሳምንት የለውጥ ፕሮግራም፦</b> ከሳምንት 1 እስከ 8 ደረጃ በደረጃ የሚጨምር ስልጠና።\n"
+            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት፦</b> የ'80/20' መመሪያን ያካተተ ተለዋዋጭ የአመጋገብ ዘዴ።\n"
+            "✅ <b>የቪዲዮ መመሪያ፦</b> ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር የሚያሳይ የቪዲዮ ሊንክ።\n"
+            "✅ <b>የሂደት መከታተያ፦</b> ውጤትዎን በየሳምንቱ የሚመዘግቡበት ገጽ።\n\n"
+            "🌟 <b>የመስራች አባላት ልዩ ቅናሽ (ለ48 ሰአት ብቻ)</b>\n\n"
+            f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
+            "💎 ለመስራች አባላት ብቻ የተዘጋጀ ልዩ <b>30% ቅናሽ</b> አግኝተዋል።\n"
             "⚠️ ይህ የመክፈቻ ጊዜ(1ቀን) ካለፈ በኋላ ሙሉ ዋጋው ተፈጻሚ ይሆናል።\n\n"
-            "*⏳ አሁኑኑ ቦታዎን ያስይዙ — መዘግየት የዚህን ልዩ ቅናሽ ተጠቃሚነት ያሰጣዎታል።*"
+            "⏳ <b>አሁኑኑ ቦታዎን ያስይዙ — መዘግየት የዚህን ልዩ ቅናሽ ተጠቃሚነት ያሰጣዎታል።</b>"
         )
 
-    await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']))
+    # send once, with HTML parse mode
+    await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']), parse_mode="HTML")
+
+
     asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id,username=callback.from_user.username))
 
     
     
     await state.clear()
     
-    
+
+import html
+
 async def notify_admin_new_lead(bot: Bot, user_data: dict, full_name: str, user_id: int, username: str = None):
-        """Background task to notify admins of a new registered lead with username and contact."""
+    """Notify admins of a new registered lead."""
+    try:
+        safe_name = html.escape(full_name)
+        safe_username = f"@{html.escape(username)}" if username else "No Username"
+
+        admin_msg = (
+            f"⚡️ <b>NEW USER REGISTERED</b>\n"
+            "————————————————————\n"
+            f"👤 <b>Name:</b> {safe_name}\n"
+            f"🔗 <b>Username:</b> {safe_username}\n"
+            f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+            f"🌍 <b>Lang:</b> {html.escape(user_data.get('language','N/A'))}\n"
+            f"🎯 <b>Goal:</b> {html.escape(user_data.get('goal','N/A'))}\n"
+            f"📊 <b>Level:</b> {html.escape(user_data.get('level','N/A'))}\n"
+            f"📅 <b>Freq:</b> {user_data.get('frequency','N/A')}x/week\n"
+            "————————————————————\n"
+            "🔥 <b>The empire is growing...</b>"
+        )
+
         try:
-            # Format username for a clickable link
-            user_link = f"@{username}" if username else "No Username"
-            
-            # Construct a high-end alert for the Admin
-            admin_msg = (
-                f"⚡️ *NEW USER REGISTERED*\n"
-                f"————————————————————\n"
-                f"👤 *Name:* {full_name}\n"
-                f"🔗 *Username:* {user_link}\n"
-                f"🆔 *ID:* `{user_id}`\n"
-                f"🌍 *Lang:* {user_data['language']}\n"
-                f"🎯 *Goal:* {user_data.get('goal', 'N/A')}\n"
-                f"📊 *Level:* {user_data.get('level', 'N/A')}\n"
-                f"📅 *Freq:* {user_data.get('frequency')}x/week\n"
-                f"————————————————————\n"
-                f"🔥 *The empire is growing...*"
-            )
-            
-            for admin_id in settings.ADMIN_IDS:
-                try:
-                    # We use HTML or MarkdownV2 to make the username clickable
-                    await bot.send_message(
-                        chat_id=settings.ADMIN_NEW_USER_LOG_ID, 
-                        text=admin_msg,
-                        parse_mode="Markdown"
-                    )
-                except Exception:
-                    continue
-                    
+                await bot.send_message(
+                    chat_id=settings.ADMIN_NEW_USER_LOG_ID,
+                    text=admin_msg,
+                    parse_mode="HTML"
+                )
         except Exception as e:
-            pass
+                logging.exception(f"Failed to notify admin {settings.ADMIN_NEW_USER_LOG_ID}: {e}")
+
+    except Exception as e:
+        logging.exception(f"Failed to process new lead notification: {e}")

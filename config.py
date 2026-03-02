@@ -18,7 +18,8 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "") # PostgreSQL DSN
     
     # Business Logic
-    BANK_DETAILS: str = os.getenv("BANK_DETAILS", "CBE: 1000... | Telebirr: 09...")
+    # BANK_DETAILS: str = os.getenv("BANK_DETAILS", "CBE: 1000... | Telebirr: 09...")
+    
     WEBHOOK_BASE_URL: str = os.getenv("WEBHOOK_BASE_URL", "")
     PORT: int = int(os.getenv("PORT", "8080"))
     
@@ -26,6 +27,17 @@ class Settings:
     ADMIN_PAYMENT_LOG_ID: int = int(os.getenv("ADMIN_PAYMENT_LOG_ID", "0"))
     ADMIN_ERROR_LOG_ID: int = int(os.getenv("ADMIN_ERROR_LOG_ID", "0"))
     ADMIN_NEW_USER_LOG_ID: int = int(os.getenv("ADMIN_NEW_USER_LOG_ID", "0"))
+    
+
+    BANK_CBE = os.getenv("BANK_CBE", "")
+    BANK_CBE_NAME = os.getenv("BANK_CBE_NAME", "")
+
+    BANK_BOA = os.getenv("BANK_BOA", "")
+    BANK_BOA_NAME = os.getenv("BANK_BOA_NAME", "")
+
+    BANK_TELEBIRR = os.getenv("BANK_TELEBIRR", "")
+    BANK_TELEBIRR_NAME = os.getenv("BANK_TELEBIRR_NAME", "")
+
 
 settings = Settings()
 

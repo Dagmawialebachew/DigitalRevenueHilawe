@@ -14,11 +14,16 @@ router = Router(name="payment")
 logger = logging.getLogger(__name__)
 class PaymentStates(StatesGroup):
     awaiting_proof = State()
+import html
+
 @router.callback_query(F.data.startswith("pay_"))
 async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
     product_id = int(callback.data.split("_")[1])
-    data = await state.get_data()
-    lang = data.get("language", "EN")
+    user_id = callback.from_user.id
+
+    # Get user data directly from DB
+    user_data = await db.get_user(user_id)
+    lang = user_data.get("language", "EN") if user_data else "EN"
     
     product = await db._pool.fetchrow("SELECT * FROM products WHERE id = $1", product_id)
     if not product:
@@ -26,60 +31,70 @@ async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db:
 
     await state.update_data(selected_product_id=product_id, amount=product['price'])
     
-    instruction = (
-        f"🏛 *OFFICIAL INVOICE*\n"
-        f"————————————————————\n"
-        f"📦 *Program:* {product['title']}\n"
-        f"💰 *Price:* `{product['price']} ETB`\n\n"
-        f"📥 *Transfer Details:*\n"
-        f"`{settings.BANK_DETAILS}`\n"
-        f"————————————————————\n"
-        f"📸 *Final Step:* Send the screenshot of your transfer below.\n\n"
-        f"💡 *Use the button below if you need to go back.*"
-    ) if lang == "EN" else (
-        f"🏛 *ይፋዊ የክፍያ መመሪያ*\n"
-        f"————————————————————\n"
-        f"📦 *እቅድ፦* {product['title']}\n"
-        f"💰 *የአሰልጣኝ ክፍያ፦* `{product['price']} ብር`\n\n"
-        f"📥 *የባንክ አካውንት ዝርዝር፦*\n"
-        f"`{settings.BANK_DETAILS}`\n"
-        f"————————————————————\n"
-        f"📸 *የመጨረሻ ደረጃ፦* የከፈሉበትን ደረሰኝ (Screenshot) ይላኩ።\n\n"
-        f"💡 *ለመመለስ ከታች ያለውን ቁልፍ ይጠቀሙ።*"
-    )
+    if lang == "EN":
+        instruction = (
+            f"🏛 <b>OFFICIAL INVOICE</b>\n"
+            "————————————————————\n"
+            f"📦 <b>Program:</b> {html.escape(product['title'])}\n"
+            f"💰 <b>Price:</b> <code>{product['price']} ETB</code>\n\n"
+            f"📥 <b>Transfer Details:</b>\n"
+            f"🏦 <b>Commercial Bank (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {html.escape(settings.BANK_CBE_NAME)}\n\n"
+            f"🏦 <b>Bank of Abyssinia (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {html.escape(settings.BANK_BOA_NAME)}\n\n"
+            f"📱 <b>Telebirr</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {html.escape(settings.BANK_TELEBIRR_NAME)}\n"
+            "————————————————————\n"
+            "📸 <b>Final Step:</b> Send the screenshot of your transfer below.\n\n"
+            "💡 <b>Use the button below if you need to go back.</b>"
+        )
+    else:
+        instruction = (
+            f"🏛 <b>ይፋዊ የክፍያ መመሪያ</b>\n"
+            "————————————————————\n"
+            f"📦 <b>ፕሮግራም፦</b> {html.escape(product['title'])}\n"
+            f"💰 <b>የአሰልጣኝ ክፍያ፦</b> <code>{product['price']} ብር</code>\n\n"
+            f"📥 <b>የባንክ አካውንት ዝርዝር፦</b>\n"
+            f"🏦 <b>የኢትዮጵያ ንግድ ባንክ (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {html.escape(settings.BANK_CBE_NAME)}\n\n"
+            f"🏦 <b>አቢሲኒያ ባንክ (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {html.escape(settings.BANK_BOA_NAME)}\n\n"
+            f"📱 <b>ቴሌብር</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {html.escape(settings.BANK_TELEBIRR_NAME)}\n"
+            "————————————————————\n"
+            "📸 <b>የመጨረሻ ደረጃ፦</b> የከፈሉበትን ደረሰኝ (Screenshot) ይላኩ።\n\n"
+            "💡 <b>ለመመለስ ከታች ያለውን ቁልፍ ይጠቀሙ።</b>"
+        )
 
     await bot.send_chat_action(callback.message.chat.id, ChatAction.TYPING)
     await asyncio.sleep(0.5)
     
     # Send instructions with the CANCEL Reply Keyboard
-    await callback.message.answer(instruction, reply_markup=rb.cancel_payment_kb(lang))
+    await callback.message.answer(instruction, reply_markup=rb.cancel_payment_kb(lang), parse_mode="HTML")
     await state.set_state(PaymentStates.awaiting_proof)
     await callback.answer()
 
 
 @router.message(F.text.in_({"❌ Cancel Payment", "❌ ክፍያውን ሰርዝ"}))
-async def cancel_payment(message: types.Message, state: FSMContext, lang: str = "EN"):
+async def cancel_payment(message: types.Message, state: FSMContext, db: Database):
+    user_id = message.from_user.id
+    user_data = await db.get_user(user_id)
+    lang = user_data.get("language", "EN") if user_data else "EN"
+
     await state.clear()
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."
-    await message.answer(text, reply_markup=types.ReplyKeyboardRemove()) # Remove the cancel button
-    # Here you can trigger your main menu handler
-    await message.answer("🏠 *DASHBOARD*", reply_markup=rb.main_menu(lang))
-    
+    await message.answer(text, reply_markup=types.ReplyKeyboardRemove())  # Remove the cancel button
+    await message.answer("🏠 <b>DASHBOARD</b>", reply_markup=rb.main_menu(lang), parse_mode="HTML")
+
 @router.message(PaymentStates.awaiting_proof, F.photo)
 async def handle_payment_proof(message: types.Message, state: FSMContext, db: Database, bot: Bot):
+    # Keep state data for product/amount but fetch language from DB
     data = await state.get_data()
-    lang = data.get("language", "EN")
     user_id = message.from_user.id
+    user_record = await db.get_user(user_id)
+    lang = user_record.get("language", "EN") if user_record else "EN"
+
     product_id = data.get('selected_product_id')
     amount = data.get('amount')
-    proof_file_id = message.photo[-1].file_id 
+    proof_file_id = message.photo[-1].file_id
 
     # 1. IMMEDIATE FEEDBACK & REMOVE CANCEL KEYBOARD
-    # We use a fresh message to remove the reply keyboard immediately
-    progress_msg = await message.answer(
-        "📡 *Connecting to secure server...*" if lang == "EN" else "📡 *ከሴኩዩር ሰርቨር ጋር በመገናኘት ላይ...*",
-        reply_markup=types.ReplyKeyboardRemove()
-    )
+    progress_text = "📡 <b>Connecting to secure server...</b>" if lang == "EN" else "📡 <b>ከሴኩዩር ሰርቨር ጋር በመገናኘት ላይ...</b>"
+    progress_msg = await message.answer(progress_text, reply_markup=types.ReplyKeyboardRemove(), parse_mode="HTML")
 
     # 2. SAVE TO DATABASE
     payment_id = await db.create_payment(
@@ -89,54 +104,53 @@ async def handle_payment_proof(message: types.Message, state: FSMContext, db: Da
         amount=amount
     )
 
-    # 🚀 3. BACKGROUND ADMIN NOTIFICATION
-    
-
+    # 3. BACKGROUND PROGRESS ANIMATION (EDIT)
     stages = [
         ("📤 Syncing receipt...", "📤 ደረሰኝዎን በማመሳሰል ላይ..."),
         ("🔍 Analyzing details...", "🔍 የክፍያ ዝርዝሮችን በመፈተሽ ላይ..."),
         ("⏳ Awaiting Coach Confirmation...", "⏳ የአሰልጣኝ ማረጋገጫ በመጠበቅ ላይ...")
     ]
-    
+
     for en, am in stages:
         await asyncio.sleep(0.8)
-        text = en if lang == "EN" else am
+        stage_text = en if lang == "EN" else am
         try:
-            await progress_msg.edit_text(f"✨ *{text}*")
+            # Use HTML and escape the stage text to avoid entity issues
+            await progress_msg.edit_text(f"✨ <b>{html.escape(stage_text)}</b>", parse_mode="HTML")
         except Exception:
-            # If editing fails (e.g. user deleted the message), just keep going
+            # If editing fails (e.g. message deleted), continue silently
             pass
 
-    # 5. THE "SAFE" REVEAL
-    # Instead of editing the progress message, we delete it and send a fresh one
+    # 4. THE "SAFE" REVEAL (delete progress message and send fresh one)
     try:
         await progress_msg.delete()
     except Exception:
         pass
 
-    final_text = (
-        "✅ *RECEIPT LOGGED*\n\n"
-        "I've received your transfer. Stay ready. "
-        "Your product will be delivered here the moment I verify it. 🔥"
-    ) if lang == "EN" else (
-        "✅ *ደረሰኙ ተመዝግቧል*\n\n"
-        "የላኩትን ደረሰኝ ተቀብያለሁ። ለለውጥ ዝግጁ ይሁኑ፤ "
-        "ልክ እንደተረጋገጠ እቅድዎን እዚህ እልክልዎታለሁ። 🔥"
-    )
+    if lang == "EN":
+        final_text = (
+            "✅ <b>RECEIPT LOGGED</b>\n\n"
+            "I've received your transfer. Stay ready.\n"
+            "Your product will be delivered here the moment I verify it. 🔥"
+        )
+    else:
+        final_text = (
+            "✅ <b>ደረሰኙ ተመዝግቧል</b>\n\n"
+            "የላኩትን ደረሰኝ ተቀብያለሁ። ለለውጥ ዝግጁ ይሁኑ፤\n"
+            "ልክ እንደተረጋገጠ እቅድዎን እዚህ እልክልዎታለሁ። 🔥"
+        )
 
-    # Send fresh message WITH the main menu keyboard
-    await message.answer(
-        final_text, 
-        reply_markup=rb.main_menu(lang),
-        parse_mode="Markdown"
-    )
+    # 5. Send fresh message WITH the main menu keyboard (HTML parse mode)
+    await message.answer(final_text, reply_markup=rb.main_menu(lang), parse_mode="HTML")
+
+    # 6. Fire-and-forget admin notification (background)
     asyncio.create_task(
         notify_admin_payment(bot, message, data, payment_id, proof_file_id, db)
     )
 
-    # 6. Final State Clear
+    # 7. Final State Clear
     await state.clear()
-    
+
 async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, payment_id: int, proof_id: str, db: Database):
     """The Founder Alert: Sends the receipt + data + action buttons to Admins."""
     try:
