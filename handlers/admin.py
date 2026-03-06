@@ -292,27 +292,29 @@ async def inspect_single_payment(callback: types.CallbackQuery, db: Database, bo
     lang_display = "🇺🇸 English" if pay['language'] == "EN" else "🇪🇹 አማርኛ (Amharic)"
 
     ledger_detail = (
-        f"📑 *TRANSACTION AUDIT: #{pay['id']}*\n"
-        f"————————————————————\n"
-        f"👤 *Athlete:* {pay['full_name']} (@{pay['username']})\n"
-        f"🌍 *Language:* `{lang_display}`\n"
-        f"📦 *Plan:* {pay['title']}\n"
-        f"💰 *Amount:* `{pay['amount']} ETB`\n"
-        f"📅 *Date:* {pay['created_at'].strftime('%Y-%m-%d %H:%M')}\n"
-        f"————————————————————"
-    )
+    f"📑 <b>TRANSACTION AUDIT: #{pay['id']}</b>\n"
+    f"———————————————\n"
+    f"👤 <b>Athlete:</b> {pay['full_name']} (@{pay['username']})\n"
+    f"🌍 <b>Language:</b> {lang_display}\n"
+    f"📦 <b>Plan:</b> {pay['title']}\n"
+    f"💰 <b>Amount:</b> {pay['amount']} ETB\n"
+    f"📅 <b>Date:</b> {pay['created_at'].strftime('%Y-%m-%d %H:%M')}\n"
+    f"———————————————"
+)
 
     await callback.message.delete()
 
     # 3. FIX THE KEY HERE: 
     # Change pay['proof_id'] to pay['proof_file_id'] (or whatever your DB column is)
     await bot.send_photo(
-        chat_id=callback.from_user.id,
-        photo=pay['proof_file_id'], # <--- UPDATED THIS
-        caption=ledger_detail,
-        reply_markup=akb.admin_approval_markup(payment_id),
-        parse_mode="Markdown"
-    )
+    chat_id=callback.from_user.id,
+    photo=pay['proof_file_id'],
+    caption=ledger_detail,
+    reply_markup=akb.admin_approval_markup(payment_id),
+    parse_mode="HTML"
+)
+    
+    
 @router.callback_query(F.data.startswith("approve_"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def approve_payment(callback: types.CallbackQuery, db: Database, bot: Bot):
     payment_id = int(callback.data.split("_")[1])
