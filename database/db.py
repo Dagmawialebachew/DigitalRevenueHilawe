@@ -50,6 +50,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS obstacle TEXT;
 ALTER TABLE payments 
 ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP WITH TIME ZONE;
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_pitch_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reminded BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS has_paid BOOLEAN DEFAULT FALSE;
+
+
 -- Backfill existing approved rows with created_at
 UPDATE payments 
 SET approved_at = created_at 
@@ -187,6 +192,18 @@ class Database:
         if row and row["language"]:
             return row["language"]
         return "EN"
+    
+    async def get_ghost_users(self) -> List[asyncpg.Record]:
+        query = """
+            SELECT telegram_id AS user_id, language, level
+            FROM users
+            WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
+            AND last_pitch_at > NOW() - INTERVAL '6 hours'
+            AND has_paid = FALSE
+            AND reminded = FALSE
+        """
+        return await self._pool.fetch(query)
+
     
     async def get_pending_payments(self, limit: int = 5, offset: int = 0):
         query = """

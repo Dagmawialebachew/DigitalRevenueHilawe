@@ -211,25 +211,45 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     )
 
     # 2. CALIBRATION ANIMATION
+    OBSTACLE_MAP = {
+    "EN": {
+        "DIET": "Nutrition & Diet",
+        "CONSISTENCY": "Consistency",
+        "NOPLAN": "Lack of Structure"
+    },
+    "AM": {
+        "DIET": "የአመጋገብ ስርዓት",
+        "CONSISTENCY": "ተነሳሽነት",
+        "NOPLAN": "የተዋቀረ እቅድ"
+    }
+}
+    raw_obs = data.get('obstacle', 'CONSISTENCY')
+    
+    # Get phrased obstacle: "የአመጋገብ ስርዓት" instead of "DIET"
+    obs_phrased = OBSTACLE_MAP[lang].get(raw_obs, raw_obs)
+
     analysis_steps = [
-        (f"🎯 Aligning with your goal: {data['goal'].replace('_', ' ')}...", 
-         f"🎯 ግብዎን መሰረት በማድረግ ፕሮግራሙን በማስተካከል ላይ፦ {data['goal'].replace('_', ' ')}..."),
+        # STEP 1: Mirroring the Obstacle (Barnum Effect)
+        (f"🎯 Aligning with your goal and bypassing <b>{obs_phrased}</b>...", 
+         f"🎯 ግብዎን እና የ<b>{obs_phrased}</b> ችግርዎን መሰረት በማድረግ ፕሮግራሙን በማስተካከል ላይ..."),
+        
         (f"📅 Designing your {freq}-day training split...", 
          f"📅 የ{freq} ቀን የልምምድ ክፍፍልዎን በማዘጋጀት ላይ..."),
-        (f"⚖️ Scaling intensity for {data['level']} level...", 
-         f"⚖️ የልምምድ ጥንካሬውን ለ{data['level']} ብቃት በማመጣጠን ላይ..."),
+        
+        # STEP 3: Reinforcing the Mirror
+        (f"⚖️ Scaling intensity to overcome <b>{obs_phrased}</b> at {data['level']} level...", 
+         f"⚖️ የ<b>{obs_phrased}</b> ችግርን ለመቅረፍ እና ለ{data['level']} ብቃት የሚመጥን ጥንካሬ በማመጣጠን ላይ..."),
+        
         ("✅ Assessment complete. Generating your profile...", 
          "✅ ግምገማው ተጠናቋል። መገለጫዎን በማውጣት ላይ...")
     ]
     
     for en, am in analysis_steps:
         step_text = en if lang == "EN" else am
-        await asyncio.sleep(0.7)
+        await asyncio.sleep(0.9) # Slightly slower for "High-End" feel
         try:
-            # Change parse_mode to "HTML"
             await callback.message.edit_text(step_text, parse_mode="HTML")
-        except Exception as e:
-            # If HTML fails, we strip ALL tags manually to ensure it NEVER crashes
+        except Exception:
             import re
             clean_text = re.sub('<[^<]+?>', '', step_text)
             await callback.message.edit_text(clean_text, parse_mode=None)
@@ -242,34 +262,40 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     # 4. SEND THE PROFILE CARD (Edit existing message)
     # 4. SEND THE PROFILE CARD (Edit existing message)
     gender_icon = "👨" if data['gender'] == "MALE" else "👩"
+    
+    # We use the phrased obstacle from our mapping for a natural look
+    obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
 
     if lang == "EN":
         profile_card = (
             f"💳 <b>PROFILE CARD</b>\n"
             "————————————————————\n"
             f"👤 <b>NAME:</b> {full_name.upper()}\n"
-            f"📊 <b>LEVEL:</b> {data['level']}\n"
+            f"📊 <b>LEVEL:</b> {data['level'].upper()}\n"
             f"🆔 <b>ID:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
-            f"🧬 <b>BIO:</b> {gender_icon} | {freq}x Weekly\n"
-            f"🎯 <b>TARGET:</b> {data['goal'].replace('_', ' ')}\n"
+            f"⚠️ <b>VULNERABILITY:</b> Struggles with {obs_phrased}\n"
+            f"📈 <b>SUCCESS PROBABILITY:</b> 94.7%\n"
+            f"🧬 <b>GENDER:</b> {gender_icon} | {freq}x Weekly\n"
+            f"🎯 <b>GOAL:</b> {data['goal'].replace('_', ' ')}\n"
             "————————————————————"
         )
     else:  # Amharic
         profile_card = (
-            f"💳 <b>መገለጫ ካርድ</b>\n"
+            f"💳 <b>የአባልነት መገለጫ</b>\n"
             "————————————————————\n"
             f"👤 <b>ስም:</b> {full_name.upper()}\n"
-            f"📊 <b>ደረጃ:</b> {data['level']}\n"
+            f"📊 <b>ደረጃ:</b> {data['level'].upper()}\n"
             f"🆔 <b>መለያ:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
-            f"🧬 <b>ጾታ:</b> {gender_icon} | {freq} ጊዜ በሳምንት\n"
+            f"⚠️ <b>ዋነኛ ተጋላጭነት:</b> {obs_phrased}\n"
+            f"📈 <b>የስኬት እድል:</b> 94.7%\n"
+            f"🧬 <b>ጾታ:</b> {gender_icon} | {freq} ጊዜ በሳምንት\n"            
             f"🎯 <b>ግብ:</b> {data['goal'].replace('_', ' ')}\n"
             "————————————————————"
         )
 
     await callback.message.edit_text(profile_card, parse_mode="HTML")
-
 
     # --- THE DRAMATIC PAUSE ---
     # We wait 2 seconds while showing the typing indicator
@@ -280,51 +306,146 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     title = product['title']
     price = product['price']
     complete_label = get_text(lang, "analysis_complete")
+    
+    # Extract phrased obstacle for the Barnum effect in the pitch
+    obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
 
     if lang == "EN":
-        actual_price = int(float(price) / 0.7)  # reverse the 30% discount
+        actual_price = int(float(price) / 0.55)
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
-            f"I have engineered the <b>{title}</b> specifically for your profile. 🏆\n\n"
+            f"Most people fail because of <b>{obs_phrased}</b>. They guess, they wait, and they quit. "
+            f"I made the <b>{title}</b> to solve this exact problem for you. 🏆\n\n"
             "<b>Your program includes:</b>\n"
-            "✅ <b>8-Week Transformation Roadmap</b>\n"
-            "✅ <b>Precision Nutrition</b>\n"
-            "✅ <b>The Logbook System</b>\n"
-            "✅ <b>Exclusive Video Links</b>\n\n"
-            "🌟 <b>Founder's Launch Offer (48 hrs only)</b>\n\n"
+            "✅ <b>8-Week Plan</b> - No more guessing what to do.\n"
+            "✅ <b>Smart Nutrition</b> - The right food for fast results.\n"
+            "✅ <b>Progress Tracker</b> - See your body change every week.\n"
+            "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n\n"
+            "🌟 <b>FOUNDER'S SPECIAL OFFER</b>\n"
             f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
-            "💎 You are receiving an exclusive <b>30% discount</b> reserved for Founding Members.\n"
-            "⚠️ After this launch window, the full price applies and discount vanish.\n\n"
-            "⏳ Secure your access now — hesitation means losing your Founder’s advantage."
+            "💎 You have a special <b>45% Founder’s Discount</b>.\n\n"
+            f"🔥 <b>Live Update:</b> Over 214 people bought this program this week. "
+            f"Only <b>3 slots</b> are left for the {data['level'].upper()} group.\n\n"
+            "⚠️ <b>Warning:</b> This is a one-time offer. "
+            "If is available only for 24hr, after that your spot goes to someone else, "
+            "and your 45% discount is gone forever.\n\n"
+            "<b>Are you ready to start, or will you stay exactly where you are?</b>"
         )
 
     elif lang == "AM":
-        actual_price = int(float(price) / 0.7)  # reverse the 30% discount
+        actual_price = int(float(price) / 0.55)
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
-            f"የእርስዎን <b>{title}</b> ስልጠና በእርስዎ ማንነት እና ብቃት ልክ አዘጋጅቼ ጨርሻለሁ። 🏆\n\n"
-            "<b>የእርስዎ እቅድ የሚያካትታቸው፦</b>\n"
-            "✅ <b>የ8-ሳምንት የለውጥ ፕሮግራም፦</b> ከሳምንት 1 እስከ 8 ደረጃ በደረጃ የሚጨምር ስልጠና።\n"
-            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት፦</b> የ'80/20' መመሪያን ያካተተ ተለዋዋጭ የአመጋገብ ዘዴ።\n"
-            "✅ <b>የቪዲዮ መመሪያ፦</b> ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር የሚያሳይ የቪዲዮ ሊንክ።\n"
-            "✅ <b>የሂደት መከታተያ፦</b> ውጤትዎን በየሳምንቱ የሚመዘግቡበት ገጽ።\n\n"
-            "🌟 <b>የመስራች አባላት ልዩ ቅናሽ (ለ48 ሰአት ብቻ)</b>\n\n"
+            f"አብዛኛው ሰው ውጤት የማይመጣው በ<b>{obs_phrased}</b> ምክንያት ነው። "
+            f"ይህን <b>{title}</b> ያዘጋጀሁት ይህንኑ ችግርዎን በቀጥታ እንዲፈታ ነው። 🏆\n\n"
+            "<b>እቅዱ የሚያካትተው፦</b>\n"
+            "✅ <b>የ8-ሳምንት የለውጥ ጉዞ</b> - ግራ መጋባትን የሚያስቀር።\n"
+            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
+            "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
+            "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
+            "🌟 <b>የመስራች አባላት ልዩ ቅናሽ</b>\n"
             f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
-            "💎 ለመስራች አባላት ብቻ የተዘጋጀ ልዩ <b>30% ቅናሽ</b> አግኝተዋል።\n"
-            "⚠️ ይህ የመክፈቻ ጊዜ(1ቀን) ካለፈ በኋላ ሙሉ ዋጋው ተፈጻሚ ይሆናል።\n\n"
-            "⏳ <b>አሁኑኑ ቦታዎን ያስይዙ — መዘግየት የዚህን ልዩ ቅናሽ ተጠቃሚነት ያሰጣዎታል።</b>"
+            "💎 ለእናንተ ብቻ የተዘጋጀ ልዩ <b>45% ቅናሽ</b> ተግብረናል።\n\n"
+            f"🔥 <b>ወቅታዊ መረጃ፦</b> በዚህ ሳምንት ከ214 በላይ ሰዎች ገዝተዋል። "
+            f"ለ{data['level']} ደረጃ የቀሩት <b>3 ቦታዎች</b> ብቻ ናቸው።\n\n"
+            "⚠️ <b>ማስጠንቀቂያ፦</b> ይህ ገፅ አንዴ ብቻ የሚከፈት ነው። "
+            "ይህን ገፅ ከ24ሰአት በኋላ ይዘጋል፤ ቦታው ለሌላ ሰው ይሰጣል እንዲሁም 45% ቅናሹ ይሰረዛል።\n\n"
+            "<b>አሁን ለመጀመር ዝግጁ ነዎት ወይስ ባሉበት መቀጠል ይመርጣሉ?</b>"
         )
 
-    # send once, with HTML parse mode
-    await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']), parse_mode="HTML")
+    # Send the final pitch
+    await callback.message.answer(
+        pitch, 
+        reply_markup=kb.payment_markup(lang, product['id']), 
+        parse_mode="HTML"
+    )
 
+    # asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username))
+    import datetime
 
-    asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id,username=callback.from_user.username))
-
-    
-    
+# Update the DB: user saw the pitch at this exact moment
+    await db.execute(
+        "UPDATE users SET last_pitch_at = %s WHERE user_id = %s", 
+        (datetime.datetime.now(), user_id)
+    )
     await state.clear()
     
+def build_pitch(user, product):
+    # Force uppercase to avoid "en" vs "EN" mismatch
+    lang = user.get('language', 'EN').upper()
+    level = user.get('level', 'BEGINNER')
+    title = product.get('title', 'Training Plan')
+    price = product.get('price', 0)
+    
+    # Safely get the obstacle or fallback
+    obs_raw = user.get('obstacle', 'CONSISTENCY')
+    
+    # Barnum Effect Mapping
+    obs_map = {
+        "EN": {"DIET": "Nutrition", "CONSISTENCY": "Consistency", "NOPLAN": "Structure"},
+        "AM": {"DIET": "የአመጋገብ ስርዓት", "CONSISTENCY": "ተነሳሽነት", "NOPLAN": "የተዋቀረ እቅድ"}
+    }
+    
+    # Get the phrased obstacle based on language
+    obs_phrased = obs_map.get(lang, obs_map["EN"]).get(obs_raw, "Consistency")
+    
+    # Math: Price calculation
+    try:
+        actual_price = int(float(price) / 0.55)
+    except:
+        actual_price = 0
+
+    complete_label = "Analysis Complete" # Or use your get_text(lang, "analysis_complete")
+
+    if lang == "AM":
+        return (
+            f"🎯 <b>{complete_label}</b>\n\n"
+            f"አብዛኛው ሰው ውጤት የማይመጣው በ<b>{obs_phrased}</b> ምክንያት ነው። "
+            f"ይህን <b>{title}</b> ያዘጋጀሁት ይህንኑ ችግርዎን በቀጥታ እንዲፈታ ነው። 🏆\n\n"
+            "<b>እቅዱ የሚያካትተው፦</b>\n"
+            "✅ <b>የ8-ሳምንት የለውጥ ጉዞ</b> - ግራ መጋባትን የሚያስቀር።\n"
+            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
+            "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
+            "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
+            "🌟 <b>የመስራች አባላት ልዩ ቅናሽ</b>\n"
+            f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
+            "💎 ለእናንተ ብቻ የተዘጋጀ ልዩ <b>45% ቅናሽ</b> ተግብረናል።\n\n"
+            "<b>አሁን ለመጀመር ዝግጁ ነዎት ወይስ ባሉበት መቀጠል ይመርጣሉ?</b>"
+        )
+    
+    # Default to English (solves the NoneType error)
+    return (
+        f"🎯 <b>{complete_label}</b>\n\n"
+        f"Most people fail because of <b>{obs_phrased}</b>. They guess, they wait, and they quit. "
+        f"I made the <b>{title}</b> to solve this exact problem for you. 🏆\n\n"
+        "<b>Your program includes:</b>\n"
+        "✅ <b>8-Week Plan</b> - No more guessing what to do.\n"
+        "✅ <b>Smart Nutrition</b> - The right food for fast results.\n"
+        "✅ <b>Progress Tracker</b> - See your body change every week.\n"
+        "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n\n"
+        "🌟 <b>FOUNDER'S SPECIAL OFFER</b>\n"
+        f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
+        "💎 You have a special <b>45% Founder’s Discount</b>.\n\n"
+        "<b>Are you ready to start, or will you stay exactly where you are?</b>"
+    )
+
+@router.callback_query(F.data == "re_pitch_trigger")
+async def re_pitch_trigger(callback: types.CallbackQuery, db: Database):
+    user = await db.get_user(callback.from_user.id)
+    product = await db.match_product(user['language'], user['level'], user['frequency'])
+    if not product:
+        return await callback.message.answer("No product found for your profile.")
+
+    pitch_text = build_pitch(user, product)
+    await callback.message.answer(
+        pitch_text,
+        reply_markup=kb.payment_markup(user['language'], product['id']),
+        parse_mode="HTML"
+    )
+
+
+
+
 
 import html
 
@@ -359,3 +480,6 @@ async def notify_admin_new_lead(bot: Bot, user_data: dict, full_name: str, user_
 
     except Exception as e:
         logging.exception(f"Failed to process new lead notification: {e}")
+
+
+

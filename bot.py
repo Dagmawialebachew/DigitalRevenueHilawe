@@ -18,6 +18,7 @@ from middlewares.error_handling_middleware import router as error_router
 
 # Import your admin API route setup (aiohttp style)
 from api.api import setup_admin_routes
+from scheduler.scheduler import check_and_send_reminders, test_reminder_for_user
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +78,7 @@ async def on_startup(bot: Bot):
     await db.setup()  # run schema if needed
     await set_commands(bot, settings.ADMIN_IDS)
 
+
     # Set webhook if provided
     if os.getenv("WEBHOOK_BASE_URL"):
         webhook_url = f"{settings.WEBHOOK_BASE_URL}/webhook"
@@ -85,6 +87,12 @@ async def on_startup(bot: Bot):
             logging.info("Webhook set to: %s", webhook_url)
         except Exception:
             logging.exception("Failed to set webhook")
+            
+async def scheduler_loop(bot, db):
+    while True:
+        await check_and_send_reminders(bot, db)
+        await asyncio.sleep(14400)  # 4 hours
+
 
 async def on_shutdown(bot: Bot):
     logging.info("🛑 Shutting down engine...")
@@ -114,6 +122,7 @@ async def create_app() -> web.Application:
     webhook_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_handler.register(app, path="/webhook")
 
+
     # Register admin API routes (aiohttp style)
     setup_admin_routes(app)
 
@@ -126,6 +135,7 @@ async def create_app() -> web.Application:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     app["upload_dir"] = UPLOAD_DIR
     app.router.add_static("/uploads", UPLOAD_DIR, show_index=False)
+    app.on_startup.append(lambda _: asyncio.create_task(scheduler_loop(bot, db)))
 
     # Setup CORS with aiohttp_cors
     cors = aiohttp_cors.setup(app, defaults={
@@ -167,7 +177,9 @@ async def start_polling():
     await db.connect()
     await db.setup()
     await set_commands(bot, settings.ADMIN_IDS)
+
     # If you have scheduled jobs, start them here (scheduler.start())
+    asyncio.create_task(scheduler_loop(bot, db))
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)
