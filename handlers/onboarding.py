@@ -365,8 +365,9 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
 
 # Update the DB: user saw the pitch at this exact moment
     await db.execute(
-        "UPDATE users SET last_pitch_at = %s WHERE user_id = %s", 
-        (datetime.datetime.now(), user_id)
+        "UPDATE users SET last_pitch_at = $1 WHERE telegram_id = $2",
+        datetime.datetime.now(),
+        user_id
     )
     await state.clear()
     

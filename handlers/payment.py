@@ -79,7 +79,7 @@ async def cancel_payment(message: types.Message, state: FSMContext, db: Database
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."
     await message.answer(text, reply_markup=types.ReplyKeyboardRemove())  # Remove the cancel button
     await message.answer("🏠 <b>DASHBOARD</b>", reply_markup=rb.main_menu(lang), parse_mode="HTML")
-
+on
 @router.message(PaymentStates.awaiting_proof, F.photo)
 async def handle_payment_proof(message: types.Message, state: FSMContext, db: Database, bot: Bot):
     # Keep state data for product/amount but fetch language from DB
