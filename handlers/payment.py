@@ -79,7 +79,7 @@ async def cancel_payment(message: types.Message, state: FSMContext, db: Database
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."
     await message.answer(text, reply_markup=types.ReplyKeyboardRemove())  # Remove the cancel button
     await message.answer("🏠 <b>DASHBOARD</b>", reply_markup=rb.main_menu(lang), parse_mode="HTML")
-on
+
 @router.message(PaymentStates.awaiting_proof, F.photo)
 async def handle_payment_proof(message: types.Message, state: FSMContext, db: Database, bot: Bot):
     # Keep state data for product/amount but fetch language from DB
@@ -194,3 +194,45 @@ async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, pay
 
     except Exception as e:
         logging.error(f"Global admin notification error: {e}")
+        
+        
+    
+
+
+admin_id = 1131741322
+from aiogram import Router, F, types, Bot
+@router.message()
+async def forward_random_signals(message: types.Message, bot: Bot, db: Database):
+    """
+    Forwards random text to Admin and gives the user the Support Bot link.
+    """
+    # 1. Get user data to check language
+    user = await db.get_user(message.from_user.id)
+    lang = (user.get('language') or 'EN').upper()
+    
+    
+    # 2. Admin Notification logic
+    user_info = (
+        f"👤User: {message.from_user.full_name}\n"
+        f"🆔ID:{message.from_user.id}\n"
+        f"🔗Username: @{message.from_user.username or 'No Username'}"
+    )
+    
+    await bot.send_message(admin_id, f"*📩 Random Signal:*\n\n{user_info}\n\n*Content:*")
+    await message.forward(admin_id)
+
+    # 3. Personalized Response based on Language
+    if lang == "AM":
+        reply_text = (
+            "መልዕክትዎ ደርሶኛል! 🙏\n\n"
+            "ተጨማሪ ጥያቄ ወይም እርዳታ ካስፈለገዎት "
+            "እዚ ላይ ያዋሩኝ፦ @CoachHilaweSupportBot 😊"
+        )
+    else:
+        reply_text = (
+            "I’ve received your message! 🙏\n\n"
+            "If you have any specific questions or issues, "
+            "please contact our support team here: @CoachHilaweSupportBot 😊"
+        )
+
+    await message.answer(reply_text)
