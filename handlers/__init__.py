@@ -8,6 +8,6 @@ from .admin import router as admin
 all_routers = [
     admin,       # Admin first (highest priority)
     onboarding,
-    payment,
-    dashboard
+    dashboard,
+    payment
 ]
