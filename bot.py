@@ -91,7 +91,7 @@ async def on_startup(bot: Bot):
 async def scheduler_loop(bot, db):
     while True:
         await check_and_send_reminders(bot, db)
-        await asyncio.sleep(14400)  # 4 hours
+        await asyncio.sleep(10800)  # 4 hours
 
 
 async def on_shutdown(bot: Bot):
