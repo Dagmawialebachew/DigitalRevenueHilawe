@@ -17,7 +17,7 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
     # Standard: 2 columns per row
     builder.adjust(2)
     
-    return builder.as_markup(resize_keyboard=True, input_field_placeholder="Coach Hilawe Dashboard" if lang == "EN" else "ኮች ሂላዌ ዳሽቦርድ")
+    return builder.as_markup(resize_keyboard=True, input_field_placeholder="Coach Hilawe Dashboard" if lang == "EN" else "ኮች ህላዌ ዳሽቦርድ")
 
 def cancel_payment_kb(lang: str):
     text = "❌ Cancel Payment" if lang == "EN" else "❌ ክፍያውን ሰርዝ"

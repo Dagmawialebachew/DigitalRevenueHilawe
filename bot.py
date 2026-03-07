@@ -88,11 +88,21 @@ async def on_startup(bot: Bot):
         except Exception:
             logging.exception("Failed to set webhook")
             
-async def scheduler_loop(bot, db):
+async def scheduler_loop(bot: Bot, db):
+    """
+    This is the engine. It runs, calls your logic, 
+    then sleeps for 3 hours.
+    """
     while True:
-        await check_and_send_reminders(bot, db)
-        await asyncio.sleep(10800)  # 4 hours
-
+        logging.info("⏰ Scheduler waking up: Checking for ghost users...")
+        try:
+            await check_and_send_reminders(bot, db)
+        except Exception as e:
+            logging.error(f"Error in scheduler loop: {e}")
+        
+        # 3 hours = 10800 seconds
+        logging.info("💤 Scheduler sleeping for 3 hours.")
+        await asyncio.sleep(10800)
 
 async def on_shutdown(bot: Bot):
     logging.info("🛑 Shutting down engine...")

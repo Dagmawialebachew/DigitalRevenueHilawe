@@ -12,17 +12,12 @@ async def check_and_send_reminders(bot: Bot, db):
 
         ghost_users = await db._pool.fetch("""
 
-            SELECT telegram_id AS user_id, language, level, full_name
-
-            FROM users
-
-            WHERE last_pitch_at < NOW() - INTERVAL '5 hours' 
-
-              AND last_pitch_at > NOW() - INTERVAL '8 hours'
-
-              AND has_paid = FALSE 
-
-              AND reminded = FALSE
+           SELECT telegram_id AS user_id, language, level, full_name
+FROM users
+WHERE last_pitch_at < NOW() - INTERVAL '3 hours' 
+  AND last_pitch_at > NOW() - INTERVAL '4 hours'
+  AND has_paid = FALSE 
+  AND reminded = FALSE
 
         """)
     except Exception as e:
@@ -98,12 +93,7 @@ async def check_and_send_reminders(bot: Bot, db):
         except Exception:
             logging.error("Could not send report to Admin.")
 
-async def scheduler_loop(bot: Bot, db, admin_id: int):
-    while True:
-        await check_and_send_reminders(bot, db, admin_id)
-        # Check every 1 hour to ensure no one misses the 3-6 hour window
-        await asyncio.sleep(10800)
-        
+
 
 
 async def test_reminder_for_user(bot: Bot, db, user_id: int):
