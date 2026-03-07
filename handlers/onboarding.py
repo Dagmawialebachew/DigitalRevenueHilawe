@@ -360,7 +360,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         parse_mode="HTML"
     )
 
-    # asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username))
+    asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username))
     import datetime
 
 # Update the DB: user saw the pitch at this exact moment
