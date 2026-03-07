@@ -135,7 +135,6 @@ async def create_app() -> web.Application:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     app["upload_dir"] = UPLOAD_DIR
     app.router.add_static("/uploads", UPLOAD_DIR, show_index=False)
-    app.on_startup.append(lambda _: asyncio.create_task(scheduler_loop(bot, db)))
 
     # Setup CORS with aiohttp_cors
     cors = aiohttp_cors.setup(app, defaults={
@@ -165,11 +164,13 @@ async def create_app() -> web.Application:
 
     # Integrate aiogram dispatcher with aiohttp app
     setup_application(app, dp, bot=bot)
+    async def startup_wrapper(_):
+        await on_startup(bot)               # DB connect + setup
+        asyncio.create_task(scheduler_loop(bot, db))
 
     # Startup / cleanup hooks
-    app.on_startup.append(lambda _: asyncio.create_task(on_startup(bot)))
+    app.on_startup.append(startup_wrapper)
     app.on_cleanup.append(lambda _: asyncio.create_task(on_shutdown(bot)))
-
     return app
 
 # --- Polling mode for local development ---
