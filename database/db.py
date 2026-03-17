@@ -40,6 +40,31 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- Add per-user deal fields and broadcasts table
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS deal_expires_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS deal_price DECIMAL(10,2);
+
+CREATE TABLE IF NOT EXISTS broadcasts (
+  id SERIAL PRIMARY KEY,
+  name TEXT,
+  target_filter TEXT,
+  language VARCHAR(2),
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  total_target INTEGER DEFAULT 0,
+  sent_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+  admin_id BIGINT,
+  cancelled BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Optional index for quick lookup of active deals
+CREATE INDEX IF NOT EXISTS idx_users_deal_expires ON users (deal_expires_at) WHERE deal_expires_at IS NOT NULL;
+
+
 -- Optimization Indexes
 CREATE INDEX IF NOT EXISTS idx_products_filter ON products (language, gender, level, frequency) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_users_tid ON users (telegram_id);
@@ -516,4 +541,38 @@ class Database:
             ORDER BY total_revenue DESC
         """
         return await self._pool.fetch(query)
+    from typing import List, Dict, Any
+    from datetime import datetime, timedelta
+    
+    async def set_deal_for_targets(self, filter_sql: str, expires_at: datetime, price: float) -> int:
+        """
+        Set deal_expires_at and deal_price for users matching filter_sql.
+        filter_sql should be a WHERE clause fragment like "has_paid = FALSE".
+        Returns number of rows updated.
+        """
+        query = f"""
+        UPDATE users
+        SET deal_expires_at = $1, deal_price = $2
+        WHERE {filter_sql}
+        """
+        result = await self._pool.execute(query, expires_at, price)
+        # asyncpg returns a string like "UPDATE <n>"
+        try:
+            return int(result.split()[-1])
+        except Exception:
+            return 0
+
+    async def fetch_broadcast_targets(self, filter_sql: str) -> List[Dict[str, Any]]:
+        q = f"SELECT telegram_id, language FROM users WHERE {filter_sql}"
+        rows = await self._pool.fetch(q)
+        return [dict(r) for r in rows]
+
+    async def create_broadcast(self, name: str, target_filter: str, language: str, expires_at: datetime, total_target: int, admin_id: int):
+        return await self._pool.fetchrow(
+            "INSERT INTO broadcasts (name, target_filter, language, expires_at, total_target, admin_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+            name, target_filter, language, expires_at, total_target, admin_id
+        )
+
+    async def update_broadcast_stats(self, broadcast_id: int, sent: int, failed: int):
+        await self._pool.execute("UPDATE broadcasts SET sent_count = $1, failed_count = $2 WHERE id = $3", sent, failed, broadcast_id)
 

@@ -24,6 +24,13 @@ async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db:
     # Get user data directly from DB
     user_data = await db.get_user(user_id)
     lang = user_data.get("language", "EN") if user_data else "EN"
+    display_price = 399.00
+    from datetime import datetime, timedelta
+
+    if user_data and user_data.get("deal_expires_at"):
+     expires_at = user_data["deal_expires_at"]
+    if expires_at > datetime.utcnow():
+        display_price = user_data.get("deal_price", product['price'])
     
     product = await db._pool.fetchrow("SELECT * FROM products WHERE id = $1", product_id)
     if not product:

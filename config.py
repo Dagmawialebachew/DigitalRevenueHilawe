@@ -38,6 +38,12 @@ class Settings:
 
     BANK_TELEBIRR = os.getenv("BANK_TELEBIRR", "")
     BANK_TELEBIRR_NAME = os.getenv("BANK_TELEBIRR_NAME", "")
+    
+    
+    BROADCAST_BATCH_SLEEP: float = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))
+    BROADCAST_DEAL_PRICE: float = float(os.getenv("BROADCAST_DEAL_PRICE", "399"))
+    BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "24"))
+    REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
 
 
 settings = Settings()

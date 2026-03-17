@@ -163,78 +163,79 @@ async def prod_finalize(message: types.Message, state: FSMContext, db: Database)
 
 # --- [ SECTION 3: BROADCAST ENGINE (SAFE LAUNCH) ] ---
 
-@router.message(F.text == "📢 Global Broadcast", F.from_user.id.in_(settings.ADMIN_IDS))
-async def start_broadcast(message: types.Message, state: FSMContext):
-    await state.set_state(AdminStates.awaiting_broadcast)
-    await message.answer(
-        "📢 *DRAFTING MODE*\n"
-        "Send your message exactly as you want it to appear.\n\n"
-        "💡 *Tip: You can use *bold*, __italic__, and even attach images/videos. "
-        "The bot will preserve all formatting.*",
-        reply_markup=akb.cancel_admin()
-    )
+# @router.message(F.text == "📢 Global Broadcast", F.from_user.id.in_(settings.ADMIN_IDS))
+# async def start_broadcast(message: types.Message, state: FSMContext):
+#     await state.set_state(AdminStates.awaiting_broadcast)
+#     await message.answer(
+#         "📢 *DRAFTING MODE*\n"
+#         "Send your message exactly as you want it to appear.\n\n"
+#         "💡 *Tip: You can use *bold*, __italic__, and even attach images/videos. "
+#         "The bot will preserve all formatting.*",
+#         reply_markup=akb.cancel_admin()
+#     )
 
-@router.message(AdminStates.awaiting_broadcast)
-async def preview_broadcast(message: types.Message, state: FSMContext):
-    if message.text == "❌ Abort Operation":
-        await state.clear()
-        return await message.answer("Broadcast cancelled.", reply_markup=akb.admin_main_menu())
+# @router.message(AdminStates.awaiting_broadcast)
+# async def preview_broadcast(message: types.Message, state: FSMContext):
+#     if message.text == "❌ Abort Operation":
+#         await state.clear()
+#         return await message.answer("Broadcast cancelled.", reply_markup=akb.admin_main_menu())
 
-    # We store the message ID and Chat ID to copy it later
-    await state.update_data(msg_to_copy=message.message_id, chat_from=message.chat.id)
+#     # We store the message ID and Chat ID to copy it later
+#     await state.update_data(msg_to_copy=message.message_id, chat_from=message.chat.id)
     
-    # Show the Admin a Preview
-    await message.answer("👀 *BROADCAST PREVIEW:*")
+#     # Show the Admin a Preview
+#     await message.answer("👀 *BROADCAST PREVIEW:*")
     
-    # Copy the message back to the admin so they see the final result
-    await message.copy_to(message.chat.id)
+#     # Copy the message back to the admin so they see the final result
+#     await message.copy_to(message.chat.id)
     
     
-    confirm_kb = InlineKeyboardBuilder()
-    confirm_kb.button(text="🚀 YES, LAUNCH NOW", callback_data="confirm_launch")
-    confirm_kb.button(text="✍️ Edit Draft", callback_data="broadcast_push") # Goes back
-    confirm_kb.adjust(1)
+#     confirm_kb = InlineKeyboardBuilder()
+#     confirm_kb.button(text="🚀 YES, LAUNCH NOW", callback_data="confirm_launch")
+#     confirm_kb.button(text="✍️ Edit Draft", callback_data="broadcast_push") # Goes back
+#     confirm_kb.adjust(1)
 
-    await message.answer(
-        "⚠️ *FINAL CONFIRMATION*\n"
-        "Are you sure you want to send this to ALL registered users?",
-        reply_markup=confirm_kb.as_markup()
-    )
-    await state.set_state(AdminStates.confirm_broadcast)
+#     await message.answer(
+#         "⚠️ *FINAL CONFIRMATION*\n"
+#         "Are you sure you want to send this to ALL registered users?",
+#         reply_markup=confirm_kb.as_markup()
+#     )
+#     await state.set_state(AdminStates.confirm_broadcast)
 
-@router.callback_query(AdminStates.confirm_broadcast, F.data == "confirm_launch")
-async def execute_broadcast(callback: types.CallbackQuery, db: Database, bot: Bot, state: FSMContext):
-    data = await state.get_data()
-    msg_id = data['msg_to_copy']
-    from_chat = data['chat_from']
+# @router.callback_query(AdminStates.confirm_broadcast, F.data == "confirm_launch")
+# async def execute_broadcast(callback: types.CallbackQuery, db: Database, bot: Bot, state: FSMContext):
+#     data = await state.get_data()
+#     msg_id = data['msg_to_copy']
+#     from_chat = data['chat_from']
 
-    users = await db._pool.fetch("SELECT telegram_id FROM users")
-    await callback.message.edit_text(f"🚀 *Launch Initiated...*\nTarget: `{len(users)}` athletes.")
+#     users = await db._pool.fetch("SELECT telegram_id FROM users")
+#     await callback.message.edit_text(f"🚀 *Launch Initiated...*\nTarget: `{len(users)}` athletes.")
     
-    success, fail = 0, 0
-    for user in users:
-        try:
-            # copy_to automatically handles bold/italic/media
-            await bot.copy_message(
-                chat_id=user['telegram_id'],
-                from_chat_id=from_chat,
-                message_id=msg_id
-            )
-            success += 1
-            await asyncio.sleep(0.05) # Crucial: Rate limiting
-        except (TelegramForbiddenError, Exception):
-            fail += 1
-        except TelegramRetryAfter as e:
-            await asyncio.sleep(e.retry_after)
-            await bot.copy_message(chat_id=user['telegram_id'], from_chat_id=from_chat, message_id=msg_id)
-            success += 1
+#     success, fail = 0, 0
+#     for user in users:
+#         try:
+#             # copy_to automatically handles bold/italic/media
+#             await bot.copy_message(
+#                 chat_id=user['telegram_id'],
+#                 from_chat_id=from_chat,
+#                 message_id=msg_id
+#             )
+#             success += 1
+#             await asyncio.sleep(0.05) # Crucial: Rate limiting
+#         except (TelegramForbiddenError, Exception):
+#             fail += 1
+#         except TelegramRetryAfter as e:
+#             await asyncio.sleep(e.retry_after)
+#             await bot.copy_message(chat_id=user['telegram_id'], from_chat_id=from_chat, message_id=msg_id)
+#             success += 1
 
-    await bot.send_message(
-        from_chat,
-        f"🏁 *MISSION COMPLETE*\n\n✅ Reached: `{success}`\n❌ Blocked: `{fail}`",
-        reply_markup=akb.admin_main_menu()
-    )
-    await state.clear()
+#     await bot.send_message(
+#         from_chat,
+#         f"🏁 *MISSION COMPLETE*\n\n✅ Reached: `{success}`\n❌ Blocked: `{fail}`",
+#         reply_markup=akb.admin_main_menu()
+#     )
+#     await state.clear()
+
 # --- [ SECTION 4: FINANCIAL AUDIT QUEUE ] ---
 
 PAY_PER_PAGE = 6
@@ -581,3 +582,349 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
     await db.delete_product(prod_id)
     await callback.answer("Deleted 🗑️")
     await list_products_manage(callback, db)
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def build_deal_message(lang: str, expires_at: datetime, product_id: int):
+    remaining = expires_at - datetime.utcnow()
+    hours = remaining.seconds // 3600 + remaining.days * 24
+    minutes = (remaining.seconds % 3600) // 60
+
+    import random
+    spots_left = random.choice([9, 7, 5])
+    athletes = 214 + random.randint(1, 10)
+
+    if lang.upper() == "AM":
+        text = (
+            f"🔥 <b>የ1 ቀን ልዩ ቅናሽ</b> 🔥\n\n"
+            f"💎 ዋጋ ቀድሞ: ~~600 ብር~~\n"
+            f"⚡️ ዛሬ በልዩ ሁኔታ: <b>{settings.BROADCAST_DEAL_PRICE} ብር</b>\n\n"
+            f"ከ<b>{athletes}</b> በላይ ሰልጣኞች ተቀላቀሉ። ለደረጃዎ የቀሩት <b>{spots_left} ቦታ</b> ብቻ ናቸው! 📊\n\n"
+            f"⏳ ቅናሹ በ <b>{hours}ሰ {minutes}ደ</b> ውስጥ ይጠፋል።\n\n"
+            f"👉 አሁኑኑ ተመዝግበው ለውጥዎን ይጀምሩ፦"
+        )
+        button_text = "⚡️ የ399 ብር ቅናሹን አሁኑኑ ያግኙ"
+    else:
+        text = (
+            f"🔥 <b>FLASH DEAL: 24 HOURS ONLY</b> 🔥\n\n"
+            f"💎 Original Price: ~~600 ETB~~\n"
+            f"⚡️ Today's Price: <b>{settings.BROADCAST_DEAL_PRICE} ETB</b>\n\n"
+            f"Over <b>{athletes} athletes</b> joined this week. Only <b>{spots_left} slots left</b>! 📊\n\n"
+            f"⏳ Offer expires in: <b>{hours}h {minutes}m</b>\n\n"
+            f"👉 Tap below to lock in your price and start:"
+        )
+        button_text = "⚡️ Claim My 399 ETB Deal"
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
+        ]
+    )
+    return text, kb
+
+
+import os
+from datetime import datetime, timedelta
+
+from aiogram import types, Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+# RIGHT for aiogram v3.x
+from aiogram.exceptions import TelegramForbiddenError, TelegramAPIError
+
+from config import settings
+from app_context import db  # or import your Database instance the same way other handlers do
+from aiogram.fsm.context import FSMContext
+from aiogram import Router
+
+# Configurable defaults (env or fallback)
+DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "399"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "24"))
+BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
+
+# --- Helper: target selection keyboard ---
+def broadcast_target_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="🧪 Test (Admins only)", callback_data="broadcast_target:test")
+    kb.button(text="🎯 Unpaid only", callback_data="broadcast_target:unpaid")
+    kb.button(text="✅ Paid only", callback_data="broadcast_target:paid")
+    kb.button(text="📣 All users", callback_data="broadcast_target:all")
+    kb.adjust(2)
+    return kb.as_markup()
+
+# --- Step 1: Admin starts drafting a broadcast ---
+
+@router.message(F.text == "📢 Global Broadcast", F.from_user.id.in_(settings.ADMIN_IDS))
+async def start_broadcast(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Choose target group for this broadcast:",
+        reply_markup=broadcast_target_kb()
+    )
+    await state.set_state(AdminStates.confirm_broadcast)
+# @router.message(F.text == "📢 Global Broadcast", F.from_user.id.in_(settings.ADMIN_IDS))
+# async def start_broadcast(message: types.Message, state: FSMContext):
+#     await state.set_state(AdminStates.awaiting_broadcast)
+#     await message.answer(
+#         "📢 *DRAFTING MODE*\n"
+#         "Send your message exactly as you want it to appear.\n\n"
+#         "💡 *Tip: You can use *bold*, __italic__, and even attach images/videos. "
+#         "The bot will preserve all formatting.*",
+#         reply_markup=akb.cancel_admin()
+#     )
+
+# # --- Step 2: Admin sends draft; show preview and confirm ---
+# @router.message(AdminStates.awaiting_broadcast)
+# async def preview_broadcast(message: types.Message, state: FSMContext):
+#     if message.text == "❌ Abort Operation":
+#         await state.clear()
+#         return await message.answer("Broadcast cancelled.", reply_markup=akb.admin_main_menu())
+
+#     await state.update_data(msg_to_copy=message.message_id, chat_from=message.chat.id)
+
+#     await message.answer("👀 *BROADCAST PREVIEW:*")
+#     await message.copy_to(message.chat.id)
+
+#     # Now show target selection instead of cancel
+#     await message.answer(
+#         "Choose target group for this broadcast:",
+#         reply_markup=broadcast_target_kb()
+#     )
+#     await state.set_state(AdminStates.confirm_broadcast)
+
+# --- Cancel handler ---
+@router.callback_query(F.data == "cancel_broadcast")
+async def cancel_broadcast(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.answer("Broadcast cancelled.", reply_markup=akb.admin_main_menu())
+
+# --- Admin selected a target; show final confirmation with estimated count ---
+@router.callback_query(AdminStates.confirm_broadcast, F.data.startswith("broadcast_target:"))
+async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMContext):
+    target = callback.data.split(":", 1)[1]  # test | unpaid | paid | all
+
+    # Estimate target count
+    try:
+        if target == "test":
+            targets = [{'telegram_id': aid, 'language': 'EN'} for aid in settings.ADMIN_IDS]
+            filter_sql = None
+
+        # Inside execute_broadcast_run, update the "unpaid" block:
+
+        elif target == "unpaid":
+            # We JOIN with products to get the ID that matches the user's onboarding stats
+            rows = await db._pool.fetch("""
+                SELECT u.telegram_id, u.language, p_match.id as matched_product_id
+                FROM users u
+                LEFT JOIN products p_match ON 
+                    u.language = p_match.language AND 
+                    u.gender = p_match.gender AND 
+                    u.level = p_match.level AND 
+                    u.frequency = p_match.frequency
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM payments p 
+                    WHERE p.user_id = u.telegram_id AND p.status = 'approved'
+                ) AND p_match.is_active = TRUE
+            """)
+            targets = [dict(r) for r in rows]
+            filter_sql = "NOT EXISTS (SELECT 1 FROM payments p WHERE p.user_id = users.telegram_id AND p.status = 'approved')"
+
+        elif target == "paid":
+            # Users WITH at least one approved payment
+            rows = await db._pool.fetch("""
+                SELECT u.telegram_id, u.language
+                FROM users u
+                WHERE EXISTS (
+                    SELECT 1 FROM payments p
+                    WHERE p.user_id = u.telegram_id
+                    AND p.status = 'approved'
+                )
+            """)
+            targets = [dict(r) for r in rows]
+            filter_sql = "EXISTS (SELECT 1 FROM payments p WHERE p.user_id = users.telegram_id AND p.status = 'approved')"
+
+        else:  # all users
+            rows = await db._pool.fetch("SELECT telegram_id, language FROM users")
+            targets = [dict(r) for r in rows]
+            filter_sql = "TRUE"
+
+    except Exception:
+        total = 0
+    total = len(targets) # Add this line
+    confirm_kb = InlineKeyboardBuilder()
+    confirm_kb.button(text="🚀 Launch Now", callback_data=f"confirm_launch:{target}")
+    confirm_kb.button(text="❌ Cancel", callback_data="cancel_broadcast")
+    confirm_kb.adjust(2)
+
+    await callback.message.answer(
+        f"⚠️ *FINAL CONFIRMATION*\nTarget: `{total}` users.\nMode: `{target}`\nDo you want to proceed?",
+        reply_markup=confirm_kb.as_markup()
+    )
+
+# --- Core executor: updates DB (deal_expires_at/deal_price) and broadcasts by copying admin draft ---
+
+
+# Core executor (no draft required)
+async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_mode: bool = False):
+    """
+    Send localized template messages to the selected target group.
+    - bot: aiogram Bot instance
+    - db: your Database object with _pool (asyncpg)
+    - admin_id: admin who launched the broadcast (for summary)
+    - target: 'test' | 'unpaid' | 'paid' | 'all'
+    - test_mode: if True, only send to settings.ADMIN_IDS and DO NOT update DB deals
+    """
+    BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
+    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 399))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 24))
+
+    # Build target list and SQL filter
+    if target == "test":
+        targets = [{'telegram_id': aid, 'language': 'EN'} for aid in settings.ADMIN_IDS]
+        filter_sql = None
+
+    # Inside execute_broadcast_run, update the "unpaid" block:
+
+    elif target == "unpaid":
+        # We JOIN with products to get the ID that matches the user's onboarding stats
+        rows = await db._pool.fetch("""
+            SELECT u.telegram_id, u.language, p_match.id as matched_product_id
+            FROM users u
+            LEFT JOIN products p_match ON 
+                u.language = p_match.language AND 
+                u.gender = p_match.gender AND 
+                u.level = p_match.level AND 
+                u.frequency = p_match.frequency
+            WHERE NOT EXISTS (
+                SELECT 1 FROM payments p 
+                WHERE p.user_id = u.telegram_id AND p.status = 'approved'
+            ) AND p_match.is_active = TRUE
+        """)
+        targets = [dict(r) for r in rows]
+        filter_sql = "NOT EXISTS (SELECT 1 FROM payments p WHERE p.user_id = users.telegram_id AND p.status = 'approved')"
+
+    elif target == "paid":
+        # Users WITH at least one approved payment
+        rows = await db._pool.fetch("""
+            SELECT u.telegram_id, u.language
+            FROM users u
+            WHERE EXISTS (
+                SELECT 1 FROM payments p
+                WHERE p.user_id = u.telegram_id
+                AND p.status = 'approved'
+            )
+        """)
+        targets = [dict(r) for r in rows]
+        filter_sql = "EXISTS (SELECT 1 FROM payments p WHERE p.user_id = users.telegram_id AND p.status = 'approved')"
+
+    else:  # all users
+        rows = await db._pool.fetch("SELECT telegram_id, language FROM users")
+        targets = [dict(r) for r in rows]
+        filter_sql = "TRUE"
+
+
+    total = len(targets)
+    expires_at = datetime.utcnow() + timedelta(hours=DEAL_DURATION_HOURS)
+
+    # Persist broadcast run (best-effort)
+    broadcast_id = None
+    try:
+        row = await db._pool.fetchrow(
+            "INSERT INTO broadcasts (name, target_filter, language, expires_at, total_target, admin_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+            f"1-day deal {datetime.utcnow().isoformat()}",
+            target,
+            None,
+            expires_at,
+            total,
+            admin_id
+        )
+        if row:
+            broadcast_id = row['id']
+    except Exception as e:
+        logging.warning("Failed to create broadcasts row: %s", e)
+
+    # Update users with deal info (skip in test mode)
+    if not test_mode and filter_sql:
+        try:
+            await db._pool.execute(
+                "UPDATE users SET deal_expires_at = $1, deal_price = $2 WHERE " + filter_sql,
+                expires_at,
+                DEAL_PRICE
+            )
+        except Exception as e:
+            logging.warning("Failed to update users with deal info: %s", e)
+
+    sent = 0
+    failed = 0
+
+    for user in targets:
+        uid = user.get('telegram_id')
+        lang = user.get('language') or 'EN'
+        p_id = user.get('matched_product_id')
+        if not p_id:
+            logging.warning(f"Skipping user {uid}: No matching product found for their stats.")
+            continue
+        try:
+            text, kb = build_deal_message(lang, expires_at, p_id)
+        
+            await bot.send_message(uid, text, reply_markup=kb, parse_mode="HTML")
+            sent += 1
+            await asyncio.sleep(BATCH_SLEEP)
+        except Exception as e:
+            failed += 1
+            logging.exception(f"Broadcast send failed for {uid}")
+    # Update broadcast stats if we created a row
+    if broadcast_id:
+        try:
+            await db._pool.execute(
+                "UPDATE broadcasts SET sent_count = $1, failed_count = $2 WHERE id = $3",
+                sent, failed, broadcast_id
+            )
+        except Exception as e:
+            logging.warning("Failed to update broadcast stats: %s", e)
+
+    # Notify admin with summary (best-effort)
+    try:
+        await bot.send_message(
+            admin_id,
+            f"🏁 *BROADCAST COMPLETE*\n\n✅ Sent: `{sent}`\n❌ Failed: `{failed}`\nBroadcast id: `{broadcast_id}`",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+    return {"broadcast_id": broadcast_id, "sent": sent, "failed": failed}
+
+
+# Confirm-launch callback (no draft checks)
+@router.callback_query(F.data.startswith("confirm_launch:"))
+async def on_confirm_launch(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+    target = callback.data.split(":", 1)[1]
+    admin_id = callback.from_user.id
+
+    await callback.message.edit_text(f"🚀 Launch Initiated... Target mode: `{target}`")
+    test_mode = (target == "test")
+
+    asyncio.create_task(execute_broadcast_run(bot, db, admin_id, target, test_mode=test_mode))
+    await state.clear()
+
+# --- Optional: quick dry-run command (returns counts without sending) ---
+@router.message(F.text == "/broadcast_dryrun", F.from_user.id.in_(settings.ADMIN_IDS))
+async def broadcast_dryrun(message: types.Message):
+    # returns counts for unpaid/paid/all
+    try:
+        # Use the SAME logic as your broadcast executor
+        unpaid = await db._pool.fetchrow("""
+            SELECT COUNT(*) AS cnt FROM users u 
+            WHERE NOT EXISTS (SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved')
+        """)
+        paid = await db._pool.fetchrow("""
+            SELECT COUNT(*) AS cnt FROM users u 
+            WHERE EXISTS (SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved')
+        """)
+        total = await db._pool.fetchrow("SELECT COUNT(*) AS cnt FROM users")
+        await message.answer(
+            f"Dry run counts:\n• Unpaid: `{unpaid['cnt']}`\n• Paid: `{paid['cnt']}`\n• Total: `{total['cnt']}`",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        await message.answer(f"Failed to fetch counts: {e}")

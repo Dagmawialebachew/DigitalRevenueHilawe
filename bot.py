@@ -34,7 +34,7 @@ dp.message.middleware(LanguageMiddleware(db))
 dp.callback_query.middleware(LanguageMiddleware(db))
 
 # Include other routers (handlers)
-from handlers import all_routers
+from handlers import all_routers, reminder_worker
 for r in all_routers:
     dp.include_router(r)
 
@@ -190,7 +190,10 @@ async def start_polling():
     await set_commands(bot, settings.ADMIN_IDS)
 
     # If you have scheduled jobs, start them here (scheduler.start())
-    asyncio.create_task(scheduler_loop(bot, db))
+    # asyncio.create_task(scheduler_loop(bot, db))
+    # in startup_wrapper after scheduler_loop creation
+    # asyncio.create_task(reminder_worker(bot, db))
+
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)
