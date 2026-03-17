@@ -1,34 +1,62 @@
 # scheduler/reminder_worker.py
 import asyncio
+import logging
+import random
 from datetime import datetime, timedelta
-import os
-
 from aiogram import Bot
 
-REMINDER_INTERVAL = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))  # 15 minutes
+from handlers.admin import build_deal_message
 
 async def reminder_worker(bot: Bot, db):
     while True:
-        now = datetime.utcnow()
-        rows = await db._pool.fetch("SELECT telegram_id, deal_expires_at FROM users WHERE deal_expires_at IS NOT NULL AND has_paid = FALSE")
-        for r in rows:
-            uid = r['telegram_id']
-            expires = r['deal_expires_at']
-            if not expires:
-                continue
-            remaining = expires - now
-            # send mid-run reminder at ~12 hours left (example) and final at 30 minutes
-            if timedelta(hours=12) - timedelta(minutes=1) < remaining <= timedelta(hours=12) + timedelta(minutes=1):
-                await safe_send(bot, uid, "Reminder: 12 hours left for your 399 ETB deal. Finish now!")
-            if timedelta(minutes=31) < remaining <= timedelta(minutes=31, seconds=59):
-                # skip; we want final at 30 minutes
-                pass
-            if timedelta(minutes=30) - timedelta(seconds=30) < remaining <= timedelta(minutes=30) + timedelta(seconds=30):
-                await safe_send(bot, uid, "Final reminder: 30 minutes left to claim your 399 ETB deal.")
-        await asyncio.sleep(REMINDER_INTERVAL)
+        try:
+            now = datetime.utcnow()
+            # Fetch users with active deals
+            rows = await db._pool.fetch("""
+                SELECT telegram_id, language, deal_expires_at, last_broadcast_msg_id, matched_product_id 
+                FROM users 
+                WHERE deal_expires_at > $1 AND has_paid = FALSE AND last_broadcast_msg_id IS NOT NULL
+            """, now)
+
+            for r in rows:
+                uid = r['telegram_id']
+                expires = r['deal_expires_at']
+                msg_id = r['last_broadcast_msg_id']
+                p_id = r['matched_product_id']
+                remaining = expires - now
+
+                # --- CASE 1: Final Hour Push (Send NEW Message) ---
+                if timedelta(minutes=50) < remaining <= timedelta(hours=1):
+                    final_text = (
+                        "🚨 <b>LAST HOUR!</b>\nYour 399 ETB deal is about to expire. This is your final chance." 
+                        if r['language'] == 'EN' else 
+                        "🚨 <b>መጨረሻ ሰዓት!</b>\nየ399 ብር ቅናሹ ሊያበቃ ጥቂት ደቂቃዎች ብቻ ቀርተዋል። አሁኑኑ ይጠቀሙ!"
+                    )
+                    await safe_send(bot, uid, final_text)
+
+                # --- CASE 2: Live Edit (Update Clock & Slots) ---
+                # We update the original broadcast message
+                text, kb = build_deal_message(r['language'], expires, p_id)
+                
+                try:
+                    await bot.edit_message_text(
+                        chat_id=uid,
+                        message_id=msg_id,
+                        text=text,
+                        reply_markup=kb,
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass # Message might have been deleted by user
+
+        except Exception as e:
+            logging.error(f"Worker Error: {e}")
+
+        # Sleep for 1 hour before updating the clocks again
+        await asyncio.sleep(3600)
 
 async def safe_send(bot: Bot, chat_id: int, text: str):
     try:
-        await bot.send_message(chat_id, text, parse_mode="Markdown")
+        await bot.send_message(chat_id, text, parse_mode="HTML")
     except Exception:
         pass

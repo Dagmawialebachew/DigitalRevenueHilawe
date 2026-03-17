@@ -34,7 +34,8 @@ dp.message.middleware(LanguageMiddleware(db))
 dp.callback_query.middleware(LanguageMiddleware(db))
 
 # Include other routers (handlers)
-from handlers import all_routers, reminder_worker
+from handlers import all_routers
+from handlers.reminder_worker import reminder_worker  # This imports the FUNCTION
 for r in all_routers:
     dp.include_router(r)
 
@@ -177,6 +178,8 @@ async def create_app() -> web.Application:
     async def startup_wrapper(_):
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
+        asyncio.create_task(reminder_worker(bot, db))
+
 
     # Startup / cleanup hooks
     app.on_startup.append(startup_wrapper)
@@ -192,7 +195,7 @@ async def start_polling():
     # If you have scheduled jobs, start them here (scheduler.start())
     # asyncio.create_task(scheduler_loop(bot, db))
     # in startup_wrapper after scheduler_loop creation
-    # asyncio.create_task(reminder_worker(bot, db))
+    asyncio.create_task(reminder_worker(bot, db))
 
     await bot.delete_webhook(drop_pending_updates=True)
     try:

@@ -80,6 +80,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS reminded BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS has_paid BOOLEAN DEFAULT FALSE;
 
 
+-- Track the message we sent so we can edit it later
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_broadcast_msg_id BIGINT;
+
+-- Store the product ID directly on the user for faster background processing
+ALTER TABLE users ADD COLUMN IF NOT EXISTS matched_product_id INTEGER REFERENCES products(id);
+
+
 -- Backfill existing approved rows with created_at
 UPDATE payments 
 SET approved_at = created_at 

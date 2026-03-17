@@ -16,32 +16,50 @@ class PaymentStates(StatesGroup):
     awaiting_proof = State()
 import html
 
+
 @router.callback_query(F.data.startswith("pay_"))
 async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
+    import html
+    from datetime import datetime
+    
+    await callback.answer() # Stop the spinner immediately
+    
     product_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
 
-    # Get user data directly from DB
     user_data = await db.get_user(user_id)
     lang = user_data.get("language", "EN") if user_data else "EN"
-    
-    
+
     product = await db._pool.fetchrow("SELECT * FROM products WHERE id = $1", product_id)
     if not product:
-        return await callback.answer("⚠️ System Error: Plan not found.")
+        return await callback.message.answer("⚠️ System Error: Plan not found.")
 
-    await state.update_data(selected_product_id=product_id, amount=product['price'])
-    
+    # --- Price Logic with Expiry Check ---
+    display_price = product['price']
+    now = datetime.utcnow()
+    deal_price = user_data.get("deal_price")
+    deal_expiry = user_data.get("deal_expires_at")
+    print('here is a deal price and deal_expiry', deal_price, deal_expiry)
+
+    if deal_price and deal_expiry and now < deal_expiry:
+        display_price = deal_price
+
+    await state.update_data(selected_product_id=product_id, amount=display_price)
+
+    # Helper to safe-escape settings
+    def safe_html(val):
+        return html.escape(str(val)) if val else "Not Set"
+
     if lang == "EN":
         instruction = (
             f"🏛 <b>OFFICIAL INVOICE</b>\n"
             "————————————————————\n"
-            f"📦 <b>Program:</b> {html.escape(product['title'])}\n"
-            f"💰 <b>Price:</b> <code>{product['price']} ETB</code>\n\n"
+            f"📦 <b>Program:</b> {safe_html(product['title'])}\n"
+            f"💰 <b>Price:</b> <code>{display_price} ETB</code>\n\n"
             f"📥 <b>Transfer Details:</b>\n"
-            f"🏦 <b>Commercial Bank (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {html.escape(settings.BANK_CBE_NAME)}\n\n"
-            f"🏦 <b>Bank of Abyssinia (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {html.escape(settings.BANK_BOA_NAME)}\n\n"
-            f"📱 <b>Telebirr</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {html.escape(settings.BANK_TELEBIRR_NAME)}\n"
+            f"🏦 <b>Commercial Bank (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {safe_html(settings.BANK_CBE_NAME)}\n\n"
+            f"🏦 <b>Bank of Abyssinia (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {safe_html(settings.BANK_BOA_NAME)}\n\n"
+            f"📱 <b>Telebirr</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {safe_html(settings.BANK_TELEBIRR_NAME)}\n"
             "————————————————————\n"
             "📸 <b>Final Step:</b> Send the screenshot of your transfer below.\n\n"
             "💡 <b>Use the button below if you need to go back.</b>"
@@ -50,25 +68,20 @@ async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db:
         instruction = (
             f"🏛 <b>ይፋዊ የክፍያ መመሪያ</b>\n"
             "————————————————————\n"
-            f"📦 <b>ፕሮግራም፦</b> {html.escape(product['title'])}\n"
-            f"💰 <b>የአሰልጣኝ ክፍያ፦</b> <code>{product['price']} ብር</code>\n\n"
+            f"📦 <b>ፕሮግራም፦</b> {safe_html(product['title'])}\n"
+            f"💰 <b>የአሰልጣኝ ክፍያ፦</b> <code>{display_price} ብር</code>\n\n"
             f"📥 <b>የባንክ አካውንት ዝርዝር፦</b>\n"
-            f"🏦 <b>የኢትዮጵያ ንግድ ባንክ (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {html.escape(settings.BANK_CBE_NAME)}\n\n"
-            f"🏦 <b>አቢሲኒያ ባንክ (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {html.escape(settings.BANK_BOA_NAME)}\n\n"
-            f"📱 <b>ቴሌብር</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {html.escape(settings.BANK_TELEBIRR_NAME)}\n"
+            f"🏦 <b>የኢትዮጵያ ንግድ ባንክ (CBE)</b>\n<code>{settings.BANK_CBE}</code>\n👤 {safe_html(settings.BANK_CBE_NAME)}\n\n"
+            f"🏦 <b>አቢሲኒያ ባንክ (BOA)</b>\n<code>{settings.BANK_BOA}</code>\n👤 {safe_html(settings.BANK_BOA_NAME)}\n\n"
+            f"📱 <b>ቴሌብር</b>\n<code>{settings.BANK_TELEBIRR}</code>\n👤 {safe_html(settings.BANK_TELEBIRR_NAME)}\n"
             "————————————————————\n"
             "📸 <b>የመጨረሻ ደረጃ፦</b> የከፈሉበትን ደረሰኝ (Screenshot) ይላኩ።\n\n"
             "💡 <b>ለመመለስ ከታች ያለውን ቁልፍ ይጠቀሙ።</b>"
         )
 
-    await bot.send_chat_action(callback.message.chat.id, ChatAction.TYPING)
-    await asyncio.sleep(0.5)
-    
-    # Send instructions with the CANCEL Reply Keyboard
+    await bot.send_chat_action(callback.message.chat.id, "typing")
     await callback.message.answer(instruction, reply_markup=rb.cancel_payment_kb(lang), parse_mode="HTML")
     await state.set_state(PaymentStates.awaiting_proof)
-    await callback.answer()
-
 
 @router.message(F.text.in_({"❌ Cancel Payment", "❌ ክፍያውን ሰርዝ"}))
 async def cancel_payment(message: types.Message, state: FSMContext, db: Database):

@@ -585,6 +585,8 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+
+
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     remaining = expires_at - datetime.utcnow()
     hours = remaining.seconds // 3600 + remaining.days * 24
@@ -592,14 +594,15 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
 
     import random
     spots_left = random.choice([9, 7, 5])
-    athletes = 214 + random.randint(1, 10)
+    athletes = 614 + random.randint(1, 10)
+    print('here is the user language', lang)
 
     if lang.upper() == "AM":
         text = (
             f"🔥 <b>የ1 ቀን ልዩ ቅናሽ</b> 🔥\n\n"
-            f"💎 ዋጋ ቀድሞ: ~~600 ብር~~\n"
+            f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
             f"⚡️ ዛሬ በልዩ ሁኔታ: <b>{settings.BROADCAST_DEAL_PRICE} ብር</b>\n\n"
-            f"ከ<b>{athletes}</b> በላይ ሰልጣኞች ተቀላቀሉ። ለደረጃዎ የቀሩት <b>{spots_left} ቦታ</b> ብቻ ናቸው! 📊\n\n"
+            f"ከ<b>{athletes}</b> በላይ ሰዎች ፕሮግራሙን ገዝተው እየተጠቀሙ ነው። የቀሩት <b>{spots_left} ቦታ</b> ብቻ ናቸው! 📊\n\n"
             f"⏳ ቅናሹ በ <b>{hours}ሰ {minutes}ደ</b> ውስጥ ይጠፋል።\n\n"
             f"👉 አሁኑኑ ተመዝግበው ለውጥዎን ይጀምሩ፦"
         )
@@ -607,7 +610,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     else:
         text = (
             f"🔥 <b>FLASH DEAL: 24 HOURS ONLY</b> 🔥\n\n"
-            f"💎 Original Price: ~~600 ETB~~\n"
+            f"💎 Original Price: <s>1000 ETB</s>\n"
             f"⚡️ Today's Price: <b>{settings.BROADCAST_DEAL_PRICE} ETB</b>\n\n"
             f"Over <b>{athletes} athletes</b> joined this week. Only <b>{spots_left} slots left</b>! 📊\n\n"
             f"⏳ Offer expires in: <b>{hours}h {minutes}m</b>\n\n"
@@ -779,7 +782,21 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
 
     # Build target list and SQL filter
     if target == "test":
-        targets = [{'telegram_id': aid, 'language': 'EN'} for aid in settings.ADMIN_IDS]
+        # JOIN with products just like the unpaid logic, but only for Admin IDs
+        rows = await db._pool.fetch("""
+            SELECT u.telegram_id, u.language, p_match.id as matched_product_id
+            FROM users u
+            LEFT JOIN products p_match ON 
+                u.language = p_match.language AND 
+                u.gender = p_match.gender AND 
+                u.level = p_match.level AND 
+                u.frequency = p_match.frequency
+            WHERE u.telegram_id = ANY($1::BIGINT[]) 
+              AND p_match.is_active = TRUE
+        """, settings.ADMIN_IDS)
+        
+        targets = [dict(r) for r in rows]
+        # In test mode, we usually don't want to update the whole DB via filter_sql
         filter_sql = None
 
     # Inside execute_broadcast_run, update the "unpaid" block:
@@ -843,7 +860,8 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
         logging.warning("Failed to create broadcasts row: %s", e)
 
     # Update users with deal info (skip in test mode)
-    if not test_mode and filter_sql:
+    print('here is filters_sql', filter_sql)
+    if filter_sql:
         try:
             await db._pool.execute(
                 "UPDATE users SET deal_expires_at = $1, deal_price = $2 WHERE " + filter_sql,
@@ -855,23 +873,60 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
 
     sent = 0
     failed = 0
+    print('here are targets', targets)
 
     for user in targets:
         uid = user.get('telegram_id')
         lang = user.get('language') or 'EN'
+        
+        # Try to get the ID from the database row first
         p_id = user.get('matched_product_id')
+        
+        # If it's missing (backfill didn't catch it or new user), find it manually
         if not p_id:
-            logging.warning(f"Skipping user {uid}: No matching product found for their stats.")
-            continue
+            # We fetch user details to perform a match
+            u_detail = await db._pool.fetchrow(
+                "SELECT language, level, frequency, gender FROM users WHERE telegram_id = $1", 
+                uid
+            )
+            if u_detail:
+                # Find matching product
+                matched = await db._pool.fetchrow("""
+                    SELECT id FROM products 
+                    WHERE language = $1 AND gender = $2 AND level = $3 AND frequency = $4
+                    AND is_active = TRUE LIMIT 1
+                """, u_detail['language'], u_detail['gender'], u_detail['level'], u_detail['frequency'])
+                
+                if matched:
+                    p_id = matched['id']
+                else:
+                    logging.warning(f"No matching product for user {uid} stats.")
+                    continue
+            else:
+                continue
+
         try:
             text, kb = build_deal_message(lang, expires_at, p_id)
-        
-            await bot.send_message(uid, text, reply_markup=kb, parse_mode="HTML")
+            
+            # Send the message
+            sent_msg = await bot.send_message(uid, text, reply_markup=kb, parse_mode="HTML")
+            
+            # SAVE both the message ID and the p_id (this performs the backfill for next time)
+            await db._pool.execute("""
+                UPDATE users SET 
+                    last_broadcast_msg_id = $1, 
+                    matched_product_id = $2 
+                WHERE telegram_id = $3
+            """, sent_msg.message_id, p_id, uid)
+            
             sent += 1
             await asyncio.sleep(BATCH_SLEEP)
+            
         except Exception as e:
             failed += 1
-            logging.exception(f"Broadcast send failed for {uid}")
+            logging.error(f"Failed sending to {uid}: {e}")
+            
+            
     # Update broadcast stats if we created a row
     if broadcast_id:
         try:
