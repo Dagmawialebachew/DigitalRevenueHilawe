@@ -586,37 +586,57 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+from datetime import datetime, timezone
+import random
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    remaining = expires_at - datetime.utcnow()
-    hours = remaining.seconds // 3600 + remaining.days * 24
-    minutes = (remaining.seconds % 3600) // 60
+    # 1. Get current UTC time
+    now_utc = datetime.now(timezone.utc)
+    
+    # 2. Ensure expires_at is timezone-aware if it isn't already
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-    import random
-    spots_left = random.choice([9, 7, 5])
-    athletes = 614 + random.randint(1, 10)
-    print('here is the user language', lang)
+    # 3. Calculate remaining time (This now works because both are UTC-aware)
+    remaining = expires_at - now_utc
+    
+    total_seconds = int(remaining.total_seconds())
+    hours = max(0, total_seconds // 3600)
+    minutes = max(0, (total_seconds % 3600) // 60)
+
+    # Note: If you want to PRINT the time in logs in Ethiopian Time (EAT):
+    eat_time = now_utc + timedelta(hours=3)
+    print(f"Current Time in Ethiopia: {eat_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # --- Rest of your logic ---
+    spots_left = random.choice([15, 14, 13])
+    athletes = 645 + random.randint(1, 15)
+    price = int(settings.BROADCAST_DEAL_PRICE)
 
     if lang.upper() == "AM":
         text = (
-            f"🔥 <b>የ1 ቀን ልዩ ቅናሽ</b> 🔥\n\n"
+            f"🌙 <b>የኢድ ሙባረክ ስጦታ ከ አሰልጣኝ ህላዌ!</b> 🌙\n\n"
+            f"እንኳን ለ1447ተኛው ዒድ አል-ፈጥር በሰላም አደረሳችሁ። በዓሉን ምክንያት በማድረግ "
+            f"የተሟላውን የስልጠና እና የምግብ ፕሮግራም በልዩ የኢድ ስጦታ ዋጋ አቅርበናል፦\n\n"
             f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
-            f"⚡️ ዛሬ በልዩ ሁኔታ: <b>{settings.BROADCAST_DEAL_PRICE} ብር</b>\n\n"
-            f"ከ<b>{athletes}</b> በላይ ሰዎች ፕሮግራሙን ገዝተው እየተጠቀሙ ነው። የቀሩት <b>{spots_left} ቦታ</b> ብቻ ናቸው! 📊\n\n"
-            f"⏳ ቅናሹ በ <b>{hours}ሰ {minutes}ደ</b> ውስጥ ይጠፋል።\n\n"
-            f"👉 አሁኑኑ ተመዝግበው ለውጥዎን ይጀምሩ፦"
+            f"⚡️ የዛሬ ዋጋ: <b>{price} ብር</b> ብቻ!\n\n"
+            f"ከ<b>{athletes}</b> በላይ ሰዎች ለውጥ እየጀመሩ ነው። ለዚህ ቅናሽ የቀሩት <b>{spots_left} ቦታዎች</b> ብቻ ናቸው! 📊\n\n"
+            f"⏳ ቅናሹ ከኢድ ቀናት በኋላ ያበቃል።\n\n"
+            f"👉 በዓሉን በለውጥ ይጀምሩ፦"
         )
-        button_text = "⚡️ የ399 ብር ቅናሹን አሁኑኑ ያግኙ"
+        button_text = f"⚡️ የ{price} ብር የኢድ ስጦታዬን አግኝ"
     else:
         text = (
-            f"🔥 <b>FLASH DEAL: 24 HOURS ONLY</b> 🔥\n\n"
+            f"🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙\n\n"
+            f"Eid is a time for sharing and growth. To celebrate, we are offering "
+            f"the full coaching program at our lowest price ever:\n\n"
             f"💎 Original Price: <s>1000 ETB</s>\n"
-            f"⚡️ Today's Price: <b>{settings.BROADCAST_DEAL_PRICE} ETB</b>\n\n"
-            f"Over <b>{athletes} athletes</b> joined this week. Only <b>{spots_left} slots left</b>! 📊\n\n"
-            f"⏳ Offer expires in: <b>{hours}h {minutes}m</b>\n\n"
-            f"👉 Tap below to lock in your price and start:"
+            f"⚡️ Eid Price: <b>{price} ETB</b>!\n\n"
+            f"Over <b>{athletes} athletes</b> have joined. Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
+            f"⏳ Offer expires after Eid Days</b>\n\n"
+            f"👉 Start your transformation today:"
         )
-        button_text = "⚡️ Claim My 399 ETB Deal"
+        button_text = f"⚡️ Claim My {price} ETB Eid Gift"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -624,7 +644,6 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
         ]
     )
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -777,8 +796,17 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     - test_mode: if True, only send to settings.ADMIN_IDS and DO NOT update DB deals
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
-    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 399))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 24))
+    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 72))
+    from datetime import datetime, timezone
+
+    
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=DEAL_DURATION_HOURS)
+    
+    targets = []
+    filter_sql = ""
+    
 
     # Build target list and SQL filter
     if target == "test":
@@ -795,9 +823,10 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
               AND p_match.is_active = TRUE
         """, settings.ADMIN_IDS)
         
+  
         targets = [dict(r) for r in rows]
         # In test mode, we usually don't want to update the whole DB via filter_sql
-        filter_sql = None
+        filter_sql = f"telegram_id = ANY(ARRAY{settings.ADMIN_IDS}::BIGINT[])"
 
     # Inside execute_broadcast_run, update the "unpaid" block:
 
@@ -840,7 +869,9 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
 
 
     total = len(targets)
-    expires_at = datetime.utcnow() + timedelta(hours=DEAL_DURATION_HOURS)
+    from datetime import datetime, timezone
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=DEAL_DURATION_HOURS)
 
     # Persist broadcast run (best-effort)
     broadcast_id = None
@@ -906,21 +937,31 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 continue
 
         try:
-            text, kb = build_deal_message(lang, expires_at, p_id)
-            
-            # Send the message
-            sent_msg = await bot.send_message(uid, text, reply_markup=kb, parse_mode="HTML")
-            
-            # SAVE both the message ID and the p_id (this performs the backfill for next time)
-            await db._pool.execute("""
-                UPDATE users SET 
-                    last_broadcast_msg_id = $1, 
-                    matched_product_id = $2 
-                WHERE telegram_id = $3
-            """, sent_msg.message_id, p_id, uid)
-            
-            sent += 1
-            await asyncio.sleep(BATCH_SLEEP)
+                text, kb = build_deal_message(lang, expires_at, p_id)
+                
+                # USE YOUR IMAGE FILE ID HERE
+                # If you don't have the file_id yet, you can use a URL or local path
+                EID_IMAGE = "AgACAgQAAxkBAAIQsWm9Hj10lBbbhWtfH8BjqUC_-dXLAAIcDWsbKxvpUeYGTqBXuqtsAQADAgADeQADOgQ" 
+
+                # 1. Send the PHOTO with the deal as caption
+                sent_msg = await bot.send_photo(
+                    chat_id=uid,
+                    photo=EID_IMAGE,
+                    caption=text,
+                    reply_markup=kb,
+                    parse_mode="HTML"
+                )
+                
+                # 2. SAVE for future editing (countdown updates)
+                await db._pool.execute("""
+                    UPDATE users SET 
+                        last_broadcast_msg_id = $1, 
+                        matched_product_id = $2 
+                    WHERE telegram_id = $3
+                """, sent_msg.message_id, p_id, uid)
+                
+                sent += 1
+                await asyncio.sleep(BATCH_SLEEP)
             
         except Exception as e:
             failed += 1

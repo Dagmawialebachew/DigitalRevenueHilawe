@@ -35,15 +35,24 @@ async def initiate_payment(callback: types.CallbackQuery, state: FSMContext, db:
         return await callback.message.answer("⚠️ System Error: Plan not found.")
 
     # --- Price Logic with Expiry Check ---
-    from datetime import datetime, timezone  # Add timezone to imports
+    from datetime import datetime, timezone
+    
     display_price = product['price']
-    now = datetime.now(timezone.utc) # This is "offset-aware"
+    now = datetime.now(timezone.utc)
+    
     deal_price = user_data.get("deal_price")
     deal_expiry = user_data.get("deal_expires_at")
-    print('here is a deal price and deal_expiry', deal_price, deal_expiry)
 
+    # SAFETY CHECK: Ensure deal_expiry is timezone-aware
+    if deal_expiry and deal_expiry.tzinfo is None:
+        deal_expiry = deal_expiry.replace(tzinfo=timezone.utc)
+
+    # Now this comparison is bulletproof
     if deal_price and deal_expiry and now < deal_expiry:
         display_price = deal_price
+        print(f"✅ Deal Active! Using price: {display_price}")
+    else:
+        print(f"❌ Deal Expired or Not Found. Using original: {display_price}")
 
     await state.update_data(selected_product_id=product_id, amount=display_price)
 
