@@ -1,21 +1,24 @@
-# scheduler/reminder_worker.py
 import asyncio
 import logging
-import random
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from aiogram import Bot
 
-from handlers.admin import build_deal_message
+# Ensure build_deal_message is imported correctly
+from handlers.admin import build_deal_message 
 
 async def reminder_worker(bot: Bot, db):
     while True:
         try:
-            now = datetime.utcnow()
+            # 1. FIXED: Use offset-aware UTC time
+            now = datetime.now(timezone.utc)
+            
             # Fetch users with active deals
             rows = await db._pool.fetch("""
-                SELECT telegram_id, language, deal_expires_at, last_broadcast_msg_id, matched_product_id 
+                SELECT telegram_id, language, deal_expires_at, last_broadcast_msg_id, matched_product_id, deal_price 
                 FROM users 
-                WHERE deal_expires_at > $1 AND has_paid = FALSE AND last_broadcast_msg_id IS NOT NULL
+                WHERE deal_expires_at > $1 
+                  AND has_paid = FALSE 
+                  AND last_broadcast_msg_id IS NOT NULL
             """, now)
 
             for r in rows:
@@ -23,36 +26,43 @@ async def reminder_worker(bot: Bot, db):
                 expires = r['deal_expires_at']
                 msg_id = r['last_broadcast_msg_id']
                 p_id = r['matched_product_id']
+                price = r['deal_price'] or 299 # Fallback to 299
+                
+                # Ensure expires is aware (Safety check)
+                if expires.tzinfo is None:
+                    expires = expires.replace(tzinfo=timezone.utc)
+                
                 remaining = expires - now
 
                 # --- CASE 1: Final Hour Push (Send NEW Message) ---
-                if timedelta(minutes=50) < remaining <= timedelta(hours=1):
+                if timedelta(minutes=0) < remaining <= timedelta(hours=1):
                     final_text = (
-                        "🚨 <b>LAST HOUR!</b>\nYour 399 ETB deal is about to expire. This is your final chance." 
+                        f"🚨 <b>LAST HOUR!</b>\nYour {price} ETB Eid gift is about to expire. Final chance to start!" 
                         if r['language'] == 'EN' else 
-                        "🚨 <b>መጨረሻ ሰዓት!</b>\nየ399 ብር ቅናሹ ሊያበቃ ጥቂት ደቂቃዎች ብቻ ቀርተዋል። አሁኑኑ ይጠቀሙ!"
+                        f"🚨 <b>መጨረሻ ሰዓት!</b>\nየ{price} ብር የኢድ ስጦታ ሊያበቃ ጥቂት ደቂቃዎች ብቻ ቀርተዋል። አሁኑኑ ይጠቀሙ!"
                     )
                     await safe_send(bot, uid, final_text)
 
-                # --- CASE 2: Live Edit (Update Clock & Slots) ---
-                # We update the original broadcast message
+                # --- CASE 2: Live Edit (Update Caption & Countdown) ---
+                # Since the broadcast is a PHOTO, we must edit the CAPTION
                 text, kb = build_deal_message(r['language'], expires, p_id)
                 
                 try:
-                    await bot.edit_message_text(
+                    await bot.edit_message_caption(
                         chat_id=uid,
                         message_id=msg_id,
-                        text=text,
+                        caption=text,
                         reply_markup=kb,
                         parse_mode="HTML"
                     )
-                except Exception:
-                    pass # Message might have been deleted by user
+                except Exception as e:
+                    # Usually "Message to edit not found" or "Content is the same"
+                    pass 
 
         except Exception as e:
             logging.error(f"Worker Error: {e}")
 
-        # Sleep for 1 hour before updating the clocks again
+        # Sleep for 1 hour before next update
         await asyncio.sleep(3600)
 
 async def safe_send(bot: Bot, chat_id: int, text: str):

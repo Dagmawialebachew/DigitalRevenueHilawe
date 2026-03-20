@@ -621,10 +621,10 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
             f"⚡️ የዛሬ ዋጋ: <b>{price} ብር</b> ብቻ!\n\n"
             f"ከ<b>{athletes}</b> በላይ ሰዎች ለውጥ እየጀመሩ ነው። ለዚህ ቅናሽ የቀሩት <b>{spots_left} ቦታዎች</b> ብቻ ናቸው! 📊\n\n"
-            f"⏳ ቅናሹ ከኢድ ቀናት በኋላ ያበቃል።\n\n"
+            f"<i>⏳ ቅናሹ ከኢድ ቀናት በኋላ ያበቃል።</i>\n\n"
             f"👉 በዓሉን በለውጥ ይጀምሩ፦"
         )
-        button_text = f"⚡️ የ{price} ብር የኢድ ስጦታዬን አግኝ"
+        button_text = f"🎁 የ{price} ብር የኢድ ስጦታዬን ተቀበል"
     else:
         text = (
             f"🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙\n\n"
@@ -633,7 +633,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"💎 Original Price: <s>1000 ETB</s>\n"
             f"⚡️ Eid Price: <b>{price} ETB</b>!\n\n"
             f"Over <b>{athletes} athletes</b> have joined. Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
-            f"⏳ Offer expires after Eid Days</b>\n\n"
+            f"<i>⏳ Offer expires after Eid Days</i>\n\n"
             f"👉 Start your transformation today:"
         )
         button_text = f"⚡️ Claim My {price} ETB Eid Gift"
