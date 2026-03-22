@@ -42,7 +42,7 @@ class Settings:
     
     BROADCAST_BATCH_SLEEP: float = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))
     BROADCAST_DEAL_PRICE: float = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
-    BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "14"))
+    BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
     REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
 
 

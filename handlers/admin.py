@@ -596,49 +596,52 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     remaining = expires_at - now_utc
     total_seconds = int(remaining.total_seconds())
     
-    # 1. FIXED: Calculate hours, minutes, AND seconds
-    hours = max(0, total_seconds // 3600)
-    minutes = max(0, (total_seconds % 3600) // 60)
-    seconds = max(0, total_seconds % 60) # Added seconds calculation
+    # Calculate time (capped at 0 so it doesn't show negative)
+    # total_seconds // 60 will now handle 60, 59, etc.
+    minutes = max(0, total_seconds // 60)
+    seconds = max(0, total_seconds % 60)
 
-    # Dynamic Urgency Logic
-    is_last_day = True # Logic to trigger "Final Day" header automatically
+    # Aggressive Urgency Logic
+    # Spots decrease as minutes get lower
+    if minutes < 10:
+        spots_left = random.choice([2, 1, 1])
+    elif minutes < 30:
+        spots_left = random.choice([4, 3, 2])
+    else:
+        spots_left = random.choice([7, 6, 5])
     
-    spots_left = random.choice([7, 6, 5, 4]) if is_last_day else random.choice([15, 14, 13])
-    athletes = 712 + random.randint(1, 10) 
     price = int(settings.BROADCAST_DEAL_PRICE)
 
     if lang.upper() == "AM":
-        header = "⚠️ <b>የመጨረሻው ቀን ቅናሽ!</b> ⚠️" if is_last_day else "🌙 <b>የኢድ ሙባረክ ስጦታ ከ አሰልጣኝ ህላዌ!</b> 🌙"
+        header = "🚨 <b>የመጨረሻዎቹ ደቂቃዎች!</b> 🚨"
         text = (
             f"{header}\n\n"
-            f"የኢድ ልዩ ስጦታችን ሊያበቃ ጥቂት ሰዓታት ብቻ ቀርተዋል። "
-            f"እስካሁን <b>{athletes}</b> ሰዎች እቅዳቸውን እየተጠቀሙ ነው። የቀሩት ክፍት ቦታዎች <b>{spots_left}</b> ብቻ ናቸው! 📊\n\n"
-            f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
-            f"⚡️ የዛሬ ዋጋ: <b>{price} ብር</b> ብቻ!\n\n"
-            f"⏳ <b>የቀረው ጊዜ: {hours:02d}ሰ:{minutes:02d}ደ:{seconds:02d}ሰከንድ</b>\n\n" # Digital clock format
-            f"👉 በዓሉን በለውጥ ይጀምሩ፦"
+            f"ቦታዎች በከፍተኛ ፍጥነት እየተያዙ ነው። "
+            f"አሁን የቀሩት ክፍት ቦታዎች <b>{spots_left}</b> ብቻ ናቸው! ⚠️\n\n"
+            f"💰 ዋጋ: <b>{price} ብር</b> (በቅርቡ ወደ 1000 ብር ይመለሳል)\n\n"
+            f"⏳ <b>የቀረው ጊዜ: {minutes:02d}ደቂቃ: {seconds:02d}ሴኮንድ</b>\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👉 አሁኑኑ ተመዝገቡና ለውጥዎን ይጀምሩ፦"
         )
-        button_text = f"🎁 የ{price} ብር የኢድ ስጦታዬን ተቀበል"
+        button_text = "⚡️ ቅናሹን ተቀበል"
     else:
-        header = "⚠️ <b>FINAL DAY ALERT!</b> ⚠️" if is_last_day else "🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙"
+        header = "🚨 <b>FINAL MINUTES - CLOSING!</b> 🚨"
         text = (
             f"{header}\n\n"
-            f"Our Eid special offer is ending soon! Over <b>{athletes} athletes</b> have joined. "
-            f"Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
-            f"💎 Original Price: <s>1000 ETB</s>\n"
-            f"⚡️ Eid Price: <b>{price} ETB</b>!\n\n"
-            f"⏳ <b>Ends in: {hours:02d}h:{minutes:02d}m:{seconds:02d}sec</b>\n\n" # Digital clock format
-            f"👉 Start your transformation today:"
+            f"Demand is extremely high. "
+            f"Only <b>{spots_left} final slots</b> remaining! ⚠️\n\n"
+            f"💰 Price: <b>{price} ETB</b> (Reverting to 1000 ETB soon)\n\n"
+            f"⏳ <b>TIME REMAINING: {minutes:02d}min: {seconds:02d}sec</b>\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👉 Secure your spot before the timer hits zero:"
         )
-        button_text = f"⚡️ Claim My {price} ETB Eid Gift"
+        button_text = "⚡️ RECEIVE MY GIFT"
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
-        ]
-    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
+    ])
     return text, kb
+
 
 import os
 from datetime import datetime, timedelta
@@ -656,7 +659,7 @@ from aiogram import Router
 
 # Configurable defaults (env or fallback)
 DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "399"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "24"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
 BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
@@ -792,7 +795,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
     DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 14))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 1))
     from datetime import datetime, timezone
 
     
