@@ -57,7 +57,7 @@ def goal_markup(lang: str) -> InlineKeyboardMarkup:
         builder.button(text="💪 Build Muscle & Strength", callback_data="goal_MUSCLE")
         builder.button(text="🏃 Conditioning & Endurance", callback_data="goal_ATHLETE")
     else:
-        builder.button(text="🔥 ስብ መቀነስ/ማስተካከል", callback_data="goal_FATLOSS")
+        builder.button(text="🔥 ስብ/ቦርጭ መቀነስ/ማጥፋት", callback_data="goal_FATLOSS")
         builder.button(text="💪 ጡንቻ መገንባት", callback_data="goal_MUSCLE")
         builder.button(text="🏃 አጠቃላይ የአካል ብቃት", callback_data="goal_ATHLETE")
     builder.adjust(2)
@@ -74,7 +74,7 @@ def level_markup(lang: str, gender: str = None) -> InlineKeyboardMarkup:
     
     # Only add Glute Focused if gender is NOT MALE
     if gender != "MALE":
-        levels.insert(2, ("Glute Focused", "ዳሌ ላይ ያተኮረ", "GLUTE_FOCUSED"))
+        levels.insert(2, ("Glute Focused", "ዳሌ ተኮር ሙሉ ሰውነት እንቅስቃሴ", "GLUTE_FOCUSED"))
 
     for en, am, val in levels:
         builder.button(text=en if lang == "EN" else am, callback_data=f"level_{val}")

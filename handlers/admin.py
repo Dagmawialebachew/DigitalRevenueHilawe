@@ -588,52 +588,49 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
 
 from datetime import datetime, timezone
 import random
-
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    # 1. Get current UTC time
     now_utc = datetime.now(timezone.utc)
-    
-    # 2. Ensure expires_at is timezone-aware if it isn't already
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-    # 3. Calculate remaining time (This now works because both are UTC-aware)
     remaining = expires_at - now_utc
-    
     total_seconds = int(remaining.total_seconds())
+    
+    # Calculate hours/minutes for the UI
     hours = max(0, total_seconds // 3600)
     minutes = max(0, (total_seconds % 3600) // 60)
 
-    # Note: If you want to PRINT the time in logs in Ethiopian Time (EAT):
-    eat_time = now_utc + timedelta(hours=3)
-    print(f"Current Time in Ethiopia: {eat_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # --- Rest of your logic ---
-    spots_left = random.choice([15, 14, 13])
-    athletes = 645 + random.randint(1, 15)
+    # Dynamic Urgency Logic
+    is_last_day = hours < 24
+    
+    spots_left = random.choice([7, 6, 5, 4]) if is_last_day else random.choice([15, 14, 13])
+    # Increased athlete count to show growth (social proof)
+    athletes = 712 + random.randint(1, 10) 
     price = int(settings.BROADCAST_DEAL_PRICE)
 
     if lang.upper() == "AM":
+        # Final Day Header in Amharic
+        header = "⚠️ <b>የመጨረሻው ቀን ቅናሽ!</b> ⚠️" if is_last_day else "🌙 <b>የኢድ ሙባረክ ስጦታ ከ አሰልጣኝ ህላዌ!</b> 🌙"
         text = (
-            f"🌙 <b>የኢድ ሙባረክ ስጦታ ከ አሰልጣኝ ህላዌ!</b> 🌙\n\n"
-            f"እንኳን ለ1447ተኛው ዒድ አል-ፈጥር በሰላም አደረሳችሁ። በዓሉን ምክንያት በማድረግ "
-            f"የተሟላውን የስልጠና እና የምግብ ፕሮግራም በልዩ የኢድ ስጦታ ዋጋ አቅርበናል፦\n\n"
+            f"{header}\n\n"
+            f"የኢድ ልዩ ስጦታችን ሊያበቃ ጥቂት ሰዓታት ብቻ ቀርተዋል። "
+            f"እስካሁን <b>{athletes}</b> ሰዎች እቅዳቸውን እየተጠቀሙ ነው። የቀሩት ክፍት ቦታዎች <b>{spots_left}</b> ብቻ ናቸው! 📊\n\n"
             f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
             f"⚡️ የዛሬ ዋጋ: <b>{price} ብር</b> ብቻ!\n\n"
-            f"ከ<b>{athletes}</b> በላይ ሰዎች ለውጥ እየጀመሩ ነው። ለዚህ ቅናሽ የቀሩት <b>{spots_left} ቦታዎች</b> ብቻ ናቸው! 📊\n\n"
-            f"<i>⏳ ቅናሹ ከኢድ ቀናት በኋላ ያበቃል።</i>\n\n"
+            f"⏳ <b>የቀረው ጊዜ: {hours} ሰዓት ከ {minutes} ደቂቃ</b>\n\n"
             f"👉 በዓሉን በለውጥ ይጀምሩ፦"
         )
         button_text = f"🎁 የ{price} ብር የኢድ ስጦታዬን ተቀበል"
     else:
+        # Final Day Header in English
+        header = "⚠️ <b>FINAL DAY ALERT!</b> ⚠️" if is_last_day else "🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙"
         text = (
-            f"🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙\n\n"
-            f"Eid is a time for sharing and growth. To celebrate, we are offering "
-            f"the full coaching program at our lowest price ever:\n\n"
+            f"{header}\n\n"
+            f"Our Eid special offer is ending soon! Over <b>{athletes} athletes</b> have joined. "
+            f"Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
             f"💎 Original Price: <s>1000 ETB</s>\n"
             f"⚡️ Eid Price: <b>{price} ETB</b>!\n\n"
-            f"Over <b>{athletes} athletes</b> have joined. Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
-            f"<i>⏳ Offer expires after Eid Days</i>\n\n"
+            f"⏳ <b>Ends in: {hours}h {minutes}m</b>\n\n"
             f"👉 Start your transformation today:"
         )
         button_text = f"⚡️ Claim My {price} ETB Eid Gift"
@@ -644,6 +641,8 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
         ]
     )
     return text, kb
+
+
 
 import os
 from datetime import datetime, timedelta

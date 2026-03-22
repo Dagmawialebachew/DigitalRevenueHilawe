@@ -57,7 +57,12 @@ async def reminder_worker(bot: Bot, db):
                     )
                 except Exception as e:
                     # Usually "Message to edit not found" or "Content is the same"
-                    pass 
+                    if "message is not modified" in str(e).lower():
+                        pass
+                    elif "message to edit not found" in str(e).lower():
+                        logging.warning(f"Message {msg_id} deleted by user {uid}. Skipping edit.")
+                    else:
+                        logging.error(f"Failed to edit caption for user {uid}: {e}") 
 
         except Exception as e:
             logging.error(f"Worker Error: {e}")
