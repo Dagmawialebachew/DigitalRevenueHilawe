@@ -596,20 +596,19 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     remaining = expires_at - now_utc
     total_seconds = int(remaining.total_seconds())
     
-    # Calculate hours/minutes for the UI
+    # 1. FIXED: Calculate hours, minutes, AND seconds
     hours = max(0, total_seconds // 3600)
     minutes = max(0, (total_seconds % 3600) // 60)
+    seconds = max(0, total_seconds % 60) # Added seconds calculation
 
     # Dynamic Urgency Logic
-    is_last_day = hours < 24
+    is_last_day = True # Logic to trigger "Final Day" header automatically
     
     spots_left = random.choice([7, 6, 5, 4]) if is_last_day else random.choice([15, 14, 13])
-    # Increased athlete count to show growth (social proof)
     athletes = 712 + random.randint(1, 10) 
     price = int(settings.BROADCAST_DEAL_PRICE)
 
     if lang.upper() == "AM":
-        # Final Day Header in Amharic
         header = "⚠️ <b>የመጨረሻው ቀን ቅናሽ!</b> ⚠️" if is_last_day else "🌙 <b>የኢድ ሙባረክ ስጦታ ከ አሰልጣኝ ህላዌ!</b> 🌙"
         text = (
             f"{header}\n\n"
@@ -617,12 +616,11 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"እስካሁን <b>{athletes}</b> ሰዎች እቅዳቸውን እየተጠቀሙ ነው። የቀሩት ክፍት ቦታዎች <b>{spots_left}</b> ብቻ ናቸው! 📊\n\n"
             f"💎 ነባር ዋጋ: <s>1000 ብር</s>\n"
             f"⚡️ የዛሬ ዋጋ: <b>{price} ብር</b> ብቻ!\n\n"
-            f"⏳ <b>የቀረው ጊዜ: {hours} ሰዓት ከ {minutes} ደቂቃ</b>\n\n"
+            f"⏳ <b>የቀረው ጊዜ: {hours:02d}ሰ:{minutes:02d}ደ:{seconds:02d}ሰከንድ</b>\n\n" # Digital clock format
             f"👉 በዓሉን በለውጥ ይጀምሩ፦"
         )
         button_text = f"🎁 የ{price} ብር የኢድ ስጦታዬን ተቀበል"
     else:
-        # Final Day Header in English
         header = "⚠️ <b>FINAL DAY ALERT!</b> ⚠️" if is_last_day else "🌙 <b>EID MUBARAK GIFT FROM COACH HILAWE!</b> 🌙"
         text = (
             f"{header}\n\n"
@@ -630,7 +628,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"Only <b>{spots_left} slots</b> left at this price! 📊\n\n"
             f"💎 Original Price: <s>1000 ETB</s>\n"
             f"⚡️ Eid Price: <b>{price} ETB</b>!\n\n"
-            f"⏳ <b>Ends in: {hours}h {minutes}m</b>\n\n"
+            f"⏳ <b>Ends in: {hours:02d}h:{minutes:02d}m:{seconds:02d}sec</b>\n\n" # Digital clock format
             f"👉 Start your transformation today:"
         )
         button_text = f"⚡️ Claim My {price} ETB Eid Gift"
@@ -641,8 +639,6 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
         ]
     )
     return text, kb
-
-
 
 import os
 from datetime import datetime, timedelta
@@ -796,7 +792,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
     DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 72))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 14))
     from datetime import datetime, timezone
 
     

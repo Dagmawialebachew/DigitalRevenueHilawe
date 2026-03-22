@@ -46,8 +46,9 @@ async def reminder_worker(bot: Bot, db):
                 # --- CASE 2: Live Edit (Update Caption & Countdown) ---
                 # Since the broadcast is a PHOTO, we must edit the CAPTION
                 text, kb = build_deal_message(r['language'], expires, p_id)
-                
+                    
                 try:
+                    # 1. Try editing as a Photo Caption first (since that's your current EID_IMAGE style)
                     await bot.edit_message_caption(
                         chat_id=uid,
                         message_id=msg_id,
@@ -56,13 +57,29 @@ async def reminder_worker(bot: Bot, db):
                         parse_mode="HTML"
                     )
                 except Exception as e:
-                    # Usually "Message to edit not found" or "Content is the same"
-                    if "message is not modified" in str(e).lower():
+                    error_msg = str(e).lower()
+                    
+                    # 2. If it's a Text message, retry with edit_message_text
+                    if "there is no caption" in error_msg or "message can't be edited" in error_msg:
+                        try:
+                            await bot.edit_message_text(
+                                chat_id=uid,
+                                message_id=msg_id,
+                                text=text,
+                                reply_markup=kb,
+                                parse_mode="HTML"
+                            )
+                        except Exception as inner_e:
+                            if "message is not modified" not in str(inner_e).lower():
+                                logging.error(f"Failed text edit for {uid}: {inner_e}")
+                    
+                    # 3. Ignore common "Safe" errors
+                    elif "message is not modified" in error_msg:
                         pass
-                    elif "message to edit not found" in str(e).lower():
-                        logging.warning(f"Message {msg_id} deleted by user {uid}. Skipping edit.")
+                    elif "message to edit not found" in error_msg:
+                        logging.warning(f"User {uid} deleted the message. Skipping.")
                     else:
-                        logging.error(f"Failed to edit caption for user {uid}: {e}") 
+                        logging.error(f"Unexpected edit error for {uid}: {e}")
 
         except Exception as e:
             logging.error(f"Worker Error: {e}")
