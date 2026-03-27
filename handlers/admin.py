@@ -594,10 +594,12 @@ import random
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import random
 from datetime import datetime, timezone
+from datetime import datetime
 
 def get_rotating_content(lang: str):
-    # Use the current hour (0-23) as the primary seed for rotation
-    hour_idx = datetime.now().hour
+    # CHANGED: Use the current minute (0-59) as the primary seed for rotation
+    now = datetime.now()
+    minute_idx = now.minute
     
     # --- AMHARIC DATA (12 Testimonials) ---
     testimonials_am = [
@@ -639,15 +641,15 @@ def get_rotating_content(lang: str):
         "Fikir", "Abebe", "Betty", "Solomon", "Genet", "Yared", "Million"
     ]
 
-    # Selection Logic
+    # Selection Logic using minute_idx
     if lang.upper() == "AM":
-        testi = testimonials_am[hour_idx % len(testimonials_am)]
-        # We use a secondary shuffle for the "Recent Buyer" so it doesn't always match the testimonial
-        buyer_name = recent_buyers_am[(hour_idx + 3) % len(recent_buyers_am)]
+        testi = testimonials_am[minute_idx % len(testimonials_am)]
+        # Offset by 3 to ensure the buyer name is different from the testimonial author
+        buyer_name = recent_buyers_am[(minute_idx + 3) % len(recent_buyers_am)]
         activity = f"🔥 በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... ✅</b>"
     else:
-        testi = testimonials_en[hour_idx % len(testimonials_en)]
-        buyer_name = recent_buyers_en[(hour_idx + 3) % len(recent_buyers_en)]
+        testi = testimonials_en[minute_idx % len(testimonials_en)]
+        buyer_name = recent_buyers_en[(minute_idx + 3) % len(recent_buyers_en)]
         activity = f"🔥 Recently joined: <b>{buyer_name}... ✅</b>"
 
     return testi, activity
@@ -697,7 +699,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"Hundreds of people have already started their journey! "
+            f"Hundreds of people have already started their journey!\n"
             f"After <b>{minutes:02d}min: {seconds:02d}sec</b> the price will be {price} ETB.\n\n"
             f"✅ 8-Week Program + Meal Guide Program\n"
             f"💰 Only {price} ETB (Less than a single meal!)\n\n"
