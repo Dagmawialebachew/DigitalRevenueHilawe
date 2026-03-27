@@ -729,7 +729,7 @@ from aiogram import Router
 
 # Configurable defaults (env or fallback)
 DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "24"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
 BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
@@ -865,7 +865,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
     DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 24))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 1))
     from datetime import datetime, timezone
 
     

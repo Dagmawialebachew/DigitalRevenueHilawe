@@ -98,7 +98,7 @@ async def reminder_worker(bot: Bot, db):
                     continue
 
             # Sleep for 3 hours before rotating the testimonial again
-            await asyncio.sleep(1 * 3600) 
+            await asyncio.sleep(1 * 120) 
 
         except Exception as e:
             logging.error(f"Worker Error: {e}")
