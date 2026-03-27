@@ -221,6 +221,13 @@ def setup_admin_routes(app: web.Application):
     app.router.add_get("/api/admin/testimonials", get_user_testimonials)
     app.router.add_get("/api/admin/testimonials/stats", get_testimonial_kpis)
     
+    #Transaction History
+    app.router.add_post("/api/admin/payouts/confirm", confirm_payout )
+    app.router.add_get('/api/admin/payouts/pending', get_pending_payout_stats )
+    app.router.add_get('/api/admin/payouts/history', get_payout_history)
+
+    
+    
 # New API
 
 async def get_revenue_by_products(request: web.Request) -> web.Response:
@@ -512,3 +519,81 @@ async def get_user_testimonials(request: web.Request) -> web.Response:
     except Exception:
         LOG.exception("get_user_testimonials failed")
         return web.json_response({"error": "internal_error"}, status=500)
+    
+    
+
+
+async def get_pending_payout_stats(request: web.Request) -> web.Response:
+    """GET /api/admin/payouts/pending - Calculations for the UI"""
+    db = request.app["db"]
+    try:
+        # 1. Get the last payout timestamp
+        last_payout = await db.fetchval("SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'")
+        
+        # 2. Sum all approved payments since then
+        revenue_row = await db.fetchrow("""
+            SELECT COALESCE(SUM(amount), 0) as total 
+            FROM payments 
+            WHERE status = 'approved' AND approved_at > $1
+        """, last_payout)
+        
+        # 3. Get cumulative lifetime profit to determine Tier
+        # Note: Added COALESCE to ensure we don't return None
+        cumulative_profit = await db.fetchval("SELECT COALESCE(SUM(net_profit), 0) FROM payout_history") or 0
+        
+        return web.json_response({
+            "pending_revenue": float(revenue_row['total']),
+            "cumulative_profit": float(cumulative_profit),
+            "current_tier": 2 if cumulative_profit >= 500000 else 1
+        })
+    except Exception:
+        LOG.exception("get_pending_payout_stats failed")
+        return web.json_response({"error": "internal_server_error", "pending_revenue": 0}, status=500)
+
+async def confirm_payout(request: web.Request) -> web.Response:
+    """POST /api/admin/payouts/confirm"""
+    db = request.app["db"]
+    try:
+        data = await request.json()
+        
+        # Using float conversion to avoid Decimal issues during JSON loading
+        rev = Decimal(str(data.get('revenue', 0)))
+        deductions = Decimal(str(data.get('deductions', 0)))
+        net = rev - deductions
+        
+        # Tier Logic
+        cumulative = await db.fetchval("SELECT COALESCE(SUM(net_profit), 0) FROM payout_history") or 0
+        tier = 2 if cumulative >= 500000 else 1
+        
+        if tier == 1:
+            coach_cut, dag_cut = net * Decimal('0.60'), net * Decimal('0.40')
+        else:
+            coach_cut, dag_cut = net * Decimal('0.70'), net * Decimal('0.30')
+
+        # Using the pool directly to ensure transaction safety
+        async with db._pool.acquire() as conn:
+            async with conn.transaction():
+                # Record the history
+                await conn.execute("""
+                    INSERT INTO payout_history 
+                    (gross_revenue, operational_deductions, net_profit, coach_share, dagmawi_share, tier_applied, cumulative_profit_at_time)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """, rev, deductions, net, coach_cut, dag_cut, tier, cumulative + net)
+                
+                # Update the timestamp so these payments aren't counted next time
+                await conn.execute("UPDATE system_metadata SET value_timestamp = NOW() WHERE key = 'last_payout_at'")
+
+        return web.json_response({"status": "payout_locked", "coach": float(coach_cut), "dagmawi": float(dag_cut)})
+    except Exception:
+        LOG.exception("confirm_payout failed")
+        return web.json_response({"error": "payout_processing_failed"}, status=500)
+
+async def get_payout_history(request: web.Request) -> web.Response:
+    """GET /api/admin/payouts/history - For the Archive table"""
+    db = request.app["db"]
+    try:
+        rows = await db.fetch("SELECT * FROM payout_history ORDER BY payout_date DESC LIMIT 50")
+        return web.json_response(records_to_list(rows))
+    except Exception:
+        LOG.exception("get_payout_history failed")
+        return web.json_response([], status=500)

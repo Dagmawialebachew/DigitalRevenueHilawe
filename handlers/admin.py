@@ -662,9 +662,9 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     minutes = max(0, total_seconds // 60)
     
     # URGENY LOGIC
-    if minutes < 45: spots_left = 1
-    elif minutes < 180: spots_left = random.choice([7,8,9,10,11])
-    else: spots_left = random.choice([7,8,9,10,11])
+    if minutes < 45: spots_left = random.choice([2,3])
+    elif minutes < 180: spots_left = random.choice([2,3])
+    else: spots_left = random.choice([2,3])
 
     price = 299
     original_price = 1000
@@ -673,14 +673,14 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = "🏷 <b>የመጨረሻው የአርብ ልዩ የዋጋ ቅናሽ!</b> 🚨"
+        header = "🏷 <b>ደቂቃዎች ቀሩት፣ የመጨረሻው የአርብ ልዩ የዋጋ ቅናሽ!</b> 🚨"
         text = (
             f"{header}\n\n"
             f"⭐ <b>የተጠቃሚዎች አስተያየት</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
             f"ባለፉት ሳምንታት በርካታ ስፓርተኞች ተቀላቅለዋል! "
-            f"የ {price} ብር እድል ዛሬ ለሊት <b>በቋሚነት ያበቃል።</b>\n\n"
+            f"የ {price} ብር እድል ዛሬ ከ<b> {minutes:02d}ደ፡ {total_seconds:02d}ሰከንድ በኋላ </b>በቋሚነት ያበቃል።\n\n"
             f"✅ የ8 ሳምንት ስልጠና + የምግብ መመሪያ ፕሮግራም\n"
             f"💰 በ {price} ብር ብቻ (ለአንድ ምሳ ከሚወጣው ያነሰ!)\n\n"
             f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
@@ -697,7 +697,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
             f"Hundreds of people have already started their journey! "
-            f"This is the <b>LAST</b> time the price will be {price} ETB.\n\n"
+            f"After <b>{minutes:02d}min: {total_seconds:02d}sec</b> the price will be {price} ETB.\n\n"
             f"✅ 8-Week Program + Meal Guide Program\n"
             f"💰 Only {price} ETB (Less than a single meal!)\n\n"
             f"⚠️ FINAL CALL: <b>{spots_left} slots left</b>\n"
