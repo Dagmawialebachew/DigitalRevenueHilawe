@@ -663,8 +663,8 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     
     # URGENY LOGIC
     if minutes < 45: spots_left = 1
-    elif minutes < 180: spots_left = random.choice([4, 5, 6, 8])
-    else: spots_left = random.choice([4, 5, 6, 8])
+    elif minutes < 180: spots_left = random.choice([7,8,9,10,11])
+    else: spots_left = random.choice([7,8,9,10,11])
 
     price = 299
     original_price = 1000

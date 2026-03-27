@@ -137,7 +137,7 @@ async def run_testimonial_cycle(bot: Bot, db, storage, question_id: int, test_mo
 # --- 6-Hour Scheduler Logic ---
 async def testimonial_scheduler(bot: Bot, db, storage):
     logging.info("🕒 Testimonial Scheduler Initialized.")
-    PRODUCTION_READY = False 
+    PRODUCTION_READY = True
 
     while True:
         try:
