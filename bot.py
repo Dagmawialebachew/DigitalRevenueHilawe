@@ -19,6 +19,7 @@ from middlewares.error_handling_middleware import router as error_router
 # Import your admin API route setup (aiohttp style)
 from api.api import setup_admin_routes
 from scheduler.scheduler import check_and_send_reminders, test_reminder_for_user
+from testimonial.testimonial_questions import router as testimonial_router, testimonial_scheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,7 @@ dp.callback_query.middleware(LanguageMiddleware(db))
 # Include other routers (handlers)
 from handlers import all_routers
 from handlers.reminder_worker import reminder_worker  # This imports the FUNCTION
+dp.include_router(testimonial_router)
 for r in all_routers:
     dp.include_router(r)
 
@@ -179,7 +181,8 @@ async def create_app() -> web.Application:
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
         asyncio.create_task(reminder_worker(bot, db))
-
+        asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
+       
 
     # Startup / cleanup hooks
     app.on_startup.append(startup_wrapper)
@@ -195,7 +198,9 @@ async def start_polling():
     # If you have scheduled jobs, start them here (scheduler.start())
     # asyncio.create_task(scheduler_loop(bot, db))
     # in startup_wrapper after scheduler_loop creation
-    asyncio.create_task(reminder_worker(bot, db))
+    # asyncio.create_task(reminder_worker(bot, db))
+    # Inside your start-up logic:
+    # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
 
     await bot.delete_webhook(drop_pending_updates=True)
     try:

@@ -92,9 +92,42 @@ UPDATE payments
 SET approved_at = created_at 
 WHERE status = 'approved' AND approved_at IS NULL;
 
+-- Testimonial new sql migrations
+CREATE TABLE IF NOT EXISTS testimonial_questions (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(50) UNIQUE NOT NULL, -- e.g., 'overall_satisfaction'
+    question_en TEXT NOT NULL,
+    question_am TEXT NOT NULL,
+    input_type VARCHAR(20) DEFAULT 'rating', -- 'rating', 'emoji', 'text'
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS user_testimonials (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
+    question_id INTEGER REFERENCES testimonial_questions(id),
+    rating_value INTEGER, -- Store 1-5 stars or emoji index
+    feedback_text TEXT,   -- Store the "Why" or "Transformation story"
+    is_approved BOOLEAN DEFAULT FALSE, -- Admin toggle for API/Publicity
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraint: One answer per user per question
+    CONSTRAINT unique_user_question UNIQUE (user_id, question_id)
+);
+
+CREATE TABLE IF NOT EXISTS testimonial_logs (
+    question_id INTEGER,
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 """
 
 class Database:
+    
+    
     def __init__(self, dsn: str):
         self.dsn = dsn
         self._pool: Optional[Pool] = None

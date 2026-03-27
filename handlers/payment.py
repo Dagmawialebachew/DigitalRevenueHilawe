@@ -250,7 +250,7 @@ async def forward_random_signals(message: types.Message, bot: Bot, db: Database)
         reply_text = (
             "መልዕክትዎ ደርሶኛል! 🙏\n\n"
             "ተጨማሪ ጥያቄ ወይም እርዳታ ካስፈለገዎት "
-            "እዚ ላይ ያዋሩኝ፦ @CoachHilaweSupportBot 😊"
+            "ፈጣን ምላሽ ለማግኘት እዚ ላይ ያዋሩኝ፦ @CoachHilaweSupportBot 😊"
         )
     else:
         reply_text = (

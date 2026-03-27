@@ -11,7 +11,8 @@ from aiogram.types import ReplyKeyboardRemove
 from config import settings
 from database.db import Database
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from keyboards import inline as akb  # Updated to use your new hybrid keyboard file
+from keyboards import inline as akb
+from testimonial.testimonial_questions import run_testimonial_cycle  # Updated to use your new hybrid keyboard file
 
 router = Router(name="admin")
 
@@ -588,6 +589,69 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
 
 from datetime import datetime, timezone
 import random
+from datetime import datetime, timezone
+import random
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import random
+from datetime import datetime, timezone
+
+def get_rotating_content(lang: str):
+    # Use the current hour (0-23) as the primary seed for rotation
+    hour_idx = datetime.now().hour
+    
+    # --- AMHARIC DATA (12 Testimonials) ---
+    testimonials_am = [
+        {"name": "አብርሃም ደ.", "text": "“በ 2 ሳምንት ውስጥ በራሴ ላይ ያየሁት ለውጥ አስገራሚ ነው!”"},
+        {"name": "ቤተልሔም በ.", "text": "“ምክሩና ስልጠናው በጣም ቀላልና ውጤታማ ነው።”"},
+        {"name": "ዮናስ ኤ.", "text": "“ዋጋው ለሚገኘው እውቀት በጣም ትንሽ ነው። አመሰግናለሁ!”"},
+        {"name": "ሄለን አ.", "text": "“ሁልጊዜ እጀምርና አቋርጥ ነበር፣ አሁን ግን ተሳካልኝ።”"},
+        {"name": "ታሪኩ ቢ.", "text": "“ከመጠን በላይ ለነበረው የሆድ ስብ መፍትሄ አገኘሁበት።”"},
+        {"name": "ሊዲያ አስ.", "text": "“የምግብ ስርአቱ ኢትዮጵያ ውስጥ ለሚኖር ሰው የሚሆን ነው።”"},
+        {"name": "አቤል ዋለ.", "text": "“በቀን 40 ደቂቃ ሰርቼ ለውጥ አያለሁ ብዬ አላመንኩም ነበር።”"},
+        {"name": "ሩት ቴ.", "text": "“ሰውነቴ ቀለል ብሎኛል፣ ጉልበትም አግኝቻለሁ።”"},
+        {"name": "ቶማስ በየ.", "text": "“ፕሮግራሙን እንደጀመርኩ ልዩነቱን ወዲያው ነው ያወኩት።”"},
+        {"name": "መአዛ ኤፍ.", "text": "ለሁሉም የሚሆን ምርጥ ስልጠና ነው።”"},
+        {"name": "ተስፋዬ ኤል.", "text": "“ስራ እየሰራሁ የምጠቀመው መሆኑ ተመችቶኛል።”"},
+        {"name": "ኤደን ሽመ.", "text": "“ከብዙ ሙከራ በኋላ ውጤት ያየሁት እዚህ ነው።”"}
+    ]
+    recent_buyers_am = [
+        "ሳሙኤል ይታ.", "ፍሬህይወት በ.", "ዮሴፍ መኳ.", "ቃልኪዳን ምግ.", "በረከት በየ.", 
+        "ትዕግስት ዳዊ.", "ዳዊት በላ.", "ማህሌት ቴዎ.", "ኤርሚያስ ዳር.", "ሰላም ድን.", "ናሆም ተክለ.", "ሀና ሰለ."
+    ]
+
+    # --- ENGLISH DATA (12 Testimonials) ---
+    testimonials_en = [
+        {"name": "Dawit T.", "text": "“The results in just 2 weeks are mind-blowing!”"},
+        {"name": "Sara A.", "text": "“Simple, effective, and worth every penny.”"},
+        {"name": "Elias M.", "text": "“Best investment I've made for my health this year.”"},
+        {"name": "Marta G.", "text": "“Finally, a program that actually works for me.”"},
+        {"name": "Brook W.", "text": "“I lost 4kg in my first month without starving.”"},
+        {"name": "Tigist S.", "text": "“The meal plan is so easy to follow, I love it!”"},
+        {"name": "Nathan B.", "text": "“High-quality coaching at a very fair price.”"},
+        {"name": "Selam D.", "text": "“I feel more confident and energetic every day.”"},
+        {"name": "Henok L.", "text": "“The best decision I made for my fitness journey.”"},
+        {"name": "Rediet K.", "text": "“I can see my abs for the first time in years!”"},
+        {"name": "Amanuel Z.", "text": "“Structured and professional. Highly recommend.”"},
+        {"name": "Hana P.", "text": "“It changed my mindset about health entirely.”"}
+    ]
+    recent_buyers_en = [
+        "Michael", "Lilly", "Kebede", "Rahel", "Nahom", 
+        "Fikir", "Abebe", "Betty", "Solomon", "Genet", "Yared", "Million"
+    ]
+
+    # Selection Logic
+    if lang.upper() == "AM":
+        testi = testimonials_am[hour_idx % len(testimonials_am)]
+        # We use a secondary shuffle for the "Recent Buyer" so it doesn't always match the testimonial
+        buyer_name = recent_buyers_am[(hour_idx + 3) % len(recent_buyers_am)]
+        activity = f"🔥 በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... ✅</b>"
+    else:
+        testi = testimonials_en[hour_idx % len(testimonials_en)]
+        buyer_name = recent_buyers_en[(hour_idx + 3) % len(recent_buyers_en)]
+        activity = f"🔥 Recently joined: <b>{buyer_name}... ✅</b>"
+
+    return testi, activity
+
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     now_utc = datetime.now(timezone.utc)
     if expires_at.tzinfo is None:
@@ -595,53 +659,59 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
 
     remaining = expires_at - now_utc
     total_seconds = int(remaining.total_seconds())
-    
-    # Calculate time (capped at 0 so it doesn't show negative)
-    # total_seconds // 60 will now handle 60, 59, etc.
     minutes = max(0, total_seconds // 60)
-    seconds = max(0, total_seconds % 60)
-
-    # Aggressive Urgency Logic
-    # Spots decrease as minutes get lower
-    if minutes < 10:
-        spots_left = random.choice([2, 1, 1])
-    elif minutes < 30:
-        spots_left = random.choice([4, 3, 2])
-    else:
-        spots_left = random.choice([7, 6, 5])
     
-    price = int(settings.BROADCAST_DEAL_PRICE)
+    # URGENY LOGIC
+    if minutes < 45: spots_left = 1
+    elif minutes < 180: spots_left = random.choice([4, 5, 6, 8])
+    else: spots_left = random.choice([4, 5, 6, 8])
+
+    price = 299
+    original_price = 1000
+    
+    # Get the dynamic social proof
+    testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = "🚨 <b>የመጨረሻዎቹ ደቂቃዎች!</b> 🚨"
+        header = "🏷 <b>የመጨረሻው የአርብ ልዩ የዋጋ ቅናሽ!</b> 🚨"
         text = (
             f"{header}\n\n"
-            f"ቦታዎች በከፍተኛ ፍጥነት እየተያዙ ነው። "
-            f"አሁን የቀሩት ክፍት ቦታዎች <b>{spots_left}</b> ብቻ ናቸው! ⚠️\n\n"
-            f"💰 ዋጋ: <b>{price} ብር</b> (በቅርቡ ወደ 1000 ብር ይመለሳል)\n\n"
-            f"⏳ <b>የቀረው ጊዜ: {minutes:02d}ደቂቃ: {seconds:02d}ሴኮንድ</b>\n"
+            f"⭐ <b>የተጠቃሚዎች አስተያየት</b> ⭐\n"
+            f"<i>{testimonial['text']}</i>\n"
+            f"— <b>{testimonial['name']}</b>\n\n"
+            f"ባለፉት ሳምንታት በርካታ ስፓርተኞች ተቀላቅለዋል! "
+            f"የ {price} ብር እድል ዛሬ ለሊት <b>በቋሚነት ያበቃል።</b>\n\n"
+            f"✅ የ8 ሳምንት ስልጠና + የምግብ መመሪያ ፕሮግራም\n"
+            f"💰 በ {price} ብር ብቻ (ለአንድ ምሳ ከሚወጣው ያነሰ!)\n\n"
+            f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
+            f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"👉 አሁኑኑ ተመዝገቡና ለውጥዎን ይጀምሩ፦"
+            f"ለውጥዎን ለመጀመር የመጨረሻው እድል አሁኑኑ ይጠቀሙ፦"
         )
-        button_text = "⚡️ ቅናሹን ተቀበል"
+        button_text = "⚡️ ቅናሹን አግኝ"
     else:
-        header = "🚨 <b>FINAL MINUTES - CLOSING!</b> 🚨"
+        header = "🏷 <b>FINAL FRIDAY FLASH-SALE!</b> 🚨"
         text = (
             f"{header}\n\n"
-            f"Demand is extremely high. "
-            f"Only <b>{spots_left} final slots</b> remaining! ⚠️\n\n"
-            f"💰 Price: <b>{price} ETB</b> (Reverting to 1000 ETB soon)\n\n"
-            f"⏳ <b>TIME REMAINING: {minutes:02d}min: {seconds:02d}sec</b>\n"
+            f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
+            f"<i>{testimonial['text']}</i>\n"
+            f"— <b>{testimonial['name']}</b>\n\n"
+            f"Hundreds of people have already started their journey! "
+            f"This is the <b>LAST</b> time the price will be {price} ETB.\n\n"
+            f"✅ 8-Week Program + Meal Guide Program\n"
+            f"💰 Only {price} ETB (Less than a single meal!)\n\n"
+            f"⚠️ FINAL CALL: <b>{spots_left} slots left</b>\n"
+            f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"👉 Secure your spot before the timer hits zero:"
+            f"Reverts to {original_price} ETB at midnight. Secure it now:"
         )
-        button_text = "⚡️ RECEIVE MY GIFT"
+        button_text = "⚡️ CLAIM MY 70% DISCOUNT"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
     ])
+    
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -658,8 +728,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Router
 
 # Configurable defaults (env or fallback)
-DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "399"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
+DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "24"))
 BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
@@ -795,7 +865,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
     DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 1))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 24))
     from datetime import datetime, timezone
 
     
@@ -823,6 +893,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
         
   
         targets = [dict(r) for r in rows]
+        print('here are the targets', targets)
         # In test mode, we usually don't want to update the whole DB via filter_sql
         filter_sql = f"telegram_id = ANY(ARRAY{settings.ADMIN_IDS}::BIGINT[])"
 
@@ -939,7 +1010,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
-                EID_IMAGE = "AgACAgQAAxkBAAIQsWm9Hj10lBbbhWtfH8BjqUC_-dXLAAIcDWsbKxvpUeYGTqBXuqtsAQADAgADeQADOgQ" 
+                EID_IMAGE = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ" 
 
                 # 1. Send the PHOTO with the deal as caption
                 sent_msg = await bot.send_photo(
@@ -1022,3 +1093,26 @@ async def broadcast_dryrun(message: types.Message):
         )
     except Exception as e:
         await message.answer(f"Failed to fetch counts: {e}")
+        
+        
+@router.message(Command("test_feedback"), F.from_user.id.in_(settings.ADMIN_IDS))
+async def cmd_test_feedback(message: types.Message, db, bot: Bot, state: FSMContext):
+    args = message.text.split()
+    if len(args) < 2: 
+        return await message.answer("Usage: /test_feedback 1")
+    
+    try:
+        q_id = int(args[1])
+        
+        # Pull storage directly from the state object's internal reference
+        storage = state.storage 
+
+        from testimonial.testimonial_questions import run_testimonial_cycle
+        count = await run_testimonial_cycle(bot, db, storage, q_id, test_mode=True)
+        
+        await message.answer(f"✅ Test mode active. Sent to {count} admins.")
+        
+    except Exception as e:
+        logging.error(f"Test feedback error: {e}")
+        # Send as plain text to avoid the "can't parse entities" HTML error
+        await message.answer(f"❌ Error: {str(e)}", parse_mode=None)

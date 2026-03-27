@@ -217,6 +217,10 @@ def setup_admin_routes(app: web.Application):
     app.router.add_patch("/api/products", handle_products_crud)
     app.router.add_delete("/api/products", handle_products_crud)
     
+    #Testimonial
+    app.router.add_get("/api/admin/testimonials", get_user_testimonials)
+    app.router.add_get("/api/admin/testimonials/stats", get_testimonial_kpis)
+    
 # New API
 
 async def get_revenue_by_products(request: web.Request) -> web.Response:
@@ -431,3 +435,80 @@ async def handle_products_crud(request):
 
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
+    
+    
+
+async def get_testimonial_kpis(request: web.Request) -> web.Response:
+    db = request.app["db"]
+    try:
+        query = """
+            SELECT 
+                COUNT(*) as total_responses,
+                COUNT(DISTINCT user_id) as unique_users,
+                AVG(rating_value) FILTER (WHERE question_id = 1) as avg_satisfaction
+            FROM user_testimonials;
+        """
+        record = await db.fetchrow(query)
+        
+        unique_users = record['unique_users'] or 0
+        # Using 600 as the baseline for your paid user count
+        participation_rate = round((unique_users / 600) * 100, 1) if unique_users > 0 else 0
+
+        payload = {
+            "total_feedback_points": record['total_responses'] or 0,
+            "avg_rating": round(float(record['avg_satisfaction'] or 0), 1) if record['avg_satisfaction'] else 0,
+            "participation_rate": f"{participation_rate}%",
+            "active_respondents": unique_users
+        }
+        
+        return web.json_response(payload)
+    except Exception:
+        LOG.exception("get_testimonial_kpis failed")
+        return web.json_response({"error": "internal_error"}, status=500)
+    
+    
+async def get_user_testimonials(request: web.Request) -> web.Response:
+    """
+    GET /api/admin/testimonials
+    """
+    db = request.app["db"]
+    bot = request.app["bot"] # Assuming bot is in app state
+    try:
+        # Changed u.first_name -> u.full_name to match your schema
+        query = """
+            SELECT 
+                u.telegram_id,
+                u.full_name,
+                u.username,
+                u.language,
+                JSON_AGG(JSON_BUILD_OBJECT(
+                    'question_id', q.id,
+                    'question_en', q.question_en,
+                    'input_type', q.input_type,
+                    'rating', ut.rating_value,
+                    'text', ut.feedback_text,
+                    'created_at', ut.created_at
+                ) ORDER BY q.id ASC) as answers
+            FROM users u
+            JOIN user_testimonials ut ON u.telegram_id = ut.user_id
+            JOIN testimonial_questions q ON ut.question_id = q.id
+            GROUP BY u.telegram_id, u.full_name, u.username, u.language
+            ORDER BY MAX(ut.created_at) DESC;
+        """
+        rows = await db.fetch(query)
+        results = records_to_list(rows)
+
+        # OPTIONAL: Enhance with Live Telegram Names
+        # To avoid hitting Telegram limits, we only do this for the users in the list
+        for user in results:
+            try:
+                # We try to get the live chat info
+                chat = await bot.get_chat(user['telegram_id'])
+                user['live_name'] = chat.first_name or user['full_name']
+            except Exception:
+                user['live_name'] = user['full_name'] # Fallback to DB name
+
+        return web.json_response(results)
+    except Exception:
+        LOG.exception("get_user_testimonials failed")
+        return web.json_response({"error": "internal_error"}, status=500)
