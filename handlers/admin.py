@@ -660,6 +660,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     remaining = expires_at - now_utc
     total_seconds = int(remaining.total_seconds())
     minutes = max(0, total_seconds // 60)
+    seconds= max(0, total_seconds % 60)
     
     # URGENY LOGIC
     if minutes < 45: spots_left = random.choice([2,3])
@@ -679,8 +680,8 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"⭐ <b>የተጠቃሚዎች አስተያየት</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"ባለፉት ሳምንታት በርካታ ስፓርተኞች ተቀላቅለዋል! "
-            f"የ {price} ብር እድል ዛሬ ከ<b> {minutes:02d}ደ፡ {total_seconds:02d}ሰከንድ በኋላ </b>በቋሚነት ያበቃል።\n\n"
+            f"ባለፉት ሳምንታት በርካታ ስፓርተኞች ተቀላቅለዋል!\n"
+            f"የ {price} ብር እድል ዛሬ ከ<b> {minutes:02d}ደ፡ {seconds:02d}ሰከንድ በኋላ </b>በቋሚነት ያበቃል።\n\n"
             f"✅ የ8 ሳምንት ስልጠና + የምግብ መመሪያ ፕሮግራም\n"
             f"💰 በ {price} ብር ብቻ (ለአንድ ምሳ ከሚወጣው ያነሰ!)\n\n"
             f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
@@ -697,7 +698,7 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
             f"Hundreds of people have already started their journey! "
-            f"After <b>{minutes:02d}min: {total_seconds:02d}sec</b> the price will be {price} ETB.\n\n"
+            f"After <b>{minutes:02d}min: {seconds:02d}sec</b> the price will be {price} ETB.\n\n"
             f"✅ 8-Week Program + Meal Guide Program\n"
             f"💰 Only {price} ETB (Less than a single meal!)\n\n"
             f"⚠️ FINAL CALL: <b>{spots_left} slots left</b>\n"
