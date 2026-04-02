@@ -222,9 +222,10 @@ def setup_admin_routes(app: web.Application):
     app.router.add_get("/api/admin/testimonials/stats", get_testimonial_kpis)
     
     #Transaction History
-    app.router.add_post("/api/admin/payouts/confirm", confirm_payout )
     app.router.add_get('/api/admin/payouts/pending', get_pending_payout_stats )
     app.router.add_get('/api/admin/payouts/history', get_payout_history)
+    app.router.add_post("/api/admin/payouts/confirm", confirm_payout )
+
 
     
     
@@ -519,74 +520,159 @@ async def get_user_testimonials(request: web.Request) -> web.Response:
     except Exception:
         LOG.exception("get_user_testimonials failed")
         return web.json_response({"error": "internal_error"}, status=500)
-    
-    
-
-
+ 
 async def get_pending_payout_stats(request: web.Request) -> web.Response:
-    """GET /api/admin/payouts/pending - Calculations for the UI"""
     db = request.app["db"]
     try:
-        # 1. Get the last payout timestamp
-        last_payout = await db.fetchval("SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'")
-        
-        # 2. Sum all approved payments since then
-        revenue_row = await db.fetchrow("""
+        # 1. Get the last payout anchor
+        last_payout_ts = await db.fetchval(
+            "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
+        )
+        last_payout_ts = last_payout_ts or datetime.min
+
+        # 2. Calculate REAL Pending Revenue (All approved payments since last payout)
+        pending_row = await db.fetchrow("""
             SELECT COALESCE(SUM(amount), 0) as total 
             FROM payments 
             WHERE status = 'approved' AND approved_at > $1
-        """, last_payout)
+        """, last_payout_ts)
         
-        # 3. Get cumulative lifetime profit to determine Tier
-        # Note: Added COALESCE to ensure we don't return None
-        cumulative_profit = await db.fetchval("SELECT COALESCE(SUM(net_profit), 0) FROM payout_history") or 0
+        pending_revenue = Decimal(str(pending_row['total']))
+
+        # 3. Calculate REAL Lifetime KPIs
+        # Gross = Every approved payment ever
+        # Burn = Every operational deduction in history
+        # Paid = Every share already given to Coach/Dag
+        stats = await db.fetchrow("""
+            SELECT 
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_gross,
+                (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
+                (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
+        """)
         
+        lt_gross = Decimal(str(stats['lt_gross']))
+        lt_burn = Decimal(str(stats['lt_burn']))
+        lt_paid = Decimal(str(stats['lt_paid']))
+
+        # Net Profit To Date is the "War Chest"
+        # Everything that came in, minus everything spent, minus everything already paid out
+        net_profit_to_date = lt_gross - lt_burn - lt_paid
+
+        # 4. Tier Logic (Using LT_GROSS or LT_NET based on your preference)
+        # Usually, Tiers are based on Gross Revenue or Cumulative Net before payouts.
+        # Let's use Cumulative Net (Gross - Burn) to reward efficiency.
+        cumulative_efficiency_net = lt_gross - lt_burn
+        tier_goal = Decimal('500000')
+        current_tier = 2 if cumulative_efficiency_net >= tier_goal else 1
+        tier_progress = min(Decimal('100'), (cumulative_efficiency_net / tier_goal * 100)) if cumulative_efficiency_net > 0 else Decimal('0')
+
+        # 5. Profit Efficiency %
+        # How much of our gross actually turns into profit?
+        efficiency = (cumulative_efficiency_net / lt_gross * 100) if lt_gross > 0 else 0
+
+        # 6. Fetch Trend Data
+        history_points = await db.fetch("""
+            SELECT net_profit, payout_date 
+            FROM payout_history 
+            ORDER BY payout_date DESC LIMIT 15
+        """)
+
         return web.json_response({
-            "pending_revenue": float(revenue_row['total']),
-            "cumulative_profit": float(cumulative_profit),
-            "current_tier": 2 if cumulative_profit >= 500000 else 1
+            "pending_revenue": float(pending_revenue),
+            "cumulative_profit": float(net_profit_to_date), # This is your "Net Profit to Date"
+            "lifetime_gross": float(lt_gross),
+            "lifetime_burn": float(lt_burn),
+            "efficiency": float(round(efficiency, 1)),
+            "current_tier": current_tier,
+            "tier_progress": float(round(tier_progress, 1)),
+            "trend_data": [float(row['net_profit']) for row in reversed(history_points)],
+            "trend_labels": [row['payout_date'].strftime('%m/%d') for row in reversed(history_points)]
         })
     except Exception:
-        LOG.exception("get_pending_payout_stats failed")
-        return web.json_response({"error": "internal_server_error", "pending_revenue": 0}, status=500)
-
+        LOG.exception("KPI Stats Logic Failure")
+        return web.json_response({"error": "sync_error"}, status=500)
+    
 async def confirm_payout(request: web.Request) -> web.Response:
-    """POST /api/admin/payouts/confirm"""
     db = request.app["db"]
     try:
         data = await request.json()
-        
-        # Using float conversion to avoid Decimal issues during JSON loading
-        rev = Decimal(str(data.get('revenue', 0)))
-        deductions = Decimal(str(data.get('deductions', 0)))
-        net = rev - deductions
-        
-        # Tier Logic
-        cumulative = await db.fetchval("SELECT COALESCE(SUM(net_profit), 0) FROM payout_history") or 0
-        tier = 2 if cumulative >= 500000 else 1
-        
-        if tier == 1:
-            coach_cut, dag_cut = net * Decimal('0.60'), net * Decimal('0.40')
-        else:
-            coach_cut, dag_cut = net * Decimal('0.70'), net * Decimal('0.30')
+        print('here is the data i get in confirm_payout', data)
+        entry_type = data.get('entry_type', 'payout')
+        raw_amount = Decimal(str(data.get('amount', 0))) 
+        note = data.get('note', 'N/A')
 
-        # Using the pool directly to ensure transaction safety
+        # 1. FETCH LATEST RECORD & TOTAL VOLUME
+        # We need the last net_profit to calculate the NEW one.
+        # We need Lifetime Gross only to determine the Tier.
+        stats = await db.fetchrow("""
+            SELECT 
+                (SELECT net_profit FROM payout_history ORDER BY payout_date DESC, id DESC LIMIT 1) as last_balance,
+                (SELECT COALESCE(SUM(gross_revenue), 0) FROM payout_history) as lifetime_gross
+        """)
+        
+        current_balance = Decimal(str(stats['last_balance'] or 0))
+        lifetime_gross = Decimal(str(stats['lifetime_gross'] or 0))
+
+        # 2. TIER LOGIC
+        tier = 2 if lifetime_gross >= 500000 else 1
+        coach_ratio = Decimal('0.70') if tier == 2 else Decimal('0.60')
+        dag_ratio = Decimal('0.30') if tier == 2 else Decimal('0.40')
+
+        if entry_type == 'payout':
+            # PAYOUT: Distributing money
+            deductions_val = data.get('deductions') or 0
+            deductions = Decimal(str(deductions_val))
+            gross_revenue = raw_amount
+            operational_deductions = deductions
+            
+            # Money available to split
+            distributable = gross_revenue - operational_deductions
+            coach_share = max(Decimal('0'), distributable * coach_ratio)
+            dag_share = max(Decimal('0'), distributable * dag_ratio)
+            
+            # IMPACT: The War Chest loses the full revenue amount
+            # (Because shares go to wallets and deductions go to bills)
+            transaction_impact = -gross_revenue
+        else:
+            # EXPENSE: Pure Burn
+            gross_revenue = Decimal('0')
+            operational_deductions = raw_amount
+            coach_share = Decimal('0')
+            dag_share = Decimal('0')
+            
+            # IMPACT: Just the expense
+            transaction_impact = -operational_deductions
+
+        # 3. CALCULATE NEW RUNNING BALANCE
+        new_running_balance = current_balance + transaction_impact
+
+        # 4. EXECUTE TRANSACTION
         async with db._pool.acquire() as conn:
             async with conn.transaction():
-                # Record the history
                 await conn.execute("""
                     INSERT INTO payout_history 
-                    (gross_revenue, operational_deductions, net_profit, coach_share, dagmawi_share, tier_applied, cumulative_profit_at_time)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """, rev, deductions, net, coach_cut, dag_cut, tier, cumulative + net)
+                    (gross_revenue, operational_deductions, net_profit, 
+                     coach_share, dagmawi_share, tier_applied, expense_note, entry_type)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """, gross_revenue, operational_deductions, new_running_balance, 
+                     coach_share, dag_share, tier, note, entry_type)
                 
-                # Update the timestamp so these payments aren't counted next time
-                await conn.execute("UPDATE system_metadata SET value_timestamp = NOW() WHERE key = 'last_payout_at'")
+                if entry_type == 'payout':
+                    await conn.execute("""
+                        INSERT INTO system_metadata (key, value_timestamp) 
+                        VALUES ('last_payout_at', NOW())
+                        ON CONFLICT (key) DO UPDATE SET value_timestamp = NOW()
+                    """)
 
-        return web.json_response({"status": "payout_locked", "coach": float(coach_cut), "dagmawi": float(dag_cut)})
+        return web.json_response({
+            "status": "success", 
+            "new_balance": str(new_running_balance),
+            "impact": str(transaction_impact)
+        })
+
     except Exception:
-        LOG.exception("confirm_payout failed")
-        return web.json_response({"error": "payout_processing_failed"}, status=500)
+        LOG.exception("CRITICAL_FINANCIAL_SYNC_ERROR")
+        return web.json_response({"error": "logic_gate_failure"}, status=500)
 
 async def get_payout_history(request: web.Request) -> web.Response:
     """GET /api/admin/payouts/history - For the Archive table"""

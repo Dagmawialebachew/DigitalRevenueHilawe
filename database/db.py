@@ -123,6 +123,32 @@ CREATE TABLE IF NOT EXISTS testimonial_logs (
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
+-- Track every distribution made to Coach and Dagmawi
+CREATE TABLE IF NOT EXISTS payout_history (
+    id SERIAL PRIMARY KEY,
+    gross_revenue DECIMAL(12, 2) NOT NULL,
+    operational_deductions DECIMAL(12, 2) DEFAULT 0,
+    net_profit DECIMAL(12, 2) NOT NULL,
+    coach_share DECIMAL(12, 2) NOT NULL,
+    dagmawi_share DECIMAL(12, 2) NOT NULL,
+    tier_applied INTEGER DEFAULT 1,
+    cumulative_profit_at_time DECIMAL(12, 2), -- To track the 500k milestone
+    payout_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Simple table to store the last time a payout was "confirmed"
+CREATE TABLE IF NOT EXISTS system_metadata (
+    key TEXT PRIMARY KEY,
+    value_timestamp TIMESTAMP WITH TIME ZONE,
+    value_numeric DECIMAL(12, 2)
+);
+
+ALTER TABLE payout_history 
+ADD COLUMN IF NOT EXISTS expense_note TEXT,
+ADD COLUMN IF NOT EXISTS entry_type TEXT DEFAULT 'payout';
+
 """
 
 class Database:
