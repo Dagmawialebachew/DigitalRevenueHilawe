@@ -125,6 +125,8 @@ CREATE TABLE IF NOT EXISTS testimonial_logs (
 
 
 
+
+
 -- Track every distribution made to Coach and Dagmawi
 CREATE TABLE IF NOT EXISTS payout_history (
     id SERIAL PRIMARY KEY,

@@ -200,7 +200,7 @@ async def start_polling():
     # in startup_wrapper after scheduler_loop creation
     # asyncio.create_task(reminder_worker(bot, db))
     # Inside your start-up logic:
-    # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
+    asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
 
     await bot.delete_webhook(drop_pending_updates=True)
     try:

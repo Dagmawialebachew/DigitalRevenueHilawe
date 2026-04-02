@@ -44,6 +44,7 @@ class Settings:
     BROADCAST_DEAL_PRICE: float = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
     BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
     REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
+    DESIGN_PHOTO_ID: str = os.getenv("DESIGN_PHOTO_ID", "AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ")
 
 
 settings = Settings()
