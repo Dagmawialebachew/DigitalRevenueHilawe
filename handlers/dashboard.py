@@ -504,3 +504,26 @@ async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
 #         f"Copy the ID above and paste it into your MediaGroupBuilder."
 #     )
 #     await message.reply(response, parse_mode="Markdown")
+
+
+# from aiogram import F, types
+
+# @router.message(F.voice)
+# async def get_voice_id(message: types.Message):
+#     # Get the file_id from the voice object
+#     file_id = message.voice.file_id
+    
+#     # Format the response for easy copying
+#     response = (
+#         f"🎤 <b>Voice File ID Captured:</b>\n\n"
+#         f"<code>{file_id}</code>\n\n"
+#         f"Copy this ID and use it in your campaign script."
+#     )
+    
+#     await message.reply(response, parse_mode="HTML")
+
+# # Optional: If you send it as an Audio file (attachment) instead of a Voice Note
+# @router.message(F.audio)
+# async def get_audio_id(message: types.Message):
+#     file_id = message.audio.file_id
+#     await message.reply(f"🎵 <b>Audio File ID:</b>\n<code>{file_id}</code>", parse_mode="HTML")

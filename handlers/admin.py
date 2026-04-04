@@ -599,22 +599,23 @@ from datetime import datetime
 def get_rotating_content(lang: str):
     # CHANGED: Use the current minute (0-59) as the primary seed for rotation
     now = datetime.now()
-    minute_idx = now.minute
+    # minute_idx = now.minute
+    time_seed = (now.timetuple().tm_yday * 24) + now.hour
     
     # --- AMHARIC DATA (12 Testimonials) ---
     testimonials_am = [
-        {"name": "አብርሃም ደ.", "text": "“በ 2 ሳምንት ውስጥ በራሴ ላይ ያየሁት ለውጥ አስገራሚ ነው!”"},
-        {"name": "ቤተልሔም በ.", "text": "“ምክሩና ስልጠናው በጣም ቀላልና ውጤታማ ነው።”"},
-        {"name": "ዮናስ ኤ.", "text": "“ዋጋው ለሚገኘው እውቀት በጣም ትንሽ ነው። አመሰግናለሁ!”"},
-        {"name": "ሄለን አ.", "text": "“ሁልጊዜ እጀምርና አቋርጥ ነበር፣ አሁን ግን ተሳካልኝ።”"},
-        {"name": "ታሪኩ ቢ.", "text": "“ከመጠን በላይ ለነበረው የሆድ ስብ መፍትሄ አገኘሁበት።”"},
-        {"name": "ሊዲያ አስ.", "text": "“የምግብ ስርአቱ ኢትዮጵያ ውስጥ ለሚኖር ሰው የሚሆን ነው።”"},
-        {"name": "አቤል ዋለ.", "text": "“በቀን 40 ደቂቃ ሰርቼ ለውጥ አያለሁ ብዬ አላመንኩም ነበር።”"},
-        {"name": "ሩት ቴ.", "text": "“ሰውነቴ ቀለል ብሎኛል፣ ጉልበትም አግኝቻለሁ።”"},
-        {"name": "ቶማስ በየ.", "text": "“ፕሮግራሙን እንደጀመርኩ ልዩነቱን ወዲያው ነው ያወኩት።”"},
-        {"name": "መአዛ ኤፍ.", "text": "ለሁሉም የሚሆን ምርጥ ስልጠና ነው።”"},
-        {"name": "ተስፋዬ ኤል.", "text": "“ስራ እየሰራሁ የምጠቀመው መሆኑ ተመችቶኛል።”"},
-        {"name": "ኤደን ሽመ.", "text": "“ከብዙ ሙከራ በኋላ ውጤት ያየሁት እዚህ ነው።”"}
+        {"name": "አብርሃም ደ.", "text": "“በ 2 ሳምንት ውስጥ በሆዴ አካባቢ ያየሁት ለውጥ አስገራሚ ነው፤ ልብሶቼ በሙሉ መላላት ጀምረዋል።”"},
+        {"name": "ቤተልሔም በ.", "text": "“ስልጠናው ከስራ በኋላ ለማከናወን በጣም ምቹ ነው፤ በዛ ላይ የምግብ መመሪያው እቤታችን ያለውን ነገር ያገናዘበ ነው።”"},
+        {"name": "ዮናስ ኤ.", "text": "“ከዚህ በፊት ብዙ ሞክሬ ነበር፤ ነገር ግን እንደዚህ ውጤታማና ግልጽ የሆነ ስልጠና አጋጥሞኝ አያውቅም።”"},
+        {"name": "ሄለን አ.", "text": "“ሁልጊዜ እጀምርና አቋርጥ ነበር፤ አሁን ግን በኮች ህላዌ ድጋፍ ተከታታይነት እንዲኖረኝ ረድቶኛል።”"},
+        {"name": "ታሪኩ ቢ.", "text": "“በቀን 40 ደቂቃ ብቻ ሰርቼ እንደዚህ አይነት ለውጥ አገኛለሁ ብዬ ፈፅሞ አላሰብኩም ነበር።”"},
+        {"name": "ሊዲያ አስ.", "text": "“ኢትዮጵያ ውስጥ ለሚኖርና እንደ እኔ ስራ ለሚበዛበት ሰው ትክክለኛው ምርጫ ይሄ ፕሮግራም ነው።”"},
+        {"name": "አቤል ዋለ.", "text": "“የተሰጠኝ የምግብ ስርአት በጣም የሚገርም ነው፤ ሳልራብና ሳልሰለች ክብደት መቀነስ ችያለሁ።”"},
+        {"name": "ሩት ቴ.", "text": "“ሰውነቴ ቀለል ብሎኛል፤ ከምንም በላይ ግን ቀኑን ሙሉ ከፍተኛ ጉልበት እንዲኖረኝ ረድቶኛል።”"},
+        {"name": "ቶማስ በየ.", "text": "“ዋጋው ከሚሰጠው ጥቅም አንጻር በጣም አነስተኛ ነው። ለጤናዬ ያወጣሁት ምርጥ ሳንቲም ነው!”"},
+        {"name": "መአዛ ኤፍ.", "text": "“ከወሊድ በኋላ ሰውነቴን ለመመለስ በጣም ተቸግሬ ነበር፤ በዚ ፕሮግራም ግን በ 1 ወር ውስጥ ትልቅ ለውጥ አየሁ።”"},
+        {"name": "ተስፋዬ ኤል.", "text": "“ጂም መሄድ ሳያስፈልገኝ እቤቴ ሆኜ በሰራሁት ስራ ጓደኞቼ ሁሉ እንዴት እንደቀነስኩ እየጠየቁኝ ነው።”"},
+        {"name": "ኤደን ሽመ.", "text": "“ይሄ ስልጠና ብቻ ሳይሆን የአኗኗር ዘይቤዬን የቀየረ ድንቅ ፕሮግራም ነው። ሁላችሁም ሞክሩት።”"}
     ]
     recent_buyers_am = [
         "ሳሙኤል ይታ.", "ፍሬህይወት በ.", "ዮሴፍ መኳ.", "ቃልኪዳን ምግ.", "በረከት በየ.", 
@@ -643,72 +644,69 @@ def get_rotating_content(lang: str):
 
     # Selection Logic using minute_idx
     if lang.upper() == "AM":
-        testi = testimonials_am[minute_idx % len(testimonials_am)]
+        testi = testimonials_am[time_seed % len(testimonials_am)]
         # Offset by 3 to ensure the buyer name is different from the testimonial author
-        buyer_name = recent_buyers_am[(minute_idx + 3) % len(recent_buyers_am)]
+        buyer_name = recent_buyers_am[(time_seed + 3) % len(recent_buyers_am)]
         activity = f"🔥 በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... ✅</b>"
     else:
-        testi = testimonials_en[minute_idx % len(testimonials_en)]
-        buyer_name = recent_buyers_en[(minute_idx + 3) % len(recent_buyers_en)]
+        testi = testimonials_en[time_seed % len(testimonials_en)]
+        buyer_name = recent_buyers_en[(time_seed + 3) % len(recent_buyers_en)]
         activity = f"🔥 Recently joined: <b>{buyer_name}... ✅</b>"
 
     return testi, activity
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     now_utc = datetime.now(timezone.utc)
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-
-    remaining = expires_at - now_utc
-    total_seconds = int(remaining.total_seconds())
-    minutes = max(0, total_seconds // 60)
-    seconds= max(0, total_seconds % 60)
+    # Calculate time until Monday morning 00:00
+    monday = (now_utc + timedelta(days=(7 - now_utc.weekday()) % 7)).replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # URGENY LOGIC
-    if minutes < 45: spots_left = random.choice([2,3])
-    elif minutes < 180: spots_left = random.choice([2,3])
-    else: spots_left = random.choice([2,3])
+    remaining = monday - now_utc
+    total_seconds = int(remaining.total_seconds())
+    
+    # Calculate breakdown
+    hours = max(0, total_seconds // 3600)
+    minutes = max(0, (total_seconds % 3600) // 60)
 
-    price = 299
+    # URGENCY LOGIC: Decreasing slots as time runs out
+    if hours < 12: spots_left = random.choice([2, 4, 5])
+    elif hours < 24: spots_left = random.choice([7, 8, 11])
+    else: spots_left = random.choice([14, 17, 19])
+
+    price = 349
     original_price = 1000
     
-    # Get the dynamic social proof
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = "🏷 <b>ደቂቃዎች ቀሩት፣ የመጨረሻው የአርብ ልዩ የዋጋ ቅናሽ!</b> 🚨"
+        header = "⏳<b>ሰኞ ከመጀመሩ በፊት ለውጥዎን ይጀምሩ! (የ349 ብር ቅናሽ)</b>"
         text = (
             f"{header}\n\n"
-            f"⭐ <b>የተጠቃሚዎች አስተያየት</b> ⭐\n"
+            f"ብዙዎች 'ሰኞ እጀምራለሁ' ይላሉ፣ ግን ጥቂቶች ብቻ ናቸው ቅዳሜና እሁድ ዝግጅታቸውን ጨርሰው ሰኞን በውጤት የሚጀምሩት።\n\n"
+            f"⭐ <b>የአባላት ስኬት</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"ባለፉት ሳምንታት በርካታ ስፓርተኞች ተቀላቅለዋል!\n"
-            f"የ {price} ብር እድል ዛሬ ከ<b> {minutes:02d}ደ፡ {seconds:02d}ሰከንድ በኋላ </b>በቋሚነት ያበቃል።\n\n"
-            f"✅ የ8 ሳምንት ስልጠና + የምግብ መመሪያ ፕሮግራም\n"
-            f"💰 በ {price} ብር ብቻ (ለአንድ ምሳ ከሚወጣው ያነሰ!)\n\n"
+            f"ይህ የ <b>{price} ብር</b> ልዩ እድል ከ <b>{hours} ሰዓት ከ {minutes} ደቂቃ</b> በኋላ ያበቃል።\n\n"
             f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
             f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"ለውጥዎን ለመጀመር የመጨረሻው እድል አሁኑኑ ይጠቀሙ፦"
+            f"በ <s>{original_price} ብር</s> ፋንታ በ {price} ብር ብቻ አሁኑኑ ተመዝግበው ለሰኞ ተዘጋጁ፦"
         )
-        button_text = "⚡️ ቅናሹን አግኝ"
+        button_text = "⚡️ የ349 ብር እድሉን አሁኑኑ ተጠቀም"
     else:
-        header = "🏷 <b>FINAL FRIDAY FLASH-SALE!</b> 🚨"
+        header = "⏳<b>PREPARE FOR MONDAY: The 349 ETB Weekend Launch!</b>"
         text = (
             f"{header}\n\n"
+            f"Everyone says 'I'll start Monday.' Be the 1% who prepares today and hits the ground running when the week starts.\n\n"
             f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"Hundreds of people have already started their journey!\n"
-            f"After <b>{minutes:02d}min: {seconds:02d}sec</b> the price will be {price} ETB.\n\n"
-            f"✅ 8-Week Program + Meal Guide Program\n"
-            f"💰 Only {price} ETB (Less than a single meal!)\n\n"
-            f"⚠️ FINAL CALL: <b>{spots_left} slots left</b>\n"
+            f"This <b>{price} ETB</b> special access expires in <b>{hours}h : {minutes}m</b>.\n\n"
+            f"⚠️ STATUS: <b>{spots_left} final slots remaining</b>\n"
             f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"Reverts to {original_price} ETB at midnight. Secure it now:"
+            f"Don't pay <s>{original_price} ETB</s> on Monday. Secure your 65% discount now:"
         )
-        button_text = "⚡️ CLAIM MY 70% DISCOUNT"
+        button_text = "⚡️ CLAIM MY WEEKEND DEAL"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
@@ -731,8 +729,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Router
 
 # Configurable defaults (env or fallback)
-DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "1"))
+DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "349"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "30"))
 BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
@@ -867,8 +865,8 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     - test_mode: if True, only send to settings.ADMIN_IDS and DO NOT update DB deals
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
-    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 299))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 1))
+    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 349))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 30))
     from datetime import datetime, timezone
 
     
@@ -1014,12 +1012,27 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
                 EID_IMAGE = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ" 
+                VOICE_FILE_ID = "CQACAgQAAxkBAAIFiGnRCudV-Vje5zYei05-7On_Xiv-AAL-HAACcT6IUvlot_GBJFTkOwQ"
 
                 # 1. Send the PHOTO with the deal as caption
-                sent_msg = await bot.send_photo(
+                # sent_msg = await bot.send_photo(
+                #     chat_id=uid,
+                #     photo=EID_IMAGE,
+                #     caption=text,
+                #     reply_markup=kb,
+                #     parse_mode="HTML"
+                # )
+                await bot.send_voice(
                     chat_id=uid,
-                    photo=EID_IMAGE,
-                    caption=text,
+                    voice=VOICE_FILE_ID,
+                    caption="🎤 መልዕክት ከኮች ህላዌ (Listen to this first)" # Static caption
+                )
+
+                # 2. Send the Deal Message as a separate Text Message
+                # This message is EDITABLE by your reminder_worker
+                sent_msg = await bot.send_message(
+                    chat_id=uid,
+                    text=text,
                     reply_markup=kb,
                     parse_mode="HTML"
                 )
