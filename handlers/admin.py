@@ -1012,7 +1012,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
                 EID_IMAGE = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ" 
-                VOICE_FILE_ID = "CQACAgQAAxkBAAIFiGnRCudV-Vje5zYei05-7On_Xiv-AAL-HAACcT6IUvlot_GBJFTkOwQ"
+                VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ"
 
                 # 1. Send the PHOTO with the deal as caption
                 # sent_msg = await bot.send_photo(
