@@ -734,8 +734,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Router
 
 # Configurable defaults (env or fallback)
-DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "349"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "30"))
+DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "300"))
+DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "90"))
 BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
@@ -870,8 +870,8 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     - test_mode: if True, only send to settings.ADMIN_IDS and DO NOT update DB deals
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
-    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 349))
-    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 30))
+    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 300))
+    DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 90))
     from datetime import datetime, timezone
 
     
