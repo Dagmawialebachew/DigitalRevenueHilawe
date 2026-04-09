@@ -597,122 +597,127 @@ from datetime import datetime, timezone
 from datetime import datetime
 
 def get_rotating_content(lang: str):
-    # CHANGED: Use the current minute (0-59) as the primary seed for rotation
     now = datetime.now()
-    # minute_idx = now.minute
+    # Unique index for every hour to ensure 3-hour rotations never repeat
     time_seed = (now.timetuple().tm_yday * 24) + now.hour
     
-    # --- AMHARIC DATA (12 Testimonials) ---
+    # --- AMHARIC: Focus on Preparation for Fasika ---
     testimonials_am = [
-        {"name": "አብርሃም ደ.", "text": "“በ 2 ሳምንት ውስጥ በሆዴ አካባቢ ያየሁት ለውጥ አስገራሚ ነው፤ ልብሶቼ በሙሉ መላላት ጀምረዋል።”"},
-        {"name": "ቤተልሔም በ.", "text": "“ስልጠናው ከስራ በኋላ ለማከናወን በጣም ምቹ ነው፤ በዛ ላይ የምግብ መመሪያው እቤታችን ያለውን ነገር ያገናዘበ ነው።”"},
-        {"name": "ዮናስ ኤ.", "text": "“ከዚህ በፊት ብዙ ሞክሬ ነበር፤ ነገር ግን እንደዚህ ውጤታማና ግልጽ የሆነ ስልጠና አጋጥሞኝ አያውቅም።”"},
-        {"name": "ሄለን አ.", "text": "“ሁልጊዜ እጀምርና አቋርጥ ነበር፤ አሁን ግን በኮች ህላዌ ድጋፍ ተከታታይነት እንዲኖረኝ ረድቶኛል።”"},
-        {"name": "ታሪኩ ቢ.", "text": "“በቀን 40 ደቂቃ ብቻ ሰርቼ እንደዚህ አይነት ለውጥ አገኛለሁ ብዬ ፈፅሞ አላሰብኩም ነበር።”"},
-        {"name": "ሊዲያ አስ.", "text": "“ኢትዮጵያ ውስጥ ለሚኖርና እንደ እኔ ስራ ለሚበዛበት ሰው ትክክለኛው ምርጫ ይሄ ፕሮግራም ነው።”"},
-        {"name": "አቤል ዋለ.", "text": "“የተሰጠኝ የምግብ ስርአት በጣም የሚገርም ነው፤ ሳልራብና ሳልሰለች ክብደት መቀነስ ችያለሁ።”"},
-        {"name": "ሩት ቴ.", "text": "“ሰውነቴ ቀለል ብሎኛል፤ ከምንም በላይ ግን ቀኑን ሙሉ ከፍተኛ ጉልበት እንዲኖረኝ ረድቶኛል።”"},
-        {"name": "ቶማስ በየ.", "text": "“ዋጋው ከሚሰጠው ጥቅም አንጻር በጣም አነስተኛ ነው። ለጤናዬ ያወጣሁት ምርጥ ሳንቲም ነው!”"},
-        {"name": "መአዛ ኤፍ.", "text": "“ከወሊድ በኋላ ሰውነቴን ለመመለስ በጣም ተቸግሬ ነበር፤ በዚ ፕሮግራም ግን በ 1 ወር ውስጥ ትልቅ ለውጥ አየሁ።”"},
-        {"name": "ተስፋዬ ኤል.", "text": "“ጂም መሄድ ሳያስፈልገኝ እቤቴ ሆኜ በሰራሁት ስራ ጓደኞቼ ሁሉ እንዴት እንደቀነስኩ እየጠየቁኝ ነው።”"},
-        {"name": "ኤደን ሽመ.", "text": "“ይሄ ስልጠና ብቻ ሳይሆን የአኗኗር ዘይቤዬን የቀየረ ድንቅ ፕሮግራም ነው። ሁላችሁም ሞክሩት።”"}
+        {"name": "ዮናስ ኤ.", "text": "“ጾሙ ሊያልቅ ጥቂት ቀናት ሲቀሩት ነው የተቀላቀልኩት፤ ገና ከትንሳኤ ማግስት ዝግጁ ሆኜ እንድጀምር ረድቶኛል።”"},
+        {"name": "መአዛ ኤፍ.", "text": "“ከጾም በኋላ ሰውነቴ እንዳይዝለፈለፍና ክብደት እንዳይጨምር ትክክለኛውን እቅድ አስቀድሜ በመያዜ ተረጋግቻለሁ።”"},
+        {"name": "አቤል ዋለ.", "text": "“ለፋሲካ በዓል ራሴን ያዘጋጀሁበት ምርጥ ስጦታ ነው። አሁን በዓሉን ያለምንም ስጋት ለማክበር ተዘጋጅቻለሁ።”"},
+        {"name": "ሄለን አ.", "text": "“ሁልጊዜ ከጾም በኋላ ጂም ለመጀመር እቸገር ነበር፤ ዘንድሮ ግን ገና ሳይፈታ ፕሮግራሜን በመያዜ ትልቅ መነሳሳት ፈጥሮብኛል።”"},
+        {"name": "ታሪኩ ቢ.", "text": "“በበዓል ሰሞን የሚወሰደውን ካሎሪ ወደ ጡንቻ ለመቀየር የሚያስችለኝን ስልት አስቀድሜ አግኝቻለሁ።”"},
+        {"name": "ሊዲያ አስ.", "text": "“አዲስ ልብስ ብቻ ሳይሆን አዲስ ቁመና ለራሴ ሰጥቻለሁ። ጾሙ ሲያልቅ በውጤት ለመጀመር ዝግጁ ነኝ።”"},
+        {"name": "አብርሃም ደ.", "text": "“በጾም ወቅት ያጣሁትን ጡንቻ ለመመለስ ፕሮፌሽናል እቅድ ያስፈልገኝ ነበር፤ ይህ ፕሮግራም ትክክለኛው ምርጫ ነው።”"},
+        {"name": "ሩት ቴ.", "text": "“ፋሲካን በደስታ አክብሬ ሰኞን በከፍተኛ ጉልበት የምጀምርበትን መንገድ ስላገኘሁ በጣም ደስተኛ ነኝ።”"},
+        {"name": "ቶማስ በየ.", "text": "“የትንሳኤ ስጦታዬን አስቀድሜ ገዝቻለሁ። ዋጋው ከጥቅሙ አንጻር በጣም አነስተኛ ነው።”"},
+        {"name": "ተስፋዬ ኤል.", "text": "“ጂም ከመሄዴ በፊት እቤት ውስጥ ሆኜ ራሴን የማዘጋጅበት ግልጽ መመሪያ አግኝቻለሁ።”"},
+        {"name": "ቤተልሔም በ.", "text": "“ለጤናዬ የወሰንኩት ቁርጥ ውሳኔ ነው። ከበዓል በኋላ አዲስ ሰው ሆኜ እመለሳለሁ።”"},
+        {"name": "ኤደን ሽመ.", "text": "“ይሄ ስልጠና ብቻ ሳይሆን የአኗኗር ዘይቤዬን የሚቀይር ድንቅ የትንሳኤ ስጦታ ነው።”"}
     ]
+    
     recent_buyers_am = [
         "ሳሙኤል ይታ.", "ፍሬህይወት በ.", "ዮሴፍ መኳ.", "ቃልኪዳን ምግ.", "በረከት በየ.", 
         "ትዕግስት ዳዊ.", "ዳዊት በላ.", "ማህሌት ቴዎ.", "ኤርሚያስ ዳር.", "ሰላም ድን.", "ናሆም ተክለ.", "ሀና ሰለ."
     ]
 
-    # --- ENGLISH DATA (12 Testimonials) ---
+    # --- ENGLISH: Focus on "Hit the ground running" ---
     testimonials_en = [
-        {"name": "Dawit T.", "text": "“The results in just 2 weeks are mind-blowing!”"},
-        {"name": "Sara A.", "text": "“Simple, effective, and worth every penny.”"},
-        {"name": "Elias M.", "text": "“Best investment I've made for my health this year.”"},
-        {"name": "Marta G.", "text": "“Finally, a program that actually works for me.”"},
-        {"name": "Brook W.", "text": "“I lost 4kg in my first month without starving.”"},
-        {"name": "Tigist S.", "text": "“The meal plan is so easy to follow, I love it!”"},
-        {"name": "Nathan B.", "text": "“High-quality coaching at a very fair price.”"},
-        {"name": "Selam D.", "text": "“I feel more confident and energetic every day.”"},
-        {"name": "Henok L.", "text": "“The best decision I made for my fitness journey.”"},
-        {"name": "Rediet K.", "text": "“I can see my abs for the first time in years!”"},
-        {"name": "Amanuel Z.", "text": "“Structured and professional. Highly recommend.”"},
-        {"name": "Hana P.", "text": "“It changed my mindset about health entirely.”"}
+        {"name": "Elias M.", "text": "“I secured my plan during Holy Week. Having the strategy ready before the feast made the transition so much easier.”"},
+        {"name": "Sara A.", "text": "“The best decision I made was joining now. I don't have to worry about the post-holiday weight gain.”"},
+        {"name": "Dawit T.", "text": "“Joining before Easter gave me the mindset shift I needed. Ready to hit the ground running on Monday!”"},
+        {"name": "Marta G.", "text": "“I didn't want to waste a single day after Fasika. Getting my meal plan ready now was a total game changer.”"},
+        {"name": "Brook W.", "text": "“Reclaiming the muscle I lost during Lent is my priority. This program is the perfect roadmap.”"},
+        {"name": "Tigist S.", "text": "“Invested in myself before the holiday started. Peace of mind is the best Easter gift!”"},
+        {"name": "Nathan B.", "text": "“Professional, structured, and perfect for the post-fast recovery phase.”"},
+        {"name": "Selam D.", "text": "“I feel more confident knowing I have a solid plan for the week after Easter.”"},
+        {"name": "Henok L.", "text": "“Top tier coaching. I'm starting my transformation the second the fast ends.”"},
+        {"name": "Rediet K.", "text": "“Don't wait for Monday to plan. Plan now so you can execute on Monday.”"},
+        {"name": "Amanuel Z.", "text": "“The price is unbeatable for the value provided. Best Holy Week deal in Ethiopia.”"},
+        {"name": "Hana P.", "text": "“Transformed my mindset before the holiday. Ready for a healthy and strong Easter!”"}
     ]
+    
     recent_buyers_en = [
         "Michael", "Lilly", "Kebede", "Rahel", "Nahom", 
         "Fikir", "Abebe", "Betty", "Solomon", "Genet", "Yared", "Million"
     ]
 
-    # Selection Logic using minute_idx
+    # Selection logic with offsets to prevent matching names
+    idx = time_seed % 12
+    buyer_idx = (time_seed + 5) % 12
+
     if lang.upper() == "AM":
-        testi = testimonials_am[time_seed % len(testimonials_am)]
-        # Offset by 3 to ensure the buyer name is different from the testimonial author
-        buyer_name = recent_buyers_am[(time_seed + 3) % len(recent_buyers_am)]
+        testi = testimonials_am[idx]
+        buyer_name = recent_buyers_am[buyer_idx]
         activity = f"🔥 በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... ✅</b>"
     else:
-        testi = testimonials_en[time_seed % len(testimonials_en)]
-        buyer_name = recent_buyers_en[(time_seed + 3) % len(recent_buyers_en)]
+        testi = testimonials_en[idx]
+        buyer_name = recent_buyers_en[buyer_idx]
         activity = f"🔥 Recently joined: <b>{buyer_name}... ✅</b>"
 
     return testi, activity
 
+
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     now_utc = datetime.now(timezone.utc)
-    # Calculate time until Monday morning 00:00
-    monday = (now_utc + timedelta(days=(7 - now_utc.weekday()) % 7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # The countdown target: Easter Monday Morning 00:00
+    # In 2026, Easter Sunday is April 12. Monday is April 13.
+    monday = datetime(2026, 4, 13, 0, 0, 0, tzinfo=timezone.utc)
     
     remaining = monday - now_utc
     total_seconds = int(remaining.total_seconds())
     
-    # Calculate breakdown
     hours = max(0, total_seconds // 3600)
     minutes = max(0, (total_seconds % 3600) // 60)
 
-    # URGENCY LOGIC: Decreasing slots as time runs out
-    if hours < 12: spots_left = random.choice([2, 4, 5])
-    elif hours < 24: spots_left = random.choice([7, 8, 11])
-    else: spots_left = random.choice([14, 17, 19])
+    # Aggressive Urgency for Holy Week
+    if hours < 24: spots_left = random.choice([3, 5, 6])
+    elif hours < 48: spots_left = random.choice([8, 11, 13])
+    else: spots_left = random.choice([16, 21, 24])
 
-    price = 349
+    price = 300 # Dark Psycho Price Drop
     original_price = 1000
     
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = "⏳<b>ሰኞ ከመጀመሩ በፊት ለውጥዎን ይጀምሩ! (የ349 ብር ቅናሽ)</b>"
+        header = f"⏳ <b>ለትንሳኤ የሚሆን አዲስ ቁመና (የ{price} ብር ልዩ ስጦታ!)</b>"
         text = (
             f"{header}\n\n"
-            f"ብዙዎች 'ሰኞ እጀምራለሁ' ይላሉ፣ ግን ጥቂቶች ብቻ ናቸው ቅዳሜና እሁድ ዝግጅታቸውን ጨርሰው ሰኞን በውጤት የሚጀምሩት።\n\n"
-            f"⭐ <b>የአባላት ስኬት</b> ⭐\n"
+            f"ጾሙ ሊያበቃ ጥቂት ቀናት ብቻ ቀርተዋል። ብዙዎች ጾሙ ሲፈታ 'በኋላ እጀምራለሁ' እያሉ ጊዜያቸውን ያባክናሉ፤ እርስዎ ግን በበዓሉ ሰሞን የሚወሰደውን ካሎሪ ወደ ጡንቻና ጥንካሬ የሚቀይሩበትን ፕሮፌሽናል እቅድ አሁኑኑ በእጅዎ ያስገቡ።\n\n"
+            f"⭐ <b>የአባላት ዝግጁነት</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"ይህ የ <b>{price} ብር</b> ልዩ እድል ከ <b>{hours} ሰዓት ከ {minutes} ደቂቃ</b> በኋላ ያበቃል።\n\n"
+            f"ይህ የ <b>{price} ብር</b> የትንሳኤ እድል ከ ሰአታት በኋላ</b> በኋላ ያበቃል።\n\n"
             f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
             f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"በ <s>{original_price} ብር</s> ፋንታ በ {price} ብር ብቻ አሁኑኑ ተመዝግበው ለሰኞ ተዘጋጁ፦"
+            f"በ <s>{original_price} ብር</s> ፋንታ በ {price} ብር ብቻ አሁኑኑ ተመዝግበው ለትንሳኤ ማግስት ዝግጁ ይሁኑ፦"
         )
-        button_text = "⚡️ የ349 ብር እድሉን አሁኑኑ ተጠቀም"
+        button_text = f"⚡️ የ{price} ብር እድሉን አሁኑኑ ተጠቀም"
     else:
-        header = "⏳<b>PREPARE FOR MONDAY: The 349 ETB Weekend Launch!</b>"
+        header = f"⏳ <b>THE POST-FAST REBIRTH (Special {price} ETB Offer)</b>"
         text = (
             f"{header}\n\n"
-            f"Everyone says 'I'll start Monday.' Be the 1% who prepares today and hits the ground running when the week starts.\n\n"
+            f"The 55-day fast is almost over. Don't wait until Monday to wonder how to lose the holiday fat. Secure your professional plan today and transform the moment the feast begins.\n\n"
             f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
             f"<i>{testimonial['text']}</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            f"This <b>{price} ETB</b> special access expires in <b>{hours}h : {minutes}m</b>.\n\n"
+            f"This <b>{price} ETB</b> Holy Week access expires in <b>{hours}h : {minutes}m</b>.\n\n"
             f"⚠️ STATUS: <b>{spots_left} final slots remaining</b>\n"
             f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"Don't pay <s>{original_price} ETB</s> on Monday. Secure your 65% discount now:"
+            f"Don't pay <s>{original_price} ETB</s> later. Secure your {price} ETB spot today:"
         )
-        button_text = "⚡️ CLAIM MY WEEKEND DEAL"
+        button_text = "⚡️ SECURE MY EASTER DEAL"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
     ])
     
     return text, kb
+
 
 import os
 from datetime import datetime, timedelta
@@ -1011,31 +1016,30 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
-                EID_IMAGE = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ" 
+                EID_IMAGE = "AgACAgQAAxkBAAJOrmnXcPvUE3es3FdbP1h2d__ocF07AAJODGsbpfC4UgE_cLEgzHfOAQADAgADeQADOwQ" 
                 VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ"
 
-                # 1. Send the PHOTO with the deal as caption
-                # sent_msg = await bot.send_photo(
-                #     chat_id=uid,
-                #     photo=EID_IMAGE,
-                #     caption=text,
-                #     reply_markup=kb,
-                #     parse_mode="HTML"
-                # )
-                await bot.send_voice(
+                sent_msg = await bot.send_photo(
                     chat_id=uid,
-                    voice=VOICE_FILE_ID,
-                    caption="🎤 መልዕክት ከኮች ህላዌ (Listen to this first)" # Static caption
-                )
-
-                # 2. Send the Deal Message as a separate Text Message
-                # This message is EDITABLE by your reminder_worker
-                sent_msg = await bot.send_message(
-                    chat_id=uid,
-                    text=text,
+                    photo=EID_IMAGE,
+                    caption=text,
                     reply_markup=kb,
                     parse_mode="HTML"
                 )
+                # await bot.send_voice(
+                #     chat_id=uid,
+                #     voice=VOICE_FILE_ID,
+                #     caption="🎤 መልዕክት ከኮች ህላዌ (Listen to this first)" # Static caption
+                # )
+
+                # # 2. Send the Deal Message as a separate Text Message
+                # # This message is EDITABLE by your reminder_worker
+                # sent_msg = await bot.send_message(
+                #     chat_id=uid,
+                #     text=text,
+                #     reply_markup=kb,
+                #     parse_mode="HTML"
+                # )
                 
                 # 2. SAVE for future editing (countdown updates)
                 await db._pool.execute("""
