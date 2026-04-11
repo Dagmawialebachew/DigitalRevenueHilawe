@@ -175,6 +175,8 @@ async def handle_payment_proof(message: types.Message, state: FSMContext, db: Da
     # 7. Final State Clear
     await state.clear()
 
+import html  # Make sure this is imported at the top of your file
+
 async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, payment_id: int, proof_id: str, db: Database):
     """The Founder Alert: Sends the receipt + data + action buttons to Admins."""
     try:
@@ -185,25 +187,27 @@ async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, pay
         lang_code = data.get("language", "EN")
         lang_display = "🇺🇸 English" if lang_code == "EN" else "🇪🇹 አማርኛ (Amharic)"
         
-        username = f"@{message.from_user.username}" if message.from_user.username else "No Username"
+        # Safely escape user-generated strings to prevent parsing errors
+        full_name = html.escape(message.from_user.full_name)
+        username = html.escape(f"@{message.from_user.username}") if message.from_user.username else "No Username"
+        product_title = html.escape(product['title'])
         
+        # Build caption using HTML (much more reliable)
         admin_caption = (
-            f"💸 *MONEY IN: NEW PAYMENT*\n"            
-            f"————————————————————\n"
-            f"👤 *Athlete:* {message.from_user.full_name} | {username}\n"
-            f"🆔 *User ID:* `{message.from_user.id}`\n"
-            f"🌍 *Language:* `{lang_display}`\n" # <--- Added Language Tag
-            f"————————————————————\n"
-            f"📦 *Plan:* {product['title']}\n"
-            f"💰 *Amount:* `{data['amount']} ETB`\n"
-            f"🎫 *Payment ID:* #{payment_id}\n"
-            f"————————————————————\n"
-            f"⚡️ *Verify receipt and choose action:* "
+            f"💸 <b>MONEY IN: NEW PAYMENT</b>\n"            
+            f"────────────────────\n"
+            f"👤 <b>Athlete:</b> {full_name} | {username}\n"
+            f"🆔 <b>User ID:</b> <code>{message.from_user.id}</code>\n"
+            f"🌍 <b>Language:</b> <code>{lang_display}</code>\n"
+            f"────────────────────\n"
+            f"📦 <b>Plan:</b> {product_title}\n"
+            f"💰 <b>Amount:</b> <code>{data['amount']} ETB</code>\n"
+            f"🎫 <b>Payment ID:</b> #{payment_id}\n"
+            f"────────────────────\n"
+            f"⚡️ <b>Verify receipt and choose action:</b>"
         )
         
         kb_builder = InlineKeyboardBuilder()
-        # We pass the payment_id. The admin handler will look up the user's 
-        # language from the DB when they click these buttons.
         kb_builder.button(text="✅ APPROVE & SEND PDF", callback_data=f"approve_{payment_id}")
         kb_builder.button(text="❌ REJECT / FAKE", callback_data=f"reject_{payment_id}")
         kb_builder.adjust(1)
@@ -213,13 +217,11 @@ async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, pay
             photo=proof_id,
             caption=admin_caption,
             reply_markup=kb_builder.as_markup(),
-            parse_mode="Markdown"
+            parse_mode="HTML"  # Changed from Markdown to HTML
         )
 
     except Exception as e:
         logging.error(f"Global admin notification error: {e}")
-        
-        
     
 
 

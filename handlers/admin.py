@@ -241,6 +241,22 @@ async def prod_finalize(message: types.Message, state: FSMContext, db: Database)
 
 PAY_PER_PAGE = 6
 
+from .verify import get_verifier_menu # Import the menu builder we made
+
+@router.message(F.text == "🤖 AI Verifier", F.from_user.id.in_(settings.ADMIN_IDS))
+async def open_verifier_tools(message: types.Message):
+    """
+    Opens the testing suite with 'Upload Screenshot' and 'Test Batch'
+    """
+    await message.answer(
+        "🛠 **TRANSACTION ARCHITECT: TEST SUITE**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Use these tools to stress-test OCR and Bank API logic "
+        "without affecting real user records.",
+        reply_markup=get_verifier_menu()
+    )
+    
+    
 @router.message(F.text == "⏳ Pending Payments", F.from_user.id.in_(settings.ADMIN_IDS))
 @router.callback_query(F.data.startswith("paypage_"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def view_payment_ledger(event: types.Message | types.CallbackQuery, db: Database):

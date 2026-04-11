@@ -26,7 +26,8 @@ def admin_main_menu() -> ReplyKeyboardMarkup:
                 KeyboardButton(
                     text="📈 Dashboard",
                     web_app=WebAppInfo(url=f"https://digital-revenue-hilawe-mini-app.vercel.app")
-                )
+                ),
+                KeyboardButton (text = "🤖 AI Verifier")
         
     )
     return builder.as_markup(resize_keyboard=True, placeholder="Hilawe Admin Panel")

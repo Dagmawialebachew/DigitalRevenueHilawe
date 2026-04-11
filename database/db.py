@@ -247,6 +247,19 @@ class Database:
                 (SELECT count(*) FROM payments WHERE status = 'pending') as pending_count
         """
         return await self._pool.fetchrow(query)
+    
+    async def get_recent_payment_proofs(self, limit: int = 5) -> List[asyncpg.Record]:
+        """Fetches the last N payments that have a proof_file_id for testing."""
+        query = """
+            SELECT p.id, p.proof_file_id, p.amount, u.full_name, pr.title
+            FROM payments p
+            JOIN users u ON p.user_id = u.telegram_id
+            JOIN products pr ON p.product_id = pr.id
+            WHERE p.proof_file_id IS NOT NULL
+            ORDER BY p.created_at DESC
+            LIMIT $1
+        """
+        return await self._pool.fetch(query, limit)
 
     async def approve_payment(self, payment_id: int) -> Optional[Dict]:
         """Approves payment and returns user_id + file_id for automated delivery."""
