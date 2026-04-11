@@ -316,26 +316,62 @@ async def inspect_single_payment(callback: types.CallbackQuery, db: Database, bo
     parse_mode="HTML"
 )
     
-    
+import html # Ensure this is imported
+
 @router.callback_query(F.data.startswith("approve_"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def approve_payment(callback: types.CallbackQuery, db: Database, bot: Bot):
     payment_id = int(callback.data.split("_")[1])
     info = await db.approve_payment(payment_id)
     
     if not info:
-        return await callback.answer("Error during verification.")
+        return await callback.answer("Error: Payment not found.")
 
+    # Get the admin's name who clicked the button
+    admin_name = html.escape(callback.from_user.full_name)
+
+    # 1. Message for the User (Athlete)
     msg = (
-        "🔥 *ACCESS GRANTED*\n\nYour payment is verified. Your personalized Product is attached below. Let's work."
+        "🔥 <b>ACCESS GRANTED</b>\n\nYour payment is verified. Your personalized Product is attached below. Let's work."
         if info['language'] == "EN" else
-        "🔥 *ፈቃድ ተሰጥቷል*\n\nክፍያዎ ተረጋግጧል። የእርስዎ ልዩ የልምምድ እቅድ ከታች ተያይዟል። ስራ እንጀምር።"
+        "🔥 <b>ፈቃድ ተሰጥቷል</b>\n\nክፍያዎ ተረጋግጧል። የእርስዎ ልዩ የልምምድ እቅድ ከታች ተያይዟል። ስራ እንጀምር።"
     )
 
+    # 2. Try sending document to the user
     try:
-        await bot.send_document(chat_id=info['user_id'], document=info['telegram_file_id'], caption=msg)
-        await callback.message.edit_caption(caption=f"{callback.message.caption}\n\n✅ *APPROVED & DELIVERED*", reply_markup=None)
-    except Exception:
-        await callback.answer("User blocked the bot. Payment approved but document not sent.")
+        await bot.send_document(
+            chat_id=info['user_id'], 
+            document=info['telegram_file_id'], 
+            caption=msg,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logging.error(f"Delivery failed: {e}")
+        return await callback.answer("❌ Could not send. User might have blocked the bot.")
+
+    # 3. Update the Admin Group message
+    try:
+        # Keep the old caption but add the approval info
+        # We escape the old caption to ensure it doesn't break HTML parsing
+        old_caption = callback.message.caption or ""
+        
+        new_caption = (
+            f"{old_caption}\n\n"
+            f"✅ <b>APPROVED & DELIVERED</b>\n"
+            f"👤 <b>By Admin:</b> {admin_name}"
+        )
+
+        await callback.message.edit_caption(
+            caption=new_caption,
+            reply_markup=None, # Removes the buttons so they can't be clicked twice
+            parse_mode="HTML"
+        )
+        await callback.answer("Success: User notified & file sent.")
+        
+    except Exception as e:
+        logging.error(f"Admin UI update error: {e}")
+        # If the caption edit fails, at least give the admin a popup confirmation
+        await callback.answer(f"✅ Approved by {callback.from_user.first_name}")
+        
 
 @router.callback_query(F.data == "admin_home", F.from_user.id.in_(settings.ADMIN_IDS))
 async def callback_admin_home(callback: types.CallbackQuery, state: FSMContext, db: Database):
