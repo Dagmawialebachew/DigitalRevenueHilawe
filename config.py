@@ -45,7 +45,7 @@ class Settings:
     BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "30"))
     REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
     DESIGN_PHOTO_ID: str = os.getenv("DESIGN_PHOTO_ID", "AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ")
-    VERIFY_API_KEY: str = os.getenv("VERIFY_API_KEY", "sk_live_703d1fcdb5ed42916cd619be3c251062e4656eb7ddfcb268")
+    VERIFY_API_KEY: str = os.getenv("VERIFY_API", "")
 
 
 settings = Settings()
