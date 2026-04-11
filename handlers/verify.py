@@ -16,7 +16,7 @@ import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # --- CONFIG ---
 
-API_KEY = settings.VERIFY_API_KEY
+API_KEY = os.getenv("VERIFY_API", "")
 API_URL = "https://verifyapi.leulzenebe.pro/verify"
 CBE_SUFFIX = "99533641"
 TELEBIRR_TARGET = "0953462846"
