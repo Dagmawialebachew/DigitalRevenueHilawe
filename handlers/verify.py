@@ -9,12 +9,13 @@ from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from config import settings
 
 import pytesseract
 # Only needed for Windows users
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # --- CONFIG ---
-API_KEY = "sk_live_4bdb6f5a189183e75a433fc468230d30afe6d363101ccbc4"
+API_KEY = settings.VERIFY_API_KEY
 API_URL = "https://verifyapi.leulzenebe.pro/verify"
 CBE_SUFFIX = "99533641"
 TELEBIRR_TARGET = "0953462846"
