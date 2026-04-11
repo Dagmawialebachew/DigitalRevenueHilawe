@@ -1,8 +1,8 @@
-# import asyncio
-# from database.db import Database
+import asyncio
+from database.db import Database
 
 # # --- CONFIGURATION ---
-# DSN = "postgresql://neondb_owner:npg_3nF9gpuImcYD@ep-wild-river-aikuskzc-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" 
+DSN = "postgresql://neondb_owner:npg_3nF9gpuImcYD@ep-wild-river-aikuskzc-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" 
 
 # async def wipe_database_completely():
 #     db = Database(DSN)
@@ -40,3 +40,4 @@
 #         asyncio.run(wipe_database_completely())
 #     else:
 #         print("Operation aborted.")
+

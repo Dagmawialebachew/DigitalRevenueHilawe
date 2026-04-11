@@ -37,20 +37,24 @@ WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
         
         if lang == "EN":
             text = (
-                f"👋 <b>Quick Check-in: {sys_id}</b>\n\n"
-                f"Your custom <b>{level}</b> plan is 94.7% ready! I’ve been holding your 45% Founder's Discount in the system so you don't lose it. 🌟\n\n"
-                "🕒 <b>Just a heads up:</b> This special reservation will reset in 59 minutes.\n\n"
-                "I’d love to see you start this journey. Should we finalize your plan now, or should I open this spot for the next person?"
+                f"👋 <b>Hey, quick check-in from Coach Hilawe!</b>\n\n"
+                f"I was just looking over the <b>{level}</b> plan we started building for you. It’s sitting at 94.7% completion, and honestly, it looks solid. 🌟\n\n"
+                f"I’ve kept that Tinsae rate locked at <b>599 ETB</b> (down from <s>1,000 ETB</s>) because I really want to see you in the mix. "
+                f"We already have <b>878+ brothers and sisters</b> inside the community getting ready for the big post-fast reveal. 🔥\n\n"
+                "The Holy Week discount is about to expire in 59 minutes, and I’d hate for you to have to pay full price later.\n\n"
+                "<b>Are you ready to lock this in and start your transformation with me?</b>"
             )
-            btn_text = "⚡️ Yes, Finish My Plan"
+            btn_text = "⚡️ Coach, I'm Ready"
         else:
             text = (
-                f"🎁 <b>ለእርስዎ የተዘጋጀ ስጦታ፦ {sys_id}</b>\n\n"               
-                f"ያዘጋጀሁት የ<b>{level}</b> ስልጠና 94.7% ተጠናቋል! የ45% የቅናሽ ኮድዎ እንዳያልፍብዎት በሲስተሙ ውስጥ አስቀምጬሎታለሁ። 🌟\n\n"
-                "🕒 <b>ትንሽ ማሳሰቢያ፦</b> ይህ ልዩ ቦታ በ59 ደቂቃ ውስጥ ይጠናቀቃል።\n\n"
-                "ለውጡን አብረን ብንጀምር ደስ ይለኛል። አሁን ፕሮግራሙን ላጠናቅቅሎት ወይስ ቦታውን ለሌላ ሰው ላስተላልፈው?"
+                f"👋 <b>ጤና ይስጥልኝ! ኮች ህላዌ ነኝ።</b>\n\n"                
+                f"ለእርስዎ ማዘጋጀት የጀመርነውን የ<b>{level}</b> የለውጥ እቅድ እያየሁት ነበር። 94.7% ተጠናቋል። 🌟\n\n"
+                f"የትንሳኤ በዓልን ምክንያት በማድረግ የ<s>1,000 ብር</s> ፕሮግራሙን በ<b>599 ብር</b> እንዲያገኙ ያደረግነው ቅናሽ እንዳያልፍብዎት ፈልጋለሁ። "
+                f"አሁን ላይ <b>878+ አባላት</b> የትንሳኤ ማግስት ለውጣቸውን ለመጀመር ከእኔ ጋር ተቀላቅለዋል። 🔥\n\n"
+                "ይህ የ40% የቅዱስ ሳምንት ቅናሽ የሚቆየው ለ59 ደቂቃ ብቻ ነው። ይህን አጋጣሚ ተጠቅመው ለውጡን አብረን ብንጀምር ደስ ይለኛል።\n\n"
+                "<b>አሁን ፕሮግራሙን አጠናቅቀን ጉዟችንን እንጀምር?</b>"
             )
-            btn_text = "⚡️ አዎ፣ አሁን አጠናቅ"
+            btn_text = "⚡️ አዎ ኮች፣ ዝግጁ ነኝ"
 
 
         kb = InlineKeyboardMarkup(inline_keyboard=[

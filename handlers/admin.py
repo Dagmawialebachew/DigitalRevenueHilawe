@@ -658,59 +658,52 @@ def get_rotating_content(lang: str):
 
     return testi, activity
 
-
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    now_utc = datetime.now(timezone.utc)
-    # The countdown target: Easter Monday Morning 00:00
-    # In 2026, Easter Sunday is April 12. Monday is April 13.
-    monday = datetime(2026, 4, 13, 0, 0, 0, tzinfo=timezone.utc)
-    
-    remaining = monday - now_utc
-    total_seconds = int(remaining.total_seconds())
-    
-    hours = max(0, total_seconds // 3600)
-    minutes = max(0, (total_seconds % 3600) // 60)
-
-    # Aggressive Urgency for Holy Week
-    if hours < 24: spots_left = random.choice([3, 5, 6])
-    elif hours < 48: spots_left = random.choice([8, 11, 13])
-    else: spots_left = random.choice([16, 21, 24])
-
-    price = 300 # Dark Psycho Price Drop
+    # Urgency Logic: Final 24 hours fixed values
+    spots_left = random.choice([2, 3, 4]) # Extremely low numbers
+    price = 399 
     original_price = 1000
     
+    # Selection logic for "Last Chance" testimonials
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = f"⏳ <b>ለትንሳኤ የሚሆን አዲስ ቁመና (የ{price} ብር ልዩ ስጦታ!)</b>"
+        header = f"🚨 <b>የመጨረሻ 24 ሰዓት፦ የ399 ብር እድል ሊያበቃ ነው!</b>"
         text = (
             f"{header}\n\n"
-            f"ጾሙ ሊያበቃ ጥቂት ቀናት ብቻ ቀርተዋል። ብዙዎች ጾሙ ሲፈታ 'በኋላ እጀምራለሁ' እያሉ ጊዜያቸውን ያባክናሉ፤ እርስዎ ግን በበዓሉ ሰሞን የሚወሰደውን ካሎሪ ወደ ጡንቻና ጥንካሬ የሚቀይሩበትን ፕሮፌሽናል እቅድ አሁኑኑ በእጅዎ ያስገቡ።\n\n"
-            f"⭐ <b>የአባላት ዝግጁነት</b> ⭐\n"
-            f"<i>{testimonial['text']}</i>\n"
-            f"— <b>{testimonial['name']}</b>\n\n"
-            f"ይህ የ <b>{price} ብር</b> የትንሳኤ እድል ከ ሰአታት በኋላ በኋላ ያበቃል።\n\n"
+            f"ነገ በዚህ ሰዓት ጾሙ ይፈታል፤ የ399 ብር ቅናሹም አብሮ ያበቃል። ብዙዎች ነገ <b>1,000 ብር</b> ለመክፈል ይገደዳሉ—እርስዎ ግን አሁኑኑ በመወሰን 60% መቆጠብ ይችላሉ።\n\n"
+            f"ያስታውሱ፡ በዓል ላይ የሚበላው ስብና ቅቤ ነገ ጠዋት ወደ ስራ ሲመለሱ የድካም ስሜትና የሆድ ስብ እንዳይሆንብዎ ዛሬውኑ እቅድ ይኑርዎት።\n\n"
+            f"⭐ <b>የአባላት ምስክርነት</b> ⭐\n"
+            f"<i>“ባለፈው አመት አቅማምቼ እድሉ አምልጦኝ ነበር፤ ዘንድሮ ግን ቀድሜ ተመዝግቤያለሁ። በትንሽ ብር ትልቅ ለውጥ!”</i>\n"
+            f"— <b>ዮናስ ኤ.</b>\n\n"
+            f"⏰ <b>ቀሪ ጊዜ፦ 1 ቀን ብቻ!</b>\n"
             f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
             f"{recent_activity}\n"
+            "<b>እቅዱ የሚያካትተው፦</b>\n"
+            "✅ <b>የ8-ሳምንት የለውጥ ጉዞ</b> - ግራ መጋባትን የሚያስቀር።\n"
+            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
+            "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
+            "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"በ <s>{original_price} ብር</s> ፋንታ በ {price} ብር ብቻ አሁኑኑ ተመዝግበው ለትንሳኤ ማግስት ዝግጁ ይሁኑ፦"
+            f"ነገ <s>{original_price} ብር</s> ከመሆኑ በፊት ዛሬ በ <b>{price} ብር</b> ይጀምሩ፦"
         )
-        button_text = f"⚡️ የ{price} ብር እድሉን አሁኑኑ ተጠቀም"
+        button_text = f"⚡️ በ399 ብር አሁኑኑ ተመዝገብ"
     else:
-        header = f"⏳ <b>THE POST-FAST REBIRTH (Special {price} ETB Offer)</b>"
+        header = f"🚨 <b>FINAL 24 HOURS: The 399 ETB Entry is Closing!</b>"
         text = (
             f"{header}\n\n"
-            f"The 55-day fast is almost over. Don't wait until Monday to wonder how to lose the holiday fat. Secure your professional plan today and transform the moment the feast begins.\n\n"
+            f"Tomorrow the fast ends, and so does this offer. While others will be forced to pay <b>1,000 ETB</b> tomorrow morning, you can secure your transformation right now for just 399.\n\n"
+            f"Don't let the Easter feast turn into permanent belly fat. Have your professional plan ready before the first bite of Doro Wot.\n\n"
             f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
-            f"<i>{testimonial['text']}</i>\n"
-            f"— <b>{testimonial['name']}</b>\n\n"
-            f"This <b>{price} ETB</b> Holy Week access expires in hours.\n\n"
+            f"<i>“I almost missed the holiday deal last time. Best 399 I ever spent—started seeing results while others were still recovering from the feast.”</i>\n"
+            f"— <b>Elias M.</b>\n\n"
+            f"⏰ <b>TIME LEFT: 1 DAY ONLY!</b>\n"
             f"⚠️ STATUS: <b>{spots_left} final slots remaining</b>\n"
             f"{recent_activity}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"Don't pay <s>{original_price} ETB</s> later. Secure your {price} ETB spot today:"
+            f"Avoid the <s>{original_price} ETB</s> price hike. Secure your <b>{price} ETB</b> spot now:"
         )
-        button_text = "⚡️ SECURE MY EASTER DEAL"
+        button_text = "⚡️ CLAIM FINAL 399 DEAL"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
@@ -734,9 +727,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Router
 
 # Configurable defaults (env or fallback)
-DEAL_PRICE = float(os.getenv("BROADCAST_DEAL_PRICE", "300"))
-DEAL_DURATION_HOURS = int(os.getenv("BROADCAST_DURATION_HOURS", "90"))
-BATCH_SLEEP = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))  # seconds between sends
 
 # --- Helper: target selection keyboard ---
 def broadcast_target_kb() -> InlineKeyboardMarkup:
@@ -870,7 +860,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     - test_mode: if True, only send to settings.ADMIN_IDS and DO NOT update DB deals
     """
     BATCH_SLEEP = float(getattr(settings, "BROADCAST_BATCH_SLEEP", 0.06))
-    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 300))
+    DEAL_PRICE = float(getattr(settings, "BROADCAST_DEAL_PRICE", 399))
     DEAL_DURATION_HOURS = int(getattr(settings, "BROADCAST_DURATION_HOURS", 90))
     from datetime import datetime, timezone
 
@@ -1016,7 +1006,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
-                EID_IMAGE = "AgACAgQAAxkBAAJOrmnXcPvUE3es3FdbP1h2d__ocF07AAJODGsbpfC4UgE_cLEgzHfOAQADAgADeQADOwQ" 
+                EID_IMAGE = "AgACAgQAAxkBAAJUpmnaGaRTgE7YEUuuv1APRgr6oQSKAALiDGsb_NbRUkqWa0dpKBy-AQADAgADeQADOwQ" 
                 VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ"
 
                 sent_msg = await bot.send_photo(
