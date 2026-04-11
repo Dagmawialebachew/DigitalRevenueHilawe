@@ -13,8 +13,17 @@ from config import settings
 
 import pytesseract
 # Only needed for Windows users
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# --- CONFIG ---
+import platform
+import shutil
+
+# This checks if we are on Windows or Linux (Render/Docker)
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+else:
+    # This automatically finds /usr/bin/tesseract inside your Docker container
+    pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "/usr/bin/tesseract"
+    
+    # --- CONFIG ---
 API_KEY = settings.VERIFY_API_KEY
 API_URL = "https://verifyapi.leulzenebe.pro/verify"
 CBE_SUFFIX = "99533641"

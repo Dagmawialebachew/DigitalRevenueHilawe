@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     tesseract-ocr \
+    tesseract-ocr-eng \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
-
 # Copy requirements first (for caching)
 COPY requirements.txt .
 
