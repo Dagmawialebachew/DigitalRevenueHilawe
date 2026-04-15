@@ -180,8 +180,8 @@ async def create_app() -> web.Application:
     async def startup_wrapper(_):
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
-        asyncio.create_task(reminder_worker(bot, db))
-        asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
+        # asyncio.create_task(reminder_worker(bot, db))
+        # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
        
 
     # Startup / cleanup hooks
@@ -198,7 +198,7 @@ async def start_polling():
     # If you have scheduled jobs, start them here (scheduler.start())
     # asyncio.create_task(scheduler_loop(bot, db))
     # in startup_wrapper after scheduler_loop creation
-    asyncio.create_task(reminder_worker(bot, db))
+    # asyncio.create_task(reminder_worker(bot, db))
     # Inside your start-up logic:
     # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
 
