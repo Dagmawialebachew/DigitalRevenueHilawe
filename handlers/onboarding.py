@@ -322,13 +322,13 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             "✅ <b>Progress Tracker</b> - See your body change every week.\n"
             "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n\n"
            "🌟 <b>HOLY WEEK SPECIAL OFFER</b>\n"
-    f"<s>1,000 ETB</s> ➡️ <code>599 ETB</code>\n"
-    "💎 You have a limited-time <b>40% Holy Week Discount</b> for Tinsae.\n\n"
+    f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
+    "💎 You have a limited-time <b>55% Holy Week Discount</b> for Tinsae.\n\n"
             f"🔥 <b>Live Update:</b> Over 813 people bought this program this week. "
             f"Only <b>12 slots</b> are left for the {data['level'].upper()} group.\n\n"
             "⚠️ <b>Warning:</b> This is a one-time offer."
             "It is available only for 24hr!\n"
-            "<b>Are you ready to start, or will you stay exactly where you are?</b>"
+            "<b>Are you ready to start?</b>"
         )
 
     elif lang == "AM":
@@ -343,12 +343,12 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
             "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
              "🌟 <b>የትንሳኤ በዓል ልዩ ስጦታ</b>\n"
-        f"<s>1,000 ብር</s> ➡️ <code>599 ብር</code>\n"
-        "💎 ለትንሳኤ በዓል ብቻ የተዘጋጀ ልዩ <b>40% የቅዱስ ሳምንት ቅናሽ</b> ተግብረናል።\n\n"
+        f"<s>{actual_price} ብር</s> ➡️ <code>{actual_price} ብር</code>\n"
+        "💎 ለትንሳኤ በዓል ብቻ የተዘጋጀ ልዩ <b>55% የቅዱስ ሳምንት ቅናሽ</b> ተግብረናል።\n\n"
             f"🔥 <b>ወቅታዊ መረጃ፦</b> እስካሁን ከ813 በላይ ሰዎች ገዝተዋል። "
             f"ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
             "⚠️ <b>ማሳሰቢያ፦</b> ይህ ቅናሽ ለ1ቀን ብቻ የሚቆይ ይሆናል።"
-            "<b>አሁን ለመጀመር ዝግጁ ነዎት ወይስ ባሉበት መቀጠል ይመርጣሉ?</b>"
+            "<b>አሁን ለመጀመር ዝግጁ ነዎት?</b>"
         )
 
     # Send the final pitch
