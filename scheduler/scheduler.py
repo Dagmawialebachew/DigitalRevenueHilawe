@@ -44,7 +44,7 @@ WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
                 "The Holy Week discount is about to expire in 59 minutes, and I’d hate for you to have to pay full price later.\n\n"
                 "<b>Are you ready to lock this in and start your transformation with me?</b>"
             )
-            btn_text = "⚡️ Coach, I'm Ready"
+            btn_text = "⚡️ Yes, I'm Ready"
         else:
             text = (
                 f"👋 <b>ጤና ይስጥልኝ! ኮች ህላዌ ነኝ።</b>\n\n"                
