@@ -311,7 +311,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
 
     if lang == "EN":
-        actual_price = int(float(price) / 0.55)
+        actual_price = int(float(price) / 0.35)
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
             f"Most people fail because of <b>{obs_phrased}</b>. They guess, they wait, and they quit. "
@@ -323,7 +323,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n\n"
            "🌟 <b>HOLY WEEK SPECIAL OFFER</b>\n"
     f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
-    "💎 You have a limited-time <b>55% Holy Week Discount</b> for Tinsae.\n\n"
+    "💎 You have a limited-time <b>35% Holy Week Discount</b> for Tinsae.\n\n"
             f"🔥 <b>Live Update:</b> Over 813 people bought this program this week. "
             f"Only <b>12 slots</b> are left for the {data['level'].upper()} group.\n\n"
             "⚠️ <b>Warning:</b> This is a one-time offer."
@@ -343,8 +343,8 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
             "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
              "🌟 <b>የትንሳኤ በዓል ልዩ ስጦታ</b>\n"
-        f"<s>{actual_price} ብር</s> ➡️ <code>{actual_price} ብር</code>\n"
-        "💎 ለትንሳኤ በዓል ብቻ የተዘጋጀ ልዩ <b>55% የቅዱስ ሳምንት ቅናሽ</b> ተግብረናል።\n\n"
+        f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
+        "💎 ለትንሳኤ በዓል ብቻ የተዘጋጀ ልዩ <b>35% የቅዱስ ሳምንት ቅናሽ</b> ተግብረናል።\n\n"
             f"🔥 <b>ወቅታዊ መረጃ፦</b> እስካሁን ከ813 በላይ ሰዎች ገዝተዋል። "
             f"ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
             "⚠️ <b>ማሳሰቢያ፦</b> ይህ ቅናሽ ለ1ቀን ብቻ የሚቆይ ይሆናል።"
