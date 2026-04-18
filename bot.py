@@ -20,6 +20,7 @@ from middlewares.error_handling_middleware import router as error_router
 from api.api import setup_admin_routes
 from scheduler.scheduler import check_and_send_reminders, test_reminder_for_user
 from testimonial.testimonial_questions import router as testimonial_router, testimonial_scheduler
+from Survey.price_results import router as price_survey_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +39,7 @@ dp.callback_query.middleware(LanguageMiddleware(db))
 from handlers import all_routers
 from handlers.reminder_worker import reminder_worker  # This imports the FUNCTION
 dp.include_router(testimonial_router)
+dp.include_router(price_survey_router)
 for r in all_routers:
     dp.include_router(r)
 

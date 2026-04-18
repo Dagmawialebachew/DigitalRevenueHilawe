@@ -123,6 +123,12 @@ CREATE TABLE IF NOT EXISTS testimonial_logs (
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS price_survey_results (
+    user_id BIGINT PRIMARY KEY,
+    selected_price INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 
