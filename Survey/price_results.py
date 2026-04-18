@@ -190,27 +190,42 @@ async def refresh_results_callback(callback: types.CallbackQuery, db):
         # Usually happens if someone clicks refresh and no new data has come in
         await callback.answer("Data is already up to date.")
         
-        
-@router.message(Command("survey_dryrun"), F.from_user.id.in_(settings.ADMIN_IDS))
+  @router.message(Command("survey_dryrun"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def survey_dryrun(message: types.Message, db):
-    """Calculates target counts without sending anything."""
-    counts = await db._pool.fetchrow("""
+    """Calculates how many users are eligible, surveyed, and remaining."""
+    stats = await db._pool.fetchrow("""
+        WITH target_users AS (
+            SELECT telegram_id FROM users u
+            WHERE NOT EXISTS (
+                SELECT 1 FROM payments p 
+                WHERE p.user_id = u.telegram_id AND p.status = 'approved'
+            )
+        )
         SELECT 
-            COUNT(*) FILTER (WHERE NOT EXISTS (
-                SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved'
-            )) as unpaid_count,
-            COUNT(*) as total_users
-        FROM users u
+            (SELECT COUNT(*) FROM target_users) as total_target,
+            (SELECT COUNT(*) FROM price_survey_results WHERE user_id IN (SELECT telegram_id FROM target_users)) as received_count
     """)
     
+    total = stats['total_target']
+    received = stats['received_count']
+    remaining = total - received
+    
+    # Calculate completion percentage
+    percent = (received / total * 100) if total > 0 else 0
+    bar_count = int(percent / 10)
+    progress_bar = "🟩" * bar_count + "⬜" * (10 - bar_count)
+
     report = (
-        "🔍 <b>SURVEY DRY RUN REPORT</b>\n\n"
-        f"👥 Total Users in DB: <code>{counts['total_users']}</code>\n"
-        f"🎯 Potential Targets (Unpaid): <code>{counts['unpaid_count']}</code>\n\n"
-        "<i>Running the actual trigger will attempt to message these users and delete any who have blocked the bot.</i>"
+        "🔍 <b>SURVEY STATUS REPORT</b>\n"
+        f"━━━━━━━━━━━━━━━\n\n"
+        f"🎯 <b>Total Unpaid Targets:</b> <code>{total}</code>\n"
+        f"✅ <b>Responses Received:</b> <code>{received}</code>\n"
+        f"⏳ <b>Pending / Not Voted:</b> <code>{remaining}</code>\n\n"
+        f"<b>Participation Rate:</b>\n"
+        f"{progress_bar} {percent:.1f}%\n\n"
+        "<i>Note: 'Received' counts unique votes in the database.</i>"
     )
     await message.answer(report, parse_mode="HTML")
-    
 
 @router.message(Command("test_survey_flow"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def test_survey_flow(message: types.Message, bot: Bot, db):
