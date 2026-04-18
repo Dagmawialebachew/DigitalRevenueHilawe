@@ -123,15 +123,11 @@ CREATE TABLE IF NOT EXISTS testimonial_logs (
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTSdb price_survey_results (
+CREATE TABLE IF NOT EXISTS price_survey_results (
     user_id BIGINT PRIMARY KEY,
     selected_price INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-
-
-
 
 -- Track every distribution made to Coach and Dagmawi
 CREATE TABLE IF NOT EXISTS payout_history (
