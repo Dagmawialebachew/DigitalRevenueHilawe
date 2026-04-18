@@ -190,7 +190,7 @@ async def refresh_results_callback(callback: types.CallbackQuery, db):
         # Usually happens if someone clicks refresh and no new data has come in
         await callback.answer("Data is already up to date.")
         
-  @router.message(Command("survey_dryrun"), F.from_user.id.in_(settings.ADMIN_IDS))
+@router.message(Command("survey_dryrun"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def survey_dryrun(message: types.Message, db):
     """Calculates how many users are eligible, surveyed, and remaining."""
     stats = await db._pool.fetchrow("""
