@@ -45,9 +45,10 @@ async def get_survey_text(bot: Bot, uid: int, lang: str):
 
 async def run_price_survey_broadcast(bot: Bot, db):
     """
-    Finds unpaid users, sends survey, and deletes anyone who blocked the bot.
+    Finds unpaid users who haven't responded yet and sends the survey.
+    Handles blocks and FK violations gracefully.
     """
-    # Fetch Unpaid Users
+    # 1. FETCH: Only users who haven't paid AND haven't voted yet
     rows = await db._pool.fetch("""
         SELECT u.telegram_id, u.language 
         FROM users u
@@ -55,17 +56,18 @@ async def run_price_survey_broadcast(bot: Bot, db):
             SELECT 1 FROM payments p 
             WHERE p.user_id = u.telegram_id AND p.status = 'approved'
         )
+        AND NOT EXISTS (
+            SELECT 1 FROM price_survey_results r 
+            WHERE r.user_id = u.telegram_id
+        )
     """)
     
-    logging.info(f"🚀 Starting Survey for {len(rows)} unpaid users. Cleanup mode: ON.")
+    logging.info(f"🚀 Starting Survey for {len(rows)} users who haven't voted yet.")
     
-    sent = 0
-    deleted = 0
-    failed = 0
+    sent, skipped, failed = 0, 0, 0
 
     for user in rows:
         uid = user['telegram_id']
-        
         lang = user['language'] or 'EN'
         
         try:
@@ -74,19 +76,24 @@ async def run_price_survey_broadcast(bot: Bot, db):
             
             await bot.send_message(chat_id=uid, text=text, reply_markup=kb, parse_mode="HTML")
             sent += 1
-            await asyncio.sleep(0.06) # Smooth rate limiting
+            await asyncio.sleep(0.06) 
             
         except TelegramForbiddenError:
-            # THIS IS THE BIRD WE ARE HITTING: User blocked the bot
-            logging.warning(f"🗑️ User {uid} blocked the bot. Deleting from DB.")
-            await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
-            deleted += 1
-            
+            # Catch block and try to delete; if FK violation happens, just skip
+            logging.warning(f"🚫 User {uid} blocked. Attempting cleanup...")
+            try:
+                await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
+                skipped += 1
+            except Exception: 
+                # This is the Foreign Key violation catch
+                logging.warning(f"⚠️ Could not delete {uid} due to existing references. Skipping.")
+                skipped += 1
+                
         except Exception as e:
             logging.error(f"❌ Other error for {uid}: {e}")
             failed += 1
 
-    return sent, deleted, failed
+    return sent, skipped, failed
 
 # --- 3. HANDLERS ---
 
@@ -106,22 +113,27 @@ async def admin_trigger_survey(message: types.Message, bot: Bot, db):
 
 @router.callback_query(F.data.startswith("price_survey:"))
 async def handle_survey_response(callback: types.CallbackQuery, db):
-    data_parts = callback.data.split(":")
-    selected_val = int(data_parts[1])
+    val = int(callback.data.split(":")[1])
     uid = callback.from_user.id
     
+    # Check if they already voted (prevents double recording)
+    existing = await db._pool.fetchval("SELECT selected_price FROM price_survey_results WHERE user_id = $1", uid)
+    
+    if existing:
+        # Handle 2nd trial gracefully with a friendly popup
+        return await callback.answer("You've already submitted your feedback! Thank you. 🙏", show_alert=True)
+
     try:
         await db._pool.execute("""
             INSERT INTO price_survey_results (user_id, selected_price) 
-            VALUES ($1, $2) 
-            ON CONFLICT (user_id) DO UPDATE SET selected_price = $2
-        """, uid, selected_val)
+            VALUES ($1, $2)
+        """, uid, val)
         
         lang = await db._pool.fetchval("SELECT language FROM users WHERE telegram_id = $1", uid)
         thanks = "✅ Got it! Thanks for the feedback." if lang == "EN" else "✅ ተቀብያለሁ! ስለ አስተያየትዎ አመሰግናለሁ።"
         
         await callback.message.edit_text(f"<b>{callback.message.text}</b>\n\n{thanks}", parse_mode="HTML")
-        await callback.answer()
+        await callback.answer("Feedback saved!")
     except Exception as e:
         logging.error(f"Error saving survey: {e}")
         await callback.answer("Error saving response.")
