@@ -1061,8 +1061,8 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
                 EID_IMAGE = "AgACAgQAAxkBAAJUpmnaGaRTgE7YEUuuv1APRgr6oQSKAALiDGsb_NbRUkqWa0dpKBy-AQADAgADeQADOwQ" 
-                # VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ" # main
-                VOICE_FILE_ID = "CQACAgQAAxkBAAIGvWnkeNgyytPGvMAxQOBdbqZ4WAIzAALpGwACzAgoU3N3WvzGKmx3OwQ" #demo
+                VOICE_FILE_ID = "CQACAgQAAxkBAAJrbWnkfyR8pOY09u7yjpNXUNfXNFS_AALWGwACF7cgU8KZMxaMrxZKOwQ" # main
+                # VOICE_FILE_ID = "CQACAgQAAxkBAAIGvWnkeNgyytPGvMAxQOBdbqZ4WAIzAALpGwACzAgoU3N3WvzGKmx3OwQ" #demo
 
                 # sent_msg = await bot.send_photo(
                 #     chat_id=uid,
