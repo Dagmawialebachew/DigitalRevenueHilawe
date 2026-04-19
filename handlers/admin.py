@@ -711,58 +711,60 @@ def get_rotating_content(lang: str):
     return testi, activity
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    # Urgency Logic: Final 24 hours fixed values
-    spots_left = random.choice([2, 3, 4]) # Extremely low numbers
+    # Dynamic Urgency
+    spots_left = random.choice([12, 13, 14]) 
     price = 399 
     original_price = 1000
     
-    # Selection logic for "Last Chance" testimonials
+    # Selection logic for testimonials
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = f"🚨 <b>የመጨረሻ 24 ሰዓት፦ የ399 ብር እድል ሊያበቃ ነው!</b>"
-        text = (
-            f"{header}\n\n"
-            f"ነገ በዚህ ሰዓት ጾሙ ይፈታል፤ የ399 ብር ቅናሹም አብሮ ያበቃል። ብዙዎች ነገ <b>1,000 ብር</b> ለመክፈል ይገደዳሉ—እርስዎ ግን አሁኑኑ በመወሰን 60% መቆጠብ ይችላሉ።\n\n"
-            f"ያስታውሱ፡ በዓል ላይ የሚበላው ስብና ቅቤ ነገ ጠዋት ወደ ስራ ሲመለሱ የድካም ስሜትና የሆድ ስብ እንዳይሆንብዎ ዛሬውኑ እቅድ ይኑርዎት።\n\n"
-            f"⭐ <b>የአባላት ምስክርነት</b> ⭐\n"
-            f"<i>“ባለፈው አመት አቅማምቼ እድሉ አምልጦኝ ነበር፤ ዘንድሮ ግን ቀድሜ ተመዝግቤያለሁ። በትንሽ ብር ትልቅ ለውጥ!”</i>\n"
-            f"— <b>ዮናስ ኤ.</b>\n\n"
-            f"⏰ <b>ቀሪ ጊዜ፦ 1 ቀን ብቻ!</b>\n"
-            f"⚠️ የቀሩት ክፍት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
-            f"{recent_activity}\n"
-            "<b>እቅዱ የሚያካትተው፦</b>\n"
-            "✅ <b>የ8-ሳምንት የለውጥ ጉዞ</b> - ግራ መጋባትን የሚያስቀር።\n"
-            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
-            "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
-            "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
+        header = f"🚨 <b>የ399 ብር ቅናሽ ለጥቂት ሰአታት!</b>"
+        body = (
+            f"ባደረግነው ጥናት መሰረት አብዛኛዎቻችሁ 399 ብር እንዲሆን መርጣችኋል። እኛም ምርጫችሁን አክብረን የ8-ሳምንቱን ፕሮግራም/እቅድ በዚሁ ዋጋ ከፍተናል! 🎉\n\n"
+            f"<b>እቅዱ የሚያካትተው፦</b>\n"
+            f"✅ <b>የ8-ሳምንት እንቅሳቃሴ እና መመሪያ</b> ፟ - ግራ መጋባት የሚያስወግድ።\n"
+            f"✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
+            f"✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
+            f"✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"ነገ <s>{original_price} ብር</s> ከመሆኑ በፊት ዛሬ በ <b>{price} ብር</b> ይጀምሩ፦"
+            f"📍 <b>ማሳሰቢያ፦</b>\n"
+            f"🎤 <b>ከላይ ያለውን የድምጽ መልዕክት ያዳምጡ!</b>\n\n"
+            f"ቅናሹ ነገ ያበቃል\n"
+            f"🔥 {recent_activity}\n"
+            f"⚠️ የቀሩት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"<b>ነገ ዋጋው ወደ {original_price} ብር ከመመለሱ በፊት ለመመዝገብ ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
         )
-        button_text = f"⚡️ በ399 ብር አሁኑኑ ተመዝገብ"
+        button_text = f"✅ በ399 ብር አሁኑኑ ጀምር"
     else:
-        header = f"🚨 <b>FINAL 24 HOURS: The 399 ETB Entry is Closing!</b>"
-        text = (
-            f"{header}\n\n"
-            f"Tomorrow the fast ends, and so does this offer. While others will be forced to pay <b>1,000 ETB</b> tomorrow morning, you can secure your transformation right now for just 399.\n\n"
-            f"Don't let the Easter feast turn into permanent belly fat. Have your professional plan ready before the first bite of Doro Wot.\n\n"
-            f"⭐ <b>MEMBER SUCCESS</b> ⭐\n"
-            f"<i>“I almost missed the holiday deal last time. Best 399 I ever spent—started seeing results while others were still recovering from the feast.”</i>\n"
-            f"— <b>Elias M.</b>\n\n"
-            f"⏰ <b>TIME LEFT: 1 DAY ONLY!</b>\n"
-            f"⚠️ STATUS: <b>{spots_left} final slots remaining</b>\n"
-            f"{recent_activity}\n"
+        header = f"🏆 <b>THE RESULTS ARE IN: Your 399 ETB Easter Special!</b>"
+        body = (
+            f"You voted, we listened! The majority chose 399 ETB, so we are making the full 8-week system program at that exact price for the next few hours. 🎉\n\n"
+            f"<b>What's Included:</b>\n"
+            f"✅ <b>8-Week Transformation</b> - No more guesswork.\n"
+            f"✅ <b>Scientific Meal System</b> - For fast results.\n"
+            f"✅ <b>Progress Tracker</b> - Monitor your changes weekly.\n"
+            f"✅ <b>Video Guidance</b> - Correct form for every move.\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"Avoid the <s>{original_price} ETB</s> price hike. Secure your <b>{price} ETB</b> spot now:"
+            f"📍 <b>WHY NOW?</b>\n"
+            f"🎤 <b>Listen to the Voice Note above!</b>\n\n"
+            f"This offer disappears tomorrow. Don't wait until Monday to pay <b>1,000 ETB</b>.\n"
+            f"🔥 {recent_activity}\n"
+            f"⚠️ Status: <b>{spots_left} slots left</b>\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"<b>Secure your spot before the {original_price} ETB reset:</b>"
         )
-        button_text = "⚡️ CLAIM FINAL 399 DEAL"
+        button_text = "✅ CLAIM MY 399 ETB SPOT"
 
+    text = f"{header}\n\n{body}"
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
     ])
     
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -1059,29 +1061,30 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
                 EID_IMAGE = "AgACAgQAAxkBAAJUpmnaGaRTgE7YEUuuv1APRgr6oQSKAALiDGsb_NbRUkqWa0dpKBy-AQADAgADeQADOwQ" 
-                VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ"
+                # VOICE_FILE_ID = "CQACAgQAAxkBAAJEdGnREW6L_UXk8iQXf72hDOXdPtFbAALYGwACoZ-JUujWnhbJkFsROwQ" # main
+                VOICE_FILE_ID = "CQACAgQAAxkBAAIGvWnkeNgyytPGvMAxQOBdbqZ4WAIzAALpGwACzAgoU3N3WvzGKmx3OwQ" #demo
 
-                sent_msg = await bot.send_photo(
-                    chat_id=uid,
-                    photo=EID_IMAGE,
-                    caption=text,
-                    reply_markup=kb,
-                    parse_mode="HTML"
-                )
-                # await bot.send_voice(
+                # sent_msg = await bot.send_photo(
                 #     chat_id=uid,
-                #     voice=VOICE_FILE_ID,
-                #     caption="🎤 መልዕክት ከኮች ህላዌ (Listen to this first)" # Static caption
-                # )
-
-                # # 2. Send the Deal Message as a separate Text Message
-                # # This message is EDITABLE by your reminder_worker
-                # sent_msg = await bot.send_message(
-                #     chat_id=uid,
-                #     text=text,
+                #     photo=EID_IMAGE,
+                #     caption=text,
                 #     reply_markup=kb,
                 #     parse_mode="HTML"
                 # )
+                await bot.send_voice(
+                    chat_id=uid,
+                    voice=VOICE_FILE_ID,
+                    caption="🎤 መልዕክት ከኮች ህላዌ (Listen to this first)" # Static caption
+                )
+
+                # 2. Send the Deal Message as a separate Text Message
+                # This message is EDITABLE by your reminder_worker
+                sent_msg = await bot.send_message(
+                    chat_id=uid,
+                    text=text,
+                    reply_markup=kb,
+                    parse_mode="HTML"
+                )
                 
                 # 2. SAVE for future editing (countdown updates)
                 await db._pool.execute("""
