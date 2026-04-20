@@ -711,8 +711,8 @@ def get_rotating_content(lang: str):
     return testi, activity
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    # Dynamic Urgency
-    spots_left = random.choice([12, 13, 14]) 
+    # Aggressive Final Urgency
+    spots_left = random.choice([3, 4, 5]) 
     price = 399 
     original_price = 1000
     
@@ -720,43 +720,41 @@ def build_deal_message(lang: str, expires_at: datetime, product_id: int):
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = f"🚨 <b>የ399 ብር ቅናሽ ለጥቂት ሰአታት!</b>"
+        header = f"⏳ <b>የመጨረሻው ሰአት፡ 2 ሰአት ብቻ ቀረው!</b>"
         body = (
-            f"ባደረግነው ጥናት መሰረት አብዛኛዎቻችሁ 399 ብር እንዲሆን መርጣችኋል። እኛም ምርጫችሁን አክብረን የ8-ሳምንቱን ፕሮግራም/እቅድ በዚሁ ዋጋ ከፍተናል! 🎉\n\n"
-            f"<b>እቅዱ የሚያካትተው፦</b>\n"
-            f"✅ <b>የ8-ሳምንት እንቅሳቃሴ እና መመሪያ</b> ፟ - ግራ መጋባት የሚያስወግድ።\n"
-            f"✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
-            f"✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
-            f"✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
+            f"<b>ይህ የመጨረሻው እድል ነው!</b> ከጥቂት ደቂቃዎች በኋላ የ{price} ብር ቅናሹ ተዘግቶ ዋጋው ወደ <b>{original_price} ብር</b> ይመለሳል።\n\n"
+            f"<b>አሁኑኑ መመዝገብ ያለብዎት ለምንድነው?</b>\n"
+            f"✅ በ{price} ብር ብቻ የ8-ሳምንት ሙሉ ስልጠናውን ያገኛሉ።\n"
+            f"✅ ከ2 ሰአት በኋላ ዋጋው በ 60% ይጨምራል።\n"
+            f"✅ የቁርጥ ቀን ውሳኔዎን አሁኑኑ ያጽኑ።\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"📍 <b>ማሳሰቢያ፦</b>\n"
+            f"🚨 <b>አስቸኳይ ማሳሰቢያ፦</b>\n"
             f"🎤 <b>ከላይ ያለውን የድምጽ መልዕክት ያዳምጡ!</b>\n\n"
-            f"ቅናሹ ነገ ያበቃል\n"
+            f"ይህ መልዕክት ሲጠፋ ቅናሹም አብሮ ያበቃል።\n"
             f"🔥 {recent_activity}\n"
             f"⚠️ የቀሩት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>ነገ ዋጋው ወደ {original_price} ብር ከመመለሱ በፊት ለመመዝገብ ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
+            f"<b>ሳይረፍድብዎት በ{price} ብር አሁኑኑ ለመግዛት ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
         )
-        button_text = f"✅ በ399 ብር አሁኑኑ ጀምር"
+        button_text = f"🚨 የመጨረሻ እድል፡ አሁኑኑ ጀምር"
     else:
-        header = f"🏆 <b>THE RESULTS ARE IN: Your 399 ETB Easter Special!</b>"
+        header = f"⏳ <b>FINAL CALL: Only 2 Hours Left!</b>"
         body = (
-            f"You voted, we listened! The majority chose 399 ETB, so we are making the full 8-week system program at that exact price for the next few hours. 🎉\n\n"
-            f"<b>What's Included:</b>\n"
-            f"✅ <b>8-Week Transformation</b> - No more guesswork.\n"
-            f"✅ <b>Scientific Meal System</b> - For fast results.\n"
-            f"✅ <b>Progress Tracker</b> - Monitor your changes weekly.\n"
-            f"✅ <b>Video Guidance</b> - Correct form for every move.\n\n"
+            f"<b>This is your last chance.</b> In exactly 120 minutes, the {price} ETB deal expires and returns to the original price of <b>{original_price} ETB</b>.\n\n"
+            f"<b>Why you must act NOW:</b>\n"
+            f"✅ Locked-in {price} ETB rate for the full 8-week system.\n"
+            f"✅ Price jumps by 600 ETB once the timer hits zero.\n"
+            f"✅ Secure your spot before registration closes.\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"📍 <b>WHY NOW?</b>\n"
+            f"🚨 <b>IMPORTANT:</b>\n"
             f"🎤 <b>Listen to the Voice Note above!</b>\n\n"
-            f"This offer disappears tomorrow. Don't wait until Monday to pay <b>1,000 ETB</b>.\n"
+            f"When this link expires, the price resets forever.\n"
             f"🔥 {recent_activity}\n"
-            f"⚠️ Status: <b>{spots_left} slots left</b>\n"
+            f"⚠️ Status: <b>{spots_left} final spots remaining</b>\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>Secure your spot before the {original_price} ETB reset:</b>"
+            f"<b>Claim your {price} ETB spot before it's gone:</b>"
         )
-        button_text = "✅ CLAIM MY 399 ETB SPOT"
+        button_text = "🚨 CLAIM LAST SPOT (399 ETB)"
 
     text = f"{header}\n\n{body}"
     
@@ -1024,6 +1022,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     sent = 0
     failed = 0
     print('here are targets', targets)
+    deleted_count = 0  # Track removed users
 
     for user in targets:
         uid = user.get('telegram_id')
@@ -1099,7 +1098,17 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
             
         except Exception as e:
             failed += 1
-            logging.error(f"Failed sending to {uid}: {e}")
+            error_str = str(e).lower()
+            if "blocked" in error_str or "chat not found" in error_str or "deactivated" in error_str:
+                try:
+                    # SILENT DELETE: Wipe the user so we don't waste resources next time
+                    await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
+                    deleted_count += 1
+                    logging.info(f"User {uid} removed from DB (Reason: Bot Blocked/Deactivated)")
+                except Exception as db_e:
+                    logging.error(f"Failed to delete dead user {uid} from DB: {db_e}")
+            else:
+                logging.error(f"Transient failure for {uid}: {e}")
             
             
     # Update broadcast stats if we created a row
@@ -1114,15 +1123,18 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
 
     # Notify admin with summary (best-effort)
     try:
-        await bot.send_message(
-            admin_id,
-            f"🏁 *BROADCAST COMPLETE*\n\n✅ Sent: `{sent}`\n❌ Failed: `{failed}`\nBroadcast id: `{broadcast_id}`",
-            parse_mode="Markdown"
+        summary = (
+            f"🏁 *BROADCAST COMPLETE*\n\n"
+            f"✅ Sent: `{sent}`\n"
+            f"❌ Failed: `{failed}`\n"
+            f"🗑 Removed from DB: `{deleted_count}`\n\n"
+            f"Broadcast id: `{broadcast_id}`"
         )
+        await bot.send_message(admin_id, summary, parse_mode="Markdown")
     except Exception:
         pass
 
-    return {"broadcast_id": broadcast_id, "sent": sent, "failed": failed}
+    return {"broadcast_id": broadcast_id, "sent": sent, "failed": failed, "deleted": deleted_count}
 
 
 # Confirm-launch callback (no draft checks)
