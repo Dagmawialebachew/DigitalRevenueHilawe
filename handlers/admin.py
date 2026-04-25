@@ -670,9 +670,10 @@ def get_rotating_content(lang: str):
     ]
     
     recent_buyers_am = [
-        "ሳሙኤል ይታ.", "ፍሬህይወት በ.", "ዮሴፍ መኳ.", "ቃልኪዳን ምግ.", "በረከት በየ.", 
-        "ትዕግስት ዳዊ.", "ዳዊት በላ.", "ማህሌት ቴዎ.", "ኤርሚያስ ዳር.", "ሰላም ድን.", "ናሆም ተክለ.", "ሀና ሰለ."
-    ]
+            "ብሩክ አ.", "ሄለን ገ.", "ዮናስ መ.", "ሰላማዊት ት.", "ኤልያስ ወ.", 
+            "ረድኤት ሰ.", "ዳዊት ከ.", "ማርታ በ.", "ሄኖክ ደ.", "ቃልኪዳን ፍ.", 
+            "አማኑኤል ለ.", "ትዕግስት ዘ."
+        ]
 
     # --- ENGLISH: Focus on "Hit the ground running" ---
     testimonials_en = [
@@ -691,10 +692,10 @@ def get_rotating_content(lang: str):
     ]
     
     recent_buyers_en = [
-        "Michael", "Lilly", "Kebede", "Rahel", "Nahom", 
-        "Fikir", "Abebe", "Betty", "Solomon", "Genet", "Yared", "Million"
-    ]
-
+            "Brook A.", "Helen G.", "Yonas M.", "Selamawit T.", "Elias W.", 
+            "Rediet S.", "Dawit K.", "Marta B.", "Henok D.", "Kalkidan F.", 
+            "Amanuel L.", "Tigist Z."
+        ]
     # Selection logic with offsets to prevent matching names
     idx = time_seed % 12
     buyer_idx = (time_seed + 5) % 12
@@ -711,53 +712,53 @@ def get_rotating_content(lang: str):
     return testi, activity
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    # Aggressive Final Urgency
-    spots_left = random.choice([3, 4, 5]) 
+    # Moderate urgency for a 1-day window
+    spots_left = random.choice([8, 9, 11]) 
     price = 399 
     original_price = 1000
     
-    # Selection logic for testimonials
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = f"⏳ <b>የመጨረሻው ሰአት፡ 2 ሰአት ብቻ ቀረው!</b>"
+        header = f"<b>🏆 የብዙዎች ምርጫ የሆነው የ399 ብር እቅድ በድጋሚ ለጥቂት ሰአታት!</b>"
         body = (
-            f"<b>ይህ የመጨረሻው እድል ነው!</b> ከጥቂት ደቂቃዎች በኋላ የ{price} ብር ቅናሹ ተዘግቶ ዋጋው ወደ <b>{original_price} ብር</b> ይመለሳል።\n\n"
-            f"<b>አሁኑኑ መመዝገብ ያለብዎት ለምንድነው?</b>\n"
-            f"✅ በ{price} ብር ብቻ የ8-ሳምንት ሙሉ ስልጠናውን ያገኛሉ።\n"
-            f"✅ ከ2 ሰአት በኋላ ዋጋው በ 60% ይጨምራል።\n"
-            f"✅ የቁርጥ ቀን ውሳኔዎን አሁኑኑ ያጽኑ።\n\n"
+            f"<b>ለውጥ የሚጀምረው በውሳኔ ነው!</b>\n\n"
+            f"ጤናማና ጠንካራ አካል ለመገንባት የሚያስፈልገው ፍላጎት ብቻ ሳይሆን ትክክለኛ እቅድ ነው። የእርስዎን የ8-ሳምንት የለውጥ ፕሮግራም ዛሬ በ<b>{price} ብር</b> ብቻ ማግኘት ይችላሉ።\n\n"
+            f"<b>ምን እውቀት ያገኛሉ?</b>\n"
+            f"📘 <b>ሳይንሳዊ አመጋገብ፦</b> ሰውነትዎ የሚፈልገውን ምግብ መለየት።\n"
+            f"🏃‍♂️ <b>ተግባራዊ ስልጠና፦</b> ውጤት የሚያመጡ ትክክለኛ እንቅስቃሴዎች።\n"
+            f"📈 <b>ክትትል፦</b> እድገትዎን በየቀኑ የሚለኩበት ስልት።\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"🚨 <b>አስቸኳይ ማሳሰቢያ፦</b>\n"
-            f"🎤 <b>ከላይ ያለውን የድምጽ መልዕክት ያዳምጡ!</b>\n\n"
-            f"ይህ መልዕክት ሲጠፋ ቅናሹም አብሮ ያበቃል።\n"
+            f"💡 <b>ጠቃሚ ምክር፦</b>\n"
+            f"🎤 <b>ለእናንተ ያዘጋጀሁትን አጭር መልዕክት ከላይ ያዳምጡ!</b>\n\n"
+            f"ቅናሹ ለ1ቀን ብቻ የሚቆይ ይሆናል።\n"
             f"🔥 {recent_activity}\n"
-            f"⚠️ የቀሩት ቦታዎች፦ <b>{spots_left} ብቻ</b>\n"
+            f"⚠️ የቀሩት ቦታዎች፦ <b>{spots_left}</b>\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>ሳይረፍድብዎት በ{price} ብር አሁኑኑ ለመግዛት ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
+            f"<b>በቅናሽ ዋጋ ለመመዝገብ ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
         )
-        button_text = f"🚨 የመጨረሻ እድል፡ አሁኑኑ ጀምር"
+        button_text = f"✅ አሁኑኑ ጀምር"
     else:
-        header = f"⏳ <b>FINAL CALL: Only 2 Hours Left!</b>"
+        header = f"<b>🎁 The community's choice: 399 ETB access again for a few hours!</b>"
         body = (
-            f"<b>This is your last chance.</b> In exactly 120 minutes, the {price} ETB deal expires and returns to the original price of <b>{original_price} ETB</b>.\n\n"
-            f"<b>Why you must act NOW:</b>\n"
-            f"✅ Locked-in {price} ETB rate for the full 8-week system.\n"
-            f"✅ Price jumps by 600 ETB once the timer hits zero.\n"
-            f"✅ Secure your spot before registration closes.\n\n"
+            f"<b>Success is built on a solid system.</b>\n\n"
+            f"Don't leave your fitness to chance. Join thousands of others who have secured their professional 8-week program for only <b>{price} ETB</b>. Tomorrow, the rate returns to {original_price} ETB.\n\n"
+            f"<b>What You Will Learn:</b>\n"
+            f"📘 <b>Nutrition Science:</b> Master what your body needs.\n"
+            f"🏃‍♂️ <b>Efficient Training:</b> Moves that actually drive results.\n"
+            f"📈 <b>Sustainability:</b> How to keep your results for life.\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"🚨 <b>IMPORTANT:</b>\n"
-            f"🎤 <b>Listen to the Voice Note above!</b>\n\n"
-            f"When this link expires, the price resets forever.\n"
+            f"💡 <b>Expert Tip:</b>\n"
+            f"🎤 <b>Listen to Coach Hilawe’s quick audio note above!</b>\n\n"
+            f"Invest in your health today before the discount expires.\n"
             f"🔥 {recent_activity}\n"
-            f"⚠️ Status: <b>{spots_left} final spots remaining</b>\n"
+            f"⚠️ Status: <b>{spots_left} slots available</b>\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>Claim your {price} ETB spot before it's gone:</b>"
+            f"<b>Secure your 399 ETB access here:</b>"
         )
-        button_text = "🚨 CLAIM LAST SPOT (399 ETB)"
+        button_text = "✅ GET STARTED"
 
     text = f"{header}\n\n{body}"
-    
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
     ])
@@ -924,26 +925,24 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
     filter_sql = ""
     
 
-    # Build target list and SQL filter
+        # Build target list and SQL filter
     if target == "test":
-        # JOIN with products just like the unpaid logic, but only for Admin IDs
-        rows = await db._pool.fetch("""
-            SELECT u.telegram_id, u.language, p_match.id as matched_product_id
-            FROM users u
-            LEFT JOIN products p_match ON 
-                u.language = p_match.language AND 
-                u.gender = p_match.gender AND 
-                u.level = p_match.level AND 
-                u.frequency = p_match.frequency
-            WHERE u.telegram_id = ANY($1::BIGINT[]) 
-              AND p_match.is_active = TRUE
-        """, settings.ADMIN_IDS)
-        
-  
-        targets = [dict(r) for r in rows]
-        print('here are the targets', targets)
-        # In test mode, we usually don't want to update the whole DB via filter_sql
-        filter_sql = f"telegram_id = ANY(ARRAY{settings.ADMIN_IDS}::BIGINT[])"
+            # 1. Grab a sample product ID to use for the test
+            sample_product = await db._pool.fetchval("SELECT id FROM products WHERE is_active = TRUE LIMIT 1")
+            
+            if not sample_product:
+                logging.error("Broadcast Test Failed: No active products found in DB.")
+                return {"error": "No products available"}
+
+            # 2. Get admins and just force the sample product ID
+            rows = await db._pool.fetch("""
+                SELECT telegram_id, language, $2::INT as matched_product_id
+                FROM users
+                WHERE telegram_id = ANY($1::BIGINT[])
+            """, settings.ADMIN_IDS, sample_product)
+            
+            targets = [dict(r) for r in rows]
+            filter_sql = f"telegram_id = ANY(ARRAY{settings.ADMIN_IDS}::BIGINT[])"
 
     # Inside execute_broadcast_run, update the "unpaid" block:
 
@@ -1060,7 +1059,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str, test_m
                 # USE YOUR IMAGE FILE ID HERE
                 # If you don't have the file_id yet, you can use a URL or local path
                 EID_IMAGE = "AgACAgQAAxkBAAJUpmnaGaRTgE7YEUuuv1APRgr6oQSKAALiDGsb_NbRUkqWa0dpKBy-AQADAgADeQADOwQ" 
-                VOICE_FILE_ID = "CQACAgQAAxkBAAJrbWnkfyR8pOY09u7yjpNXUNfXNFS_AALWGwACF7cgU8KZMxaMrxZKOwQ" # main
+                VOICE_FILE_ID = "AwACAgQAAxkBAAKMUGnsWpYTz4-F53S7znEbifGIgEqOAAIuHQACPshhUzSMsnnk6RpxOwQ" # main
                 # VOICE_FILE_ID = "CQACAgQAAxkBAAIGvWnkeNgyytPGvMAxQOBdbqZ4WAIzAALpGwACzAgoU3N3WvzGKmx3OwQ" #demo
 
                 # sent_msg = await bot.send_photo(
