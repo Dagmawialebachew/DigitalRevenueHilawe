@@ -407,8 +407,8 @@ class Database:
 
     async def get_revenue_history(self, days: int = 7) -> List[asyncpg.Record]:
         """
-        Aggregates daily revenue for the line chart.
-        Returns rows with 'date' and 'value'.
+        Aggregates daily revenue and new user counts for multi-axis charts.
+        Fixes UndefinedColumnError by using telegram_id.
         """
         query = """
             WITH date_series AS (
@@ -417,17 +417,34 @@ class Database:
                     CURRENT_DATE,
                     '1 day'::interval
                 )::date AS day
+            ),
+            daily_revenue AS (
+                SELECT 
+                    created_at::date as day,
+                    SUM(amount) as total_rev
+                FROM payments 
+                WHERE status = 'approved'
+                AND created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
+                GROUP BY 1
+            ),
+            daily_users AS (
+                SELECT 
+                    created_at::date as day,
+                    COUNT(telegram_id) as user_count  -- FIXED: Changed 'id' to 'telegram_id'
+                FROM users
+                WHERE created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
+                GROUP BY 1
             )
             SELECT 
                 to_char(ds.day, 'MM/DD') as date,
-                COALESCE(SUM(p.amount), 0) as value
+                COALESCE(r.total_rev, 0)::float as revenue,
+                COALESCE(u.user_count, 0)::int as new_users
             FROM date_series ds
-            LEFT JOIN payments p ON ds.day = p.created_at::date AND p.status = 'approved'
-            GROUP BY ds.day
-            ORDER BY ds.day ASC
+            LEFT JOIN daily_revenue r ON ds.day = r.day
+            LEFT JOIN daily_users u ON ds.day = u.day
+            ORDER BY ds.day ASC;
         """
         return await self._pool.fetch(query, days)
-
     async def get_payment_distribution(self) -> asyncpg.Record:
         """
         Counts payments by status for the donut chart.

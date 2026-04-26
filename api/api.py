@@ -73,22 +73,34 @@ async def get_admin_stats(request: web.Request) -> web.Response:
 async def get_revenue_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/stats/revenue?days=7
-    Returns time-series data for the line chart.
+    Returns dual-stream time-series data for Revenue and User Growth.
     """
     db = request.app["db"]
     try:
+        # Support for 7, 14, 30, 60, 90
         days = int(request.query.get("days", 7))
     except ValueError:
         days = 7
 
     try:
-        # Expected from DB: list of records with 'date' and 'value'
         rows = await db.get_revenue_history(days=days)
-        return web.json_response(records_to_list(rows))
+        
+        # We transform the records into a structured object for the frontend
+        # This makes it easier to handle 'Revenue' and 'Users' as separate arrays
+        data = {
+            "labels": [r["date"] for r in rows],
+            "revenue": [float(r["revenue"]) for r in rows],
+            "users": [int(r["new_users"]) for r in rows],
+            "days_limit": days
+        }
+        
+        return web.json_response(data)
     except Exception:
         LOG.exception("get_revenue_stats failed")
-        return web.json_response([], status=500)
-
+        # Return empty structure on failure to prevent frontend crash
+        return web.json_response({
+            "labels": [], "revenue": [], "users": [], "days_limit": days
+        }, status=500)
 
 async def get_distribution_stats(request: web.Request) -> web.Response:
     """
