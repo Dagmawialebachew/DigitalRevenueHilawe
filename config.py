@@ -41,7 +41,7 @@ class Settings:
     
     
     BROADCAST_BATCH_SLEEP: float = float(os.getenv("BROADCAST_BATCH_SLEEP", "0.06"))
-    BROADCAST_DEAL_PRICE: float = float(os.getenv("BROADCAST_DEAL_PRICE", "399"))
+    BROADCAST_DEAL_PRICE: float = float(os.getenv("BROADCAST_DEAL_PRICE", "299"))
     BROADCAST_DURATION_HOURS: int = int(os.getenv("BROADCAST_DURATION_HOURS", "30"))
     REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
     DESIGN_PHOTO_ID: str = os.getenv("DESIGN_PHOTO_ID", "AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ")

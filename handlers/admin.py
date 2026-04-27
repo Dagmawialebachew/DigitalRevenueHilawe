@@ -650,111 +650,108 @@ from datetime import datetime
 
 def get_rotating_content(lang: str):
     now = datetime.now()
-    # Unique index for every hour to ensure 3-hour rotations never repeat
     time_seed = (now.timetuple().tm_yday * 24) + now.hour
     
-    # --- AMHARIC: Focus on Preparation for Fasika ---
+    # --- AMHARIC: Focus on Results & Value (299) ---
     testimonials_am = [
-        {"name": "ዮናስ ኤ.", "text": "“ጾሙ ሊያልቅ ጥቂት ቀናት ሲቀሩት ነው የተቀላቀልኩት፤ ገና ከትንሳኤ ማግስት ዝግጁ ሆኜ እንድጀምር ረድቶኛል።”"},
-        {"name": "መአዛ ኤፍ.", "text": "“ከጾም በኋላ ሰውነቴ እንዳይዝለፈለፍና ክብደት እንዳይጨምር ትክክለኛውን እቅድ አስቀድሜ በመያዜ ተረጋግቻለሁ።”"},
-        {"name": "አቤል ዋለ.", "text": "“ለፋሲካ በዓል ራሴን ያዘጋጀሁበት ምርጥ ስጦታ ነው። አሁን በዓሉን ያለምንም ስጋት ለማክበር ተዘጋጅቻለሁ።”"},
-        {"name": "ሄለን አ.", "text": "“ሁልጊዜ ከጾም በኋላ ጂም ለመጀመር እቸገር ነበር፤ ዘንድሮ ግን ገና ሳይፈታ ፕሮግራሜን በመያዜ ትልቅ መነሳሳት ፈጥሮብኛል።”"},
-        {"name": "ታሪኩ ቢ.", "text": "“በበዓል ሰሞን የሚወሰደውን ካሎሪ ወደ ጡንቻ ለመቀየር የሚያስችለኝን ስልት አስቀድሜ አግኝቻለሁ።”"},
-        {"name": "ሊዲያ አስ.", "text": "“አዲስ ልብስ ብቻ ሳይሆን አዲስ ቁመና ለራሴ ሰጥቻለሁ። ጾሙ ሲያልቅ በውጤት ለመጀመር ዝግጁ ነኝ።”"},
-        {"name": "አብርሃም ደ.", "text": "“በጾም ወቅት ያጣሁትን ጡንቻ ለመመለስ ፕሮፌሽናል እቅድ ያስፈልገኝ ነበር፤ ይህ ፕሮግራም ትክክለኛው ምርጫ ነው።”"},
-        {"name": "ሩት ቴ.", "text": "“ፋሲካን በደስታ አክብሬ ሰኞን በከፍተኛ ጉልበት የምጀምርበትን መንገድ ስላገኘሁ በጣም ደስተኛ ነኝ።”"},
-        {"name": "ቶማስ በየ.", "text": "“የትንሳኤ ስጦታዬን አስቀድሜ ገዝቻለሁ። ዋጋው ከጥቅሙ አንጻር በጣም አነስተኛ ነው።”"},
-        {"name": "ተስፋዬ ኤል.", "text": "“ጂም ከመሄዴ በፊት እቤት ውስጥ ሆኜ ራሴን የማዘጋጅበት ግልጽ መመሪያ አግኝቻለሁ።”"},
-        {"name": "ቤተልሔም በ.", "text": "“ለጤናዬ የወሰንኩት ቁርጥ ውሳኔ ነው። ከበዓል በኋላ አዲስ ሰው ሆኜ እመለሳለሁ።”"},
-        {"name": "ኤደን ሽመ.", "text": "“ይሄ ስልጠና ብቻ ሳይሆን የአኗኗር ዘይቤዬን የሚቀይር ድንቅ የትንሳኤ ስጦታ ነው።”"}
+        {"name": "ዮሴፍ ካ.", "text": "“በ299 ብር እንዲህ ያለ ፕሮግራም ማግኘት ይቻላል ብዬ አላሰብኩም ነበር። ለጀመርኩት አዲስ ለውጥ ትልቅ ግብዓት ሆኖኛል።”"},
+        {"name": "ሜሮን ቲ.", "text": "“ክብደት ለመቀነስ ተመጣጣኝና በጣም ግልጽ የሆነ መመሪያ ነው። በየቀኑ ምን መስራት እንዳለብኝ አውቃለሁ።”"},
+        {"name": "ዳዊት አ.", "text": "“ዋጋው በጣም ቅናሽ ነው፤ ጥቅሙ ግን እጥፍ ድርብ ነው። ለጤናዬ ያደረግኩት ምርጥ ኢንቨስትመንት ነው።”"},
+        {"name": "ሳምራዊት ገ.", "text": "“ወደ ጂም ለመመለስ ለምትቸገሩ ይህ የ299 ብር እቅድ ትልቅ መነሳሳት ይፈጥራል።”"},
+        {"name": "ቃለብ ወ.", "text": "“በቀን ከ10 ብር ባነሰ ወጪ የባለሙያ ምክር ማግኘት መቻሌ አስገርሞኛል። ውጤቱ ገና በሳምንቱ ይታያል።”"},
+        {"name": "የታገሱ በ.", "text": "“ከመጠን በላይ ወጪ ከማውጣቴ በፊት ይሄን ማግኘቴ እድለኛ ነኝ። ለጀማሪዎች በጣም ቀላል ነው።”"},
+        {"name": "ኪሩቤል ኤ.", "text": "“የሆድ ስብን ለማጥፋት ትክክለኛውን መንገድ አሳይቶኛል። በ299 ብር የሚገኝ ምርጥ ውጤት!”"},
+        {"name": "ሰላም ዲ.", "text": "“ከጓደኞቼ ጋር ነው የተመዘገብነው፤ ለሁሉም ሰው የሚሆንና ውጤታማ ስልጠና ነው።”"},
+        {"name": "ናሆም ቴ.", "text": "“ቁርጠኛ ለሆነ ሰው ዋጋው እንቅፋት እንዳይሆን ተደርጎ የቀረበ ትልቅ እድል ነው።”"},
+        {"name": "ቤዛዊት ኤስ.", "text": "“ምግብ ሳልቀንስ ክብደት መቀነስ የምችልበትን መንገድ ስላሳዩኝ በጣም አመሰግናለሁ።”"},
+        {"name": "ኤፍሬም ሐ.", "text": "“ራሴን ለማስተካከል ለሳምንታት ሳመነታ ነበር፤ ይህ ፕሮግራም ግን ወዲያውኑ አስጀመረኝ።”"},
+        {"name": "መክሊት አ.", "text": "“በዚህ ዋጋ እንዲህ ያለ ጥራት ያለው መመሪያ መጠበቅ ከባድ ነው፤ ተጠቀሙበት።”"}
     ]
     
-    recent_buyers_am = [
-            "ብሩክ አ.", "ሄለን ገ.", "ዮናስ መ.", "ሰላማዊት ት.", "ኤልያስ ወ.", 
-            "ረድኤት ሰ.", "ዳዊት ከ.", "ማርታ በ.", "ሄኖክ ደ.", "ቃልኪዳን ፍ.", 
-            "አማኑኤል ለ.", "ትዕግስት ዘ."
-        ]
+    recent_buyers_am = ["ዮሴፍ ካ.", "ሜሮን ቲ.", "ዳዊት አ.", "ሳምራዊት ገ.", "ቃለብ ወ.", "ኪሩቤል ኤ."]
 
-    # --- ENGLISH: Focus on "Hit the ground running" ---
+    # --- ENGLISH: Focus on "No Excuses" & "Sustainability" ---
     testimonials_en = [
-        {"name": "Elias M.", "text": "“I secured my plan during Holy Week. Having the strategy ready before the feast made the transition so much easier.”"},
-        {"name": "Sara A.", "text": "“The best decision I made was joining now. I don't have to worry about the post-holiday weight gain.”"},
-        {"name": "Dawit T.", "text": "“Joining before Easter gave me the mindset shift I needed. Ready to hit the ground running on Monday!”"},
-        {"name": "Marta G.", "text": "“I didn't want to waste a single day after Fasika. Getting my meal plan ready now was a total game changer.”"},
-        {"name": "Brook W.", "text": "“Reclaiming the muscle I lost during Lent is my priority. This program is the perfect roadmap.”"},
-        {"name": "Tigist S.", "text": "“Invested in myself before the holiday started. Peace of mind is the best Easter gift!”"},
-        {"name": "Nathan B.", "text": "“Professional, structured, and perfect for the post-fast recovery phase.”"},
-        {"name": "Selam D.", "text": "“I feel more confident knowing I have a solid plan for the week after Easter.”"},
-        {"name": "Henok L.", "text": "“Top tier coaching. I'm starting my transformation the second the fast ends.”"},
-        {"name": "Rediet K.", "text": "“Don't wait for Monday to plan. Plan now so you can execute on Monday.”"},
-        {"name": "Amanuel Z.", "text": "“The price is unbeatable for the value provided. Best Holy Week deal in Ethiopia.”"},
-        {"name": "Hana P.", "text": "“Transformed my mindset before the holiday. Ready for a healthy and strong Easter!”"}
+        {"name": "Yosef K.", "text": "“For only 299 ETB, this is a steal. Exactly what I needed to restart my fitness journey.”"},
+        {"name": "Meron T.", "text": "“I was struggling with consistency, but this plan made it simple and affordable to get back on track.”"},
+        {"name": "Dawit A.", "text": "“The value for 299 is insane. It's cheaper than one lunch but the results last a lifetime.”"},
+        {"name": "Samrawit G.", "text": "“If you’re looking for a sign to start training again, this affordable plan is it.”"},
+        {"name": "Kaleb W.", "text": "“Expert coaching for less than 10 Birr a day. My energy levels have already spiked.”"},
+        {"name": "Kirubel E.", "text": "“Targeted my core effectively. Best 299 ETB I’ve ever spent on myself.”"},
+        {"name": "Selam D.", "text": "“Clean, structured, and very easy to follow even with a busy work schedule.”"},
+        {"name": "Nahom T.", "text": "“No more excuses about price. This is accessible for everyone who wants real growth.”"},
+        {"name": "Bezawit S.", "text": "“I learned how to fuel my body without starving. Incredible value.”"},
+        {"name": "Ephrem H.", "text": "“Stopped procrastinating and started training for the price of a coffee. Love the results!”"},
+        {"name": "Meklit A.", "text": "“High-quality structure for a fraction of the usual cost. Get in while the rate is low.”"},
+        {"name": "Yonas B.", "text": "“The most professional recovery plan I've used. Simple and effective.”"}
     ]
     
-    recent_buyers_en = [
-            "Brook A.", "Helen G.", "Yonas M.", "Selamawit T.", "Elias W.", 
-            "Rediet S.", "Dawit K.", "Marta B.", "Henok D.", "Kalkidan F.", 
-            "Amanuel L.", "Tigist Z."
-        ]
-    # Selection logic with offsets to prevent matching names
+    recent_buyers_en = ["Yosef K.", "Meron T.", "Dawit A.", "Samrawit G.", "Kaleb W.", "Kirubel E."]
+
     idx = time_seed % 12
-    buyer_idx = (time_seed + 5) % 12
+    buyer_idx = (time_seed + 3) % 6
 
     if lang.upper() == "AM":
         testi = testimonials_am[idx]
         buyer_name = recent_buyers_am[buyer_idx]
-        activity = f"🔥 በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... ✅</b>"
+        activity = f"✅ በቅርብ ጊዜ የተመዘገቡ፦ <b>{buyer_name}... 💸</b>"
     else:
         testi = testimonials_en[idx]
         buyer_name = recent_buyers_en[buyer_idx]
-        activity = f"🔥 Recently joined: <b>{buyer_name}... ✅</b>"
+        activity = f"✅ Recently joined: <b>{buyer_name}... 💸</b>"
 
     return testi, activity
 
+
+
 def build_deal_message(lang: str, expires_at: datetime, product_id: int):
-    # Moderate urgency for a 1-day window
-    spots_left = random.choice([8, 9, 11]) 
-    price = 399 
-    original_price = 1000
+    invites_left = random.choice([12, 15, 18]) 
+    price = 299 
     
     testimonial, recent_activity = get_rotating_content(lang)
 
     if lang.upper() == "AM":
-        header = f"<b>🏆 የብዙዎች ምርጫ የሆነው የ399 ብር እቅድ በድጋሚ ለጥቂት ሰአታት!</b>"
+        header = f"<b>⭐ የ299 ብር ልዩ የቤተሰብ እድል</b>"
         body = (
-            f"<b>ለውጥ የሚጀምረው በውሳኔ ነው!</b>\n\n"
-            f"ጤናማና ጠንካራ አካል ለመገንባት የሚያስፈልገው ፍላጎት ብቻ ሳይሆን ትክክለኛ እቅድ ነው። የእርስዎን የ8-ሳምንት የለውጥ ፕሮግራም ዛሬ በ<b>{price} ብር</b> ብቻ ማግኘት ይችላሉ።\n\n"
-            f"<b>ምን እውቀት ያገኛሉ?</b>\n"
-            f"📘 <b>ሳይንሳዊ አመጋገብ፦</b> ሰውነትዎ የሚፈልገውን ምግብ መለየት።\n"
-            f"🏃‍♂️ <b>ተግባራዊ ስልጠና፦</b> ውጤት የሚያመጡ ትክክለኛ እንቅስቃሴዎች።\n"
-            f"📈 <b>ክትትል፦</b> እድገትዎን በየቀኑ የሚለኩበት ስልት።\n\n"
+            f"ጥሩ ቁመና ለመገንባት ውድ ክፍያዎችን መክፈል አይጠበቅብዎትም። "
+            f"የብዙዎችን ጥያቄ መሰረት በማድረግ የ8-ሳምንቱን ሙሉ ስልጠና በ<b>{price} ብር</b> ብቻ ክፍት አድርገናል።\n\n"
+            
+            f"<b>የተጠቃሚዎች ምስክርነት፦</b>\n"
+            f"<i>\"{testimonial['text']}\"</i> — <b>{testimonial['name']}</b>\n\n"
+            
+            f"<b>ምን ያገኛሉ?</b>\n"
+            f"🥗 <b>አመጋገብ፦</b> ለሰውነትዎ የሚስማማ የምግብ ምርጫ።\n"
+            f"💪 <b>ስልጠና፦</b> ውጤት የሚያመጡ ትክክለኛ እንቅስቃሴዎች።\n"
+            f"🤝 <b>ድጋፍ፦</b> ግብዎን እስኪመቱ የሚረዳዎት መመሪያ።\n\n"
             f"━━━━━━━━━━━━━━\n"
-            f"💡 <b>ጠቃሚ ምክር፦</b>\n"
-            f"🎤 <b>ለእናንተ ያዘጋጀሁትን አጭር መልዕክት ከላይ ያዳምጡ!</b>\n\n"
-            f"ቅናሹ ለ1ቀን ብቻ የሚቆይ ይሆናል።\n"
-            f"🔥 {recent_activity}\n"
-            f"⚠️ የቀሩት ቦታዎች፦ <b>{spots_left}</b>\n"
+            f"💡 <b>ጠቃሚ መረጃ፦</b>\n"
+            f"🎤 ከላይ ያለውን የCoach Hilawe አጭር ኦዲዮ በማዳመጥ ስልጠናው እንዴት እንደሚሰራ ይረዱ።\n\n"
+            f"{recent_activity}\n"
+            f"በዚህ ዋጋ መቀላቀል ለሚፈልጉ <b>{invites_left}</b> ክፍት ቦታዎች አሉ።\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>በቅናሽ ዋጋ ለመመዝገብ ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
+            f"<b>ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ፦</b>"
         )
         button_text = f"✅ አሁኑኑ ጀምር"
     else:
-        header = f"<b>🎁 The community's choice: 399 ETB access again for a few hours!</b>"
+        header = f"<b>⭐ Community Access: Now Only 299 ETB</b>"
         body = (
-            f"<b>Success is built on a solid system.</b>\n\n"
-            f"Don't leave your fitness to chance. Join thousands of others who have secured their professional 8-week program for only <b>{price} ETB</b>. Tomorrow, the rate returns to {original_price} ETB.\n\n"
-            f"<b>What You Will Learn:</b>\n"
-            f"📘 <b>Nutrition Science:</b> Master what your body needs.\n"
-            f"🏃‍♂️ <b>Efficient Training:</b> Moves that actually drive results.\n"
-            f"📈 <b>Sustainability:</b> How to keep your results for life.\n\n"
+            f"Professional fitness coaching shouldn't be a luxury. "
+            f"We’ve lowered the barrier by offering the full 8-week program for just <b>{price} ETB</b>.\n\n"
+            
+            f"<b>User Spotlight:</b>\n"
+            f"<i>\"{testimonial['text']}\"</i> — <b>{testimonial['name']}</b>\n\n"
+            
+            f"<b>The Framework:</b>\n"
+            f"🥗 <b>Nutrition Masterclass:</b> Eat better, not less.\n"
+            f"💪 <b>Optimized Training:</b> Workouts designed for real change.\n"
+            f"🤝 <b>Full Guidance:</b> A clear roadmap to your goals.\n\n"
             f"━━━━━━━━━━━━━━\n"
             f"💡 <b>Expert Tip:</b>\n"
-            f"🎤 <b>Listen to Coach Hilawe’s quick audio note above!</b>\n\n"
-            f"Invest in your health today before the discount expires.\n"
-            f"🔥 {recent_activity}\n"
-            f"⚠️ Status: <b>{spots_left} slots available</b>\n"
+            f"🎤 Listen to Coach Hilawe’s voice note above for a quick breakdown.\n\n"
+            f"{recent_activity}\n"
+            f"Currently <b>{invites_left}</b> spots available at this rate.\n"
             f"━━━━━━━━━━━━━━\n"
-            f"<b>Secure your 399 ETB access here:</b>"
+            f"<b>Click below to secure your access:</b>"
         )
         button_text = "✅ GET STARTED"
 
