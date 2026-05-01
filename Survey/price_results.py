@@ -146,7 +146,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 # --- 1. Helper for the visual report ---
-aasync def build_results_report(db):
+async def build_results_report(db):
     # Added WHERE clause to filter for today only
     results = await db._pool.fetch("""
         SELECT selected_price, COUNT(*) as votes 
