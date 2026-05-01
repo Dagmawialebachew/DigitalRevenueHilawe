@@ -22,21 +22,9 @@ def get_price_survey_keyboard():
     kb.adjust(2)
     return kb.as_markup()
 
+
+
 async def get_survey_text(bot: Bot, uid: int, lang: str):
-    try:
-        chat = await bot.get_chat(uid)
-        name = chat.first_name or ""
-    except:
-        name = "" if lang == "EN" else ""
-
-  async def get_survey_text(bot: Bot, uid: int, lang: str):
-    try:
-        chat = await bot.get_chat(uid)
-        name = chat.first_name or "Athlete"
-    except:
-        name = "Athlete" if lang == "EN" else "አትሌት"
-
-   async def get_survey_text(bot: Bot, uid: int, lang: str):
     try:
         chat = await bot.get_chat(uid)
         name = chat.first_name or ""
