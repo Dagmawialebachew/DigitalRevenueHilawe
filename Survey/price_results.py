@@ -34,15 +34,15 @@ async def get_survey_text(bot: Bot, uid: int, lang: str):
     if lang == "AM":
         return (
             f"ሰላም {name}! 👋\n\n"
-            "የ**የአካል ብቃት(Workout)ፕላን እና የምግብ መመሪያ** እስካሁን እንዳልጀመሩ አስታውያለው። "
+            "የ<b>የአካል ብቃት(Workout)ፕላን እና የምግብ መመሪያ</b> እስካሁን እንዳልጀመሩ አስታውያለው። "
             "ይህ እቅድ ለሁሉም ተደራሽ መሆኑን ለማረጋገጥ የእርስዎን አስተያየት እፈልጋለሁ።\n\n"
-            "ለእርስዎ ተመጣጣኝ የሆነው የዋጋ አማራጭ የትኛው ነው?"
+            "<i>ለእርስዎ ተመጣጣኝ የሆነው የዋጋ አማራጭ የትኛው ነው?</i>"
         )
     return (
         f"Hey {name}! 👋\n\n"
-        "I noticed you haven't started your **Workout Pla & Meal Guidance** journey with us yet. "
+        "I noticed you haven't started your <b>Workout Plan & Meal Guidance</b> journey with us yet. "
         "I want to make sure our guides are accessible to everyone, and I'd love your honest feedback.\n\n"
-        "Which of these price points would make it easiest for you to get started?"
+        "<i>Which of these price points would make it easiest for you to get started?</i>"
     )
 
 # --- 2. THE BROADCASTER ENGINE (WITH AUTO-CLEANUP) ---
