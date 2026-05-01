@@ -14,7 +14,7 @@ router = Router()
 def get_price_survey_keyboard():
     kb = InlineKeyboardBuilder()
     # Coach's requested 399, 499, 599 alternatives
-    prices = [399, 499, 599]
+    prices = [299, 399, 499]
     for p in prices:
         kb.button(text=f"{p} Br.", callback_data=f"price_survey:{p}")
     
@@ -25,20 +25,36 @@ def get_price_survey_keyboard():
 async def get_survey_text(bot: Bot, uid: int, lang: str):
     try:
         chat = await bot.get_chat(uid)
+        name = chat.first_name or ""
+    except:
+        name = "" if lang == "EN" else ""
+
+  async def get_survey_text(bot: Bot, uid: int, lang: str):
+    try:
+        chat = await bot.get_chat(uid)
         name = chat.first_name or "Athlete"
     except:
         name = "Athlete" if lang == "EN" else "አትሌት"
 
+   async def get_survey_text(bot: Bot, uid: int, lang: str):
+    try:
+        chat = await bot.get_chat(uid)
+        name = chat.first_name or ""
+    except:
+        name = "" if lang == "EN" else ""
+
     if lang == "AM":
         return (
             f"ሰላም {name}! 👋\n\n"
-            "የአካል ብቃት ጉዞዎን ለማቀለል አዳዲስ ነገሮችን እያዘጋጀን ነው። "
-            "ይህ ፕሮግራም ለሁሉም ተደራሽ እንዲሆን ዋጋውን እያጠናን ነው፤ ለእርስዎ የትኛው ዋጋ ተመጣጣኝ ነው?"
+            "የ**የአካል ብቃት(Workout)ፕላን እና የምግብ መመሪያ** እስካሁን እንዳልጀመሩ አስታውያለው። "
+            "ይህ እቅድ ለሁሉም ተደራሽ መሆኑን ለማረጋገጥ የእርስዎን አስተያየት እፈልጋለሁ።\n\n"
+            "ለእርስዎ ተመጣጣኝ የሆነው የዋጋ አማራጭ የትኛው ነው?"
         )
     return (
         f"Hey {name}! 👋\n\n"
-        "We’re working on making our programs more accessible. To help us set the right price, "
-        "which of these ranges would you be most comfortable with?"
+        "I noticed you haven't started your **Workout Pla & Meal Guidance** journey with us yet. "
+        "I want to make sure our guides are accessible to everyone, and I'd love your honest feedback.\n\n"
+        "Which of these price points would make it easiest for you to get started?"
     )
 
 # --- 2. THE BROADCASTER ENGINE (WITH AUTO-CLEANUP) ---
@@ -142,45 +158,44 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 # --- 1. Helper for the visual report ---
-async def build_results_report(db):
+aasync def build_results_report(db):
+    # Added WHERE clause to filter for today only
     results = await db._pool.fetch("""
         SELECT selected_price, COUNT(*) as votes 
         FROM price_survey_results 
+        WHERE created_at >= CURRENT_DATE
         GROUP BY selected_price 
         ORDER BY selected_price ASC
     """)
     
     if not results:
-        return "No survey results yet.", None
+        return "No survey results recorded yet today. 🌑", None
 
     total_votes = sum(r['votes'] for r in results)
     now = datetime.now().strftime("%H:%M:%S")
     
-    report = f"📊 <b>Live Price Survey Results</b>\n"
-    report += f"<i>Last Updated: {now}</i>\n"
+    report = f"📊 <b>Today's Survey Momentum</b>\n"
+    report += f"<i>Data since 00:00 AM Today | Updated: {now}</i>\n"
     report += f"━━━━━━━━━━━━━━━\n\n"
 
     for r in results:
         count = r['votes']
         price = r['selected_price']
-        # Calculate percentage for a simple progress bar
         percent = (count / total_votes) * 100 if total_votes > 0 else 0
-        bar_count = int(percent / 10) # 1 block per 10%
+        bar_count = int(percent / 10)
         bar = "🟦" * bar_count + "⬜" * (10 - bar_count)
         
         report += f"💰 <b>{price} ETB</b>\n"
         report += f"{bar} {int(percent)}%\n"
-        report += f"└ 🗳 <b>{count} votes</b>\n\n"
+        report += f"└ 🗳 <b>{count} votes today</b>\n\n"
 
     report += f"━━━━━━━━━━━━━━━\n"
-    report += f"<b>Total Responses:</b> {total_votes}"
+    report += f"<b>Total Today:</b> {total_votes}"
 
-    # Build the refresh button
     kb = InlineKeyboardBuilder()
-    kb.button(text="🔄 Refresh Data", callback_data="refresh_survey_results")
+    kb.button(text="🔄 Refresh Today's Data", callback_data="refresh_survey_results")
     
     return report, kb.as_markup()
-
 # --- 2. Handlers ---
 
 @router.message(Command("survey_results"), F.from_user.id.in_(settings.ADMIN_IDS))
