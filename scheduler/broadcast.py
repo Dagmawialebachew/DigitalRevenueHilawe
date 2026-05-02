@@ -115,7 +115,7 @@ def get_rotating_content(lang: str):
     return testi, activity
 
 def build_deal_message(lang: str, expires_at: datetime, product_id: int, price: int = 299):
-    invites_left = random.choice([7, 9, 11]) 
+    invites_left = random.choice([2,3,4]) 
     testimonial, recent_activity = get_rotating_content(lang)
     daily_cost = int(price / 60)
     
