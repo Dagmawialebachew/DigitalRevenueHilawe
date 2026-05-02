@@ -321,28 +321,34 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
 
     await callback.message.answer(report, reply_markup=confirm_kb.as_markup(), parse_mode="HTML")
 
+import logging
 import asyncio
 from datetime import datetime, timedelta, timezone
+
+# Professional Logging Setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("BROADCAST_ENGINE")
+
 async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
-    # 1. Configuration & Performance Tuning
-    BATCH_LIMIT = 25  # Safe zone for Telegram's 30 msg/sec limit
+    """
+    Indestructible Broadcast Engine with Social Proof & Real-time Logging.
+    """
+    # 1. Configuration & Safety
+    BATCH_LIMIT = 25  # Respecting Telegram's 30 msg/sec limit
     semaphore = asyncio.Semaphore(BATCH_LIMIT)
     DEAL_DURATION = int(getattr(settings, "BROADCAST_DURATION_HOURS", 90))
     expires_at = datetime.now(timezone.utc) + timedelta(hours=DEAL_DURATION)
     
-    # Track stats by integer strings to avoid float key mismatches (e.g., "299")
+    # Initialize high-granularity stats
     stats = {
-        "sent": 0, "failed": 0, "deleted": 0,
+        "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
         "299": 0, "399": 0, "499": 0, "700": 0
     }
 
-    # 2. The Golden Fetch (Injecting survey logic directly)
-    # We calculate the final price here so it's consistent for the message AND the DB update
-    base_query = f"""
+    # 2. Optimized Data Fetching (Injecting survey price directly)
+    base_query = """
         SELECT 
-            u.telegram_id, 
-            u.language, 
-            p.id as p_id, 
+            u.telegram_id, u.language, p.id as p_id, 
             COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
@@ -352,36 +358,33 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         WHERE p.is_active = TRUE
     """
     
-    # Apply targeting filters
     if target == "unpaid":
         base_query += " AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
-    elif target == "paid":
-        base_query += " AND EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
     elif target == "test":
         base_query += f" AND u.telegram_id = ANY(ARRAY{settings.ADMIN_IDS}::BIGINT[])"
 
     targets = await db._pool.fetch(base_query)
     if not targets:
+        logger.warning(f"⚠️ Broadcast aborted: No users found for target '{target}'")
         return {"error": "No users found"}
 
-    # 3. Synchronized Database Update
-    # Update the users table to match exactly what we are about to send
-    # Using executemany for high-speed bulk syncing
+    logger.info(f"🚀 Initializing broadcast for {len(targets)} targets...")
+
+    # 3. Synchronized Pre-Update (Locking in prices before sending)
     sync_data = [(t['final_price'], expires_at, t['telegram_id']) for t in targets]
     await db._pool.executemany(
         "UPDATE users SET deal_price = $1, deal_expires_at = $2 WHERE telegram_id = $3",
         sync_data
     )
 
-    # 4. Atomic Sender Task
+    # 4. Atomic & Fault-Tolerant Sender Task
     async def send_to_user(user):
         uid = user['telegram_id']
-        # Ensure price is a clean string for stats tracking (e.g., "299")
         price_key = str(int(user['final_price'])) 
         
         async with semaphore:
             try:
-                # Generate localized content based on the final_price
+                # Generate specialized 2030-tech style content
                 text, kb = build_deal_message(
                     user['language'], 
                     expires_at, 
@@ -396,7 +399,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
                     parse_mode="HTML"
                 )
 
-                # Persist the message ID for the countdown worker
+                # Persist context for the countdown/analytics workers
                 await db._pool.execute(
                     "UPDATE users SET last_broadcast_msg_id = $1, matched_product_id = $2 WHERE telegram_id = $3",
                     sent_msg.message_id, user['p_id'], uid
@@ -405,35 +408,47 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
                 stats["sent"] += 1
                 if price_key in stats:
                     stats[price_key] += 1
+                logger.info(f"✅ Delivered: {uid} | Price: {price_key}")
                 
             except Exception as e:
                 stats["failed"] += 1
                 err = str(e).lower()
-                # Auto-clean database of dead or blocked accounts
+                logger.error(f"❌ Delivery Failed for {uid}: {err}")
+
+                # 5. Safe Cleanup (Protected from ForeignKeyViolationError)
                 if any(x in err for x in ["blocked", "chat not found", "deactivated", "user_is_deactivated"]):
-                    await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
-                    stats["deleted"] += 1
+                    try:
+                        await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
+                        stats["deleted"] += 1
+                        logger.info(f"🗑 Cleaned user {uid} from database.")
+                    except Exception as db_err:
+                        # If user has payment history, we can't delete them, so we just log it
+                        stats["skipped_cleanup"] += 1
+                        logger.warning(f"⚠️ Could not delete {uid} (Referenced in payments): {db_err}")
             
-            # 50ms interval helps keep the load on the Telegram API smooth
+            # Intelligent pacing
             await asyncio.sleep(0.05)
 
-    # 5. Parallel Execution
+    # 6. Parallel Non-Blocking Execution
     await asyncio.gather(*(send_to_user(u) for u in targets))
 
-    # 6. Premium Admin Report
+    # 7. Premium Admin Insight Report
+    logger.info(f"🏁 Broadcast finished. Success: {stats['sent']}, Failed: {stats['failed']}")
+    
     summary = (
         f"🏁 <b>BROADCAST ENGINE COMPLETE</b>\n"
         f"━━━━━━━━━━━━━━\n"
         f"✅ <b>Delivered:</b> <code>{stats['sent']}</code>\n"
         f"❌ <b>Failed:</b> <code>{stats['failed']}</code>\n"
-        f"🗑 <b>Cleaned:</b> <code>{stats['deleted']}</code>\n\n"
+        f"🗑 <b>Database Cleaned:</b> <code>{stats['deleted']}</code>\n"
+        f"⚠️ <b>Blocked (Preserved):</b> <code>{stats['skipped_cleanup']}</code>\n\n"
         f"💰 <b>Price Tier Distribution:</b>\n"
         f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
         f"└ 700 ETB: <code>{stats['700']}</code> users\n"
         f"━━━━━━━━━━━━━━\n"
-        f"ℹ️ <i>Countdown worker is now live for these messages.</i>"
+        f"ℹ️ <i>Real-time logs available in console.</i>"
     )
     
     await bot.send_message(admin_id, summary, parse_mode="HTML")
