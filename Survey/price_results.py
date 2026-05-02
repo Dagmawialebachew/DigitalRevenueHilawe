@@ -147,41 +147,49 @@ from datetime import datetime
 
 # --- 1. Helper for the visual report ---
 async def build_results_report(db):
-    # Added WHERE clause to filter for today only
+    # Fetching today's and yesterday's stats in one go
     results = await db._pool.fetch("""
-        SELECT selected_price, COUNT(*) as votes 
+        SELECT 
+            selected_price, 
+            COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) as today,
+            COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE) as yesterday
         FROM price_survey_results 
-        WHERE created_at >= CURRENT_DATE
+        WHERE created_at >= CURRENT_DATE - INTERVAL '1 day'
         GROUP BY selected_price 
         ORDER BY selected_price ASC
     """)
     
     if not results:
-        return "No survey results recorded yet today. 🌑", None
+        return "No survey results recorded for today or yesterday. 🌑", None
 
-    total_votes = sum(r['votes'] for r in results)
+    # Summaries
+    total_today = sum(r['today'] for r in results)
+    total_yesterday = sum(r['yesterday'] for r in results)
     now = datetime.now().strftime("%H:%M:%S")
     
-    report = f"📊 <b>Today's Survey Momentum</b>\n"
-    report += f"<i>Data since 00:00 AM Today | Updated: {now}</i>\n"
+    report = f"📊 <b>Price Feedback: Today vs Yesterday</b>\n"
+    report += f"<i>Status as of {now}</i>\n"
     report += f"━━━━━━━━━━━━━━━\n\n"
 
     for r in results:
-        count = r['votes']
         price = r['selected_price']
-        percent = (count / total_votes) * 100 if total_votes > 0 else 0
-        bar_count = int(percent / 10)
-        bar = "🟦" * bar_count + "⬜" * (10 - bar_count)
+        today = r['today']
+        yesterday = r['yesterday']
+        
+        # Calculate growth or trend icon
+        trend = "📈" if today > yesterday else "📉"
+        if yesterday == 0 and today > 0: trend = "🔥"
         
         report += f"💰 <b>{price} ETB</b>\n"
-        report += f"{bar} {int(percent)}%\n"
-        report += f"└ 🗳 <b>{count} votes today</b>\n\n"
+        report += f"└ Today: <b>{today}</b> {trend}\n"
+        report += f"└ Yesterday: <b>{yesterday}</b>\n\n"
 
     report += f"━━━━━━━━━━━━━━━\n"
-    report += f"<b>Total Today:</b> {total_votes}"
+    report += f"<b>Total Votes Today:</b> {total_today}\n"
+    report += f"<b>Total Votes Yesterday:</b> {total_yesterday}"
 
     kb = InlineKeyboardBuilder()
-    kb.button(text="🔄 Refresh Today's Data", callback_data="refresh_survey_results")
+    kb.button(text="🔄 Refresh Real-Time", callback_data="refresh_survey_results")
     
     return report, kb.as_markup()
 # --- 2. Handlers ---

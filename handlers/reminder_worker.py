@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from aiogram import Bot
 
 # Ensure build_deal_message is imported correctly
-from handlers.admin import build_deal_message 
+from scheduler.broadcast import build_deal_message
 # async def reminder_worker(bot: Bot, db):
 #     logging.info("Urgent Reminder Worker Started.")
 #     while True:
