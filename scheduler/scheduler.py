@@ -4,21 +4,21 @@ from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import settings
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, TelegramRetryAfter
+
+
 async def check_and_send_reminders(bot: Bot, db):
     """
-    Finds dropped users, sends high-pressure alerts, and reports to Admin.
+    Retargets dropped users with human, emotionally-driven copy.
+    No robotic language. No system references. Pure coach voice.
     """
     try:
-
         ghost_users = await db._pool.fetch("""
-
-           SELECT telegram_id AS user_id, language, level, full_name
-FROM users
-WHERE last_pitch_at < NOW() - INTERVAL '3 hours' 
-  AND last_pitch_at > NOW() - INTERVAL '4 hours'
-  AND has_paid = FALSE 
-  AND reminded = FALSE
-
+            SELECT telegram_id AS user_id, language, level, full_name
+            FROM users
+            WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
+              AND last_pitch_at > NOW() - INTERVAL '4 hours'
+              AND has_paid = FALSE
+              AND reminded = FALSE
         """)
     except Exception as e:
         logging.exception(f"DB query failed: {e}")
@@ -30,33 +30,53 @@ WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
     for user in ghost_users:
         uid = user["user_id"]
         lang = user["language"]
-        level = user["level"].upper()
-        sys_id = f"HE-{uid % 10000:04d}"
+        level = user["level"].upper() if user["level"] else "TRANSFORMATION"
+        first_name = (user["full_name"] or "").split()[0] if user["full_name"] else ""
 
-        # --- USER MESSAGES ---
-        
+        # ─────────────────────────────────────────────
+        # ENGLISH VERSION — warm, personal, urgent
+        # ─────────────────────────────────────────────
         if lang == "EN":
+            name_line = f"{first_name}, I" if first_name else "I"
             text = (
-                f"👋 <b>Hey, quick check-in from Coach Hilawe!</b>\n\n"
-                f"I was just looking over the <b>{level}</b> plan we started building for you. It’s sitting at 94.7% completion, and honestly, it looks solid. 🌟\n\n"
-                f"I’ve kept that Tinsae rate locked at 55% discount because I really want to see you in the mix. "
-                f"We already have <b>878+ brothers and sisters</b> inside the community getting ready for the big post-fast reveal. 🔥\n\n"
-                "The Holy Week discount is about to expire in 59 minutes, and I’d hate for you to have to pay full price later.\n\n"
-                "<b>Are you ready to lock this in and start your transformation with me?</b>"
+                f"💬 <b>{name_line} want to be honest with you.</b>\n\n"
+                f"A lot of people start this journey — they get excited, they see the plan, "
+                f"and then life gets in the way. They tell themselves <i>\"I'll do it later.\"</i>\n\n"
+                f"Later never comes. 😔\n\n"
+                f"The people who joined me this week? "
+                f"They didn't wait for the perfect moment. "
+                f"They decided <b>this</b> was the moment.\n\n"
+                f"Your <b>{level}</b> program is still waiting for you. "
+                f"And so is the discount — but not for long.\n\n"
+                f"⏳ <b>This offer closes very soon.</b> After that, the price goes back up — no exceptions.\n\n"
+                f"You came this far for a reason. Don't let it go to waste.\n\n"
+                f"<b>Are you ready to make this real?</b>"
             )
-            btn_text = "⚡️ Yes, I'm Ready"
+            btn_text = "✅ Yes Coach — I'm Ready"
+
+        # ─────────────────────────────────────────────
+        # AMHARIC VERSION — emotional, direct, urgent
+        # ─────────────────────────────────────────────
         else:
+            name_line = f"{first_name}፣" if first_name else ""
             text = (
-                f"👋 <b>ጤና ይስጥልኝ! ኮች ህላዌ ነኝ።</b>\n\n"                
-                f"ለእርስዎ ማዘጋጀት የጀመርነውን የ<b>{level}</b> የለውጥ እቅድ እያየሁት ነበር። 94.7% ተጠናቋል። 🌟\n\n"
-                f"የትንሳኤ በዓልን ምክንያት በማድረግ ያደረግነው የ55% ቅናሽ እንዳያልፍብዎት ፈልጋለሁ። "
-                f"አሁን ላይ <b>878+ አባላት</b> የትንሳኤ ማግስት ለውጣቸውን ለመጀመር ከእኔ ጋር ተቀላቅለዋል። 🔥\n\n"
-                "ይህ የ40% የቅዱስ ሳምንት ቅናሽ የሚቆየው ለ59 ደቂቃ ብቻ ነው። ይህን አጋጣሚ ተጠቅመው ለውጡን አብረን ብንጀምር ደስ ይለኛል።\n\n"
-                "<b>አሁን ፕሮግራሙን አጠናቅቀን ጉዟችንን እንጀምር?</b>"
+                f"💬 <b>{name_line} አንድ ነገር ልንገርዎ።</b>\n\n"
+                f"ብዙ ሰዎች ይህን ጉዞ ይጀምራሉ — ደስተኛ ይሆናሉ፣ ፕሮግራሙን ያዩታል፣ "
+                f"ከዚያ ግን <i>\"በኋላ አደርገዋለሁ\"</i> ይላሉ።\n\n"
+                f"ያ 'በኋላ' ግን አይመጣም። 😔\n\n"
+                f"በዚህ ሳምንት ከእኔ ጋር የተቀላቀሉት ሰዎች ፍጹም ጊዜ አልጠበቁም። "
+                f"<b>አሁን</b> ትክክለኛው ጊዜ እንደሆነ ወስነው ተነሱ።\n\n"
+                f"የእርስዎ <b>{level}</b> ፕሮግራም አሁንም እየጠበቀዎት ነው። "
+                f"ቅናሹም ጊዜው ሳያልፍ ይቆያል — ግን ብዙ አይቆይም።\n\n"
+                f"⏳ <b>ይህ ቅናሽ በቅርቡ ያልቃል።</b> ከዚያ በኋላ ዋጋው ወደ መደበኛው ይመለሳል።\n\n"
+                f"እዚህ የደረሱት ምክንያት አለው። ያንን እድል አያሳልፉ።\n\n"
+                f"<b>አሁን ጉዟችንን እንጀምር?</b>"
             )
-            btn_text = "⚡️ አዎ ኮች፣ ዝግጁ ነኝ"
+            btn_text = "✅ አዎ ኮች — ዝግጁ ነኝ"
 
-
+        # ─────────────────────────────────────────────
+        # SEND MESSAGE
+        # ─────────────────────────────────────────────
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=btn_text, callback_data="re_pitch_trigger")]
         ])
@@ -67,36 +87,42 @@ WHERE last_pitch_at < NOW() - INTERVAL '3 hours'
                 "UPDATE users SET reminded = TRUE WHERE telegram_id = $1", uid
             )
             sent_count += 1
-            await asyncio.sleep(0.05) # anti-flood
+            await asyncio.sleep(0.05)  # anti-flood
+
         except TelegramForbiddenError:
-                logging.warning(f"🚫 User {uid} blocked the bot. Skipping.")
-                failed_count += 1
+            logging.warning(f"🚫 User {uid} blocked the bot. Skipping.")
+            failed_count += 1
         except TelegramRetryAfter as e:
-                logging.error(f"⏳ Flood limit hit. Sleeping for {e.retry_after}s")
-                await asyncio.sleep(e.retry_after)
+            logging.error(f"⏳ Flood limit hit. Sleeping {e.retry_after}s")
+            await asyncio.sleep(e.retry_after)
         except TelegramAPIError as e:
-                logging.error(f"⚠️ Telegram API Error for {uid}: {e}")
-                failed_count += 1
+            logging.error(f"⚠️ Telegram API Error for {uid}: {e}")
+            failed_count += 1
         except Exception as e:
-            logging.error(f"❓ Unknown error sending to {uid}: {type(e).__name__}: {e}")
+            logging.error(f"❓ Unknown error for {uid}: {type(e).__name__}: {e}")
             failed_count += 1
 
-    # --- ADMIN REPORT (Easy English) ---
+    # ─────────────────────────────────────────────
+    # ADMIN REPORT
+    # ─────────────────────────────────────────────
     if sent_count > 0 or failed_count > 0:
         admin_report = (
-            "📊 <b>Scheduler REPORT</b>\n"
+            "📊 <b>Retargeting Report</b>\n"
             "————————————————\n"
-            f"✅ <b>Reminders Sent:</b> {sent_count}\n"
+            f"✅ <b>Messages Sent:</b> {sent_count}\n"
             f"❌ <b>Failed/Blocked:</b> {failed_count}\n"
             "————————————————\n"
-            "Target: Users who dropped off 5-8 hours ago.\n"
-            "Status: System is retargeting them now."
+            "Target: Users who dropped 3–4 hours ago.\n"
+            "Copy: Human emotional retargeting v2."
         )
         try:
-            await bot.send_message(settings.ADMIN_SCHEDULER_LOG_ID, admin_report, parse_mode="HTML")
+            await bot.send_message(
+                settings.ADMIN_SCHEDULER_LOG_ID,
+                admin_report,
+                parse_mode="HTML"
+            )
         except Exception:
-            logging.error("Could not send report to Admin.")
-
+            logging.error("Could not send admin report.")
 
 
 

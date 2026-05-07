@@ -180,7 +180,7 @@ def admin_approval_markup(payment_id: int) -> InlineKeyboardMarkup:
 
 def payment_markup(lang: str, product_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    btn_text = "💳 Complete Payment" if lang == "EN" else "💳 ክፍያውን ፈጽም"
+    btn_text = "💳 Yes, Complete Payment" if lang == "EN" else "💳 አዎ, ክፍያውን ፈጽም"
     builder.button(text=btn_text, callback_data=f"pay_{product_id}")
     return builder.as_markup()
 
@@ -221,4 +221,13 @@ def product_detail_settings(product_id: int, is_active: bool):
     builder.button(text="⬅️ Back to List", callback_data="manage_refresh")
     
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def commitment_markup(lang: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if lang == "EN":
+        builder.button(text="🤝 I Give My Word", callback_data="commit_YES")
+    else:
+        builder.button(text="🤝 ቃሌን እሰጣለሁ", callback_data="commit_YES")
     return builder.as_markup()

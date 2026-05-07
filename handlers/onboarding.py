@@ -19,6 +19,7 @@ class OnboardingStepping(StatesGroup):
     level = State()      # Trainer Question 2
     obstacle = State()   # Trainer Question 3
     frequency = State()
+    commitment = State()  # <--- INSERTED STATE
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Database):
@@ -212,47 +213,29 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
 
     # 2. CALIBRATION ANIMATION
     OBSTACLE_MAP = {
-    "EN": {
-        "DIET": "Nutrition & Diet",
-        "CONSISTENCY": "Consistency",
-        "NOPLAN": "Lack of Structure"
-    },
-    "AM": {
-        "DIET": "የአመጋገብ ስርዓት",
-        "CONSISTENCY": "ተነሳሽነት",
-        "NOPLAN": "የተዋቀረ እቅድ"
+        "EN": {"DIET": "Nutrition & Diet", "CONSISTENCY": "Consistency", "NOPLAN": "Lack of Structure"},
+        "AM": {"DIET": "የአመጋገብ ስርዓት", "CONSISTENCY": "ተነሳሽነት", "NOPLAN": "የተዋቀረ እቅድ"}
     }
-}
     raw_obs = data.get('obstacle', 'CONSISTENCY')
-    
-    # Get phrased obstacle: "የአመጋገብ ስርዓት" instead of "DIET"
     obs_phrased = OBSTACLE_MAP[lang].get(raw_obs, raw_obs)
 
     analysis_steps = [
-        # STEP 1: Mirroring the Obstacle (Barnum Effect)
-        (f"🎯 Aligning with your goal and bypassing <b>{obs_phrased}</b>...", 
-         f"🎯 ግብዎን እና የ<b>{obs_phrased}</b> ችግርዎን መሰረት በማድረግ ፕሮግራሙን በማስተካከል ላይ..."),
-        
-        (f"📅 Designing your {freq}-day training split...", 
-         f"📅 የ{freq} ቀን የልምምድ ክፍፍልዎን በማዘጋጀት ላይ..."),
-        
-        # STEP 3: Reinforcing the Mirror
-        (f"⚖️ Scaling intensity to overcome <b>{obs_phrased}</b> at {data['level']} level...", 
-         f"⚖️ የ<b>{obs_phrased}</b> ችግርን ለመቅረፍ እና ለ{data['level']} ብቃት የሚመጥን ጥንካሬ በማመጣጠን ላይ..."),
-        
-        ("✅ Assessment complete. Generating your profile...", 
-         "✅ ግምገማው ተጠናቋል። መገለጫዎን በማውጣት ላይ...")
+        (f"🎯 Aligning with your goal and bypassing <b>{obs_phrased}</b>...", f"🎯 ግብዎን እና የ<b>{obs_phrased}</b> ችግርዎን መሰረት በማድረግ ፕሮግራሙን በማስተካከል ላይ..."),
+        (f"📅 Designing your {freq}-day training split...", f"📅 የ{freq} ቀን የልምምድ ክፍፍልዎን በማዘጋጀት ላይ..."),
+        (f"⚖️ Scaling intensity to overcome <b>{obs_phrased}</b> at {data['level']} level...", f"⚖️ የ<b>{obs_phrased}</b> ችግርን ለመቅረፍ እና ለ{data['level']} ብቃት የሚመጥን ጥንካሬ በማመጣጠን ላይ..."),
+        ("✅ Assessment complete. Generating your profile...", "✅ ግምገማው ተጠናቋል። መገለጫዎን በማውጣት ላይ...")
     ]
     
     for en, am in analysis_steps:
         step_text = en if lang == "EN" else am
-        await asyncio.sleep(0.9) # Slightly slower for "High-End" feel
+        await asyncio.sleep(0.9)
         try:
             await callback.message.edit_text(step_text, parse_mode="HTML")
         except Exception:
             import re
             clean_text = re.sub('<[^<]+?>', '', step_text)
             await callback.message.edit_text(clean_text, parse_mode=None)
+
     # 3. MATCH THE PRODUCT
     product = await db.match_product(lang, data['level'], freq)
     if not product:
@@ -260,10 +243,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         return
 
     # 4. SEND THE PROFILE CARD (Edit existing message)
-    # 4. SEND THE PROFILE CARD (Edit existing message)
     gender_icon = "👨" if data['gender'] == "MALE" else "👩"
-    
-    # We use the phrased obstacle from our mapping for a natural look
     obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
 
     if lang == "EN":
@@ -275,11 +255,13 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             f"🆔 <b>ID:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
             f"⚠️ <b>VULNERABILITY:</b> Struggles with {obs_phrased}\n"
-            f"📈 <b>SUCCESS PROBABILITY:</b> 94.7%\n"
+            f"🔒 <b>STATUS:</b> PENDING SYNC\n" # Refined: Locked feel
+            f"📈 <b>POTENTIAL:</b> 94.7%\n"
             f"🧬 <b>GENDER:</b> {gender_icon} | {freq}x Weekly\n"
             f"🎯 <b>GOAL:</b> {data['goal'].replace('_', ' ')}\n"
             "————————————————————"
         )
+        commitment_text = f"I have calculated a 94.7% success path, but it requires {freq} days of your absolute focus. Do you give me your word you won't quit when it gets hard?"
     else:  # Amharic
         profile_card = (
             f"💳 <b>የአባልነት መገለጫ</b>\n"
@@ -289,84 +271,85 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
             f"🆔 <b>መለያ:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
             f"⚠️ <b>ዋነኛ ተጋላጭነት:</b> {obs_phrased}\n"
+            f"🔒 <b>ሁኔታ:</b> አልተነቃቃም (Pending)\n" # Refined: Locked feel
             f"📈 <b>የስኬት እድል:</b> 94.7%\n"
             f"🧬 <b>ጾታ:</b> {gender_icon} | {freq} ጊዜ በሳምንት\n"            
             f"🎯 <b>ግብ:</b> {data['goal'].replace('_', ' ')}\n"
             "————————————————————"
         )
+        commitment_text = f"የ94.7% ውጤታማነት ለማግኘት በሳምንት {freq} ቀናት ሙሉ ትኩረትዎን ይፈልጋል። በከባድ ቀናት እንኳን እንደማይተዉ ቃል ይገቡልኛል?"
 
     await callback.message.edit_text(profile_card, parse_mode="HTML")
+    await asyncio.sleep(2.0)
+    
+    # 5. TRIGGER COMMITMENT BRIDGE (Micro-Yes)
+    await callback.message.answer(commitment_text, reply_markup=kb.commitment_markup(lang))
+    await state.set_state(OnboardingStepping.commitment)
+    
+@router.callback_query(OnboardingStepping.commitment, F.data == "commit_YES")
+async def process_commitment(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
+    data = await state.get_data()
+    lang = data['language']
+    user_id = callback.from_user.id
+    full_name = callback.from_user.full_name
+    freq = data['frequency']
 
-    # --- THE DRAMATIC PAUSE ---
-    # We wait 2 seconds while showing the typing indicator
-    await bot.send_chat_action(callback.message.chat.id, ChatAction.TYPING)
-    await asyncio.sleep(2.5)
+    # Delete the commitment message to clear space
+    await callback.message.delete()
+    
+    # MATCH THE PRODUCT
+    product = await db.match_product(lang, data['level'], freq)
+    if not product:
+        return # Safety check
 
-    # 5. SEND THE PITCH (As a NEW message)
+    # 5. SEND THE PITCH (Refined for "Algorithm/Merit" Scarcity)
     title = product['title']
     price = product['price']
     complete_label = get_text(lang, "analysis_complete")
     
-    # Extract phrased obstacle for the Barnum effect in the pitch
+    OBSTACLE_MAP = {
+        "EN": {"DIET": "Nutrition & Diet", "CONSISTENCY": "Consistency", "NOPLAN": "Lack of Structure"},
+        "AM": {"DIET": "የአመጋገብ ስርዓት", "CONSISTENCY": "ተነሳሽነት", "NOPLAN": "የተዋቀረ እቅድ"}
+    }
     obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
 
     if lang == "EN":
-        actual_price = int(float(price) / 0.35)
+        actual_price = int(float(price) / 0.65) # Adjusted for 35% discount logic
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
-            f"Most people fail because of <b>{obs_phrased}</b>. They guess, they wait, and they quit. "
-            f"I made the <b>{title}</b> to solve this exact problem for you. 🏆\n\n"
-            "<b>Your program includes:</b>\n"
-            "✅ <b>8-Week Plan</b> - No more guessing what to do.\n"
-            "✅ <b>Smart Nutrition</b> - The right food for fast results.\n"
-            "✅ <b>Progress Tracker</b> - See your body change every week.\n"
-            "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n\n"
-           "🌟 <b>HOLY WEEK SPECIAL OFFER</b>\n"
-    f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
-    "💎 You have a limited-time <b>35% Holy Week Discount</b> for Tinsae.\n\n"
-            f"🔥 <b>Live Update:</b> Over 813 people bought this program this week. "
-            f"Only <b>12 slots</b> are left for the {data['level'].upper()} group.\n\n"
-            "⚠️ <b>Warning:</b> This is a one-time offer."
-            "It is available only for 24hr!\n"
-            "<b>Are you ready to start?</b>"
+            f"I’ve accepted your commitment. Most people fail because of <b>{obs_phrased}</b>. "
+            f"But because your potential is <b>94.7%</b>, you have been fast-tracked for the <b>{title}</b> protocol. 🏆\n\n"
+            "<b>Your plan includes:</b>\n"
+            "✅ <b>8-Week Phase</b> | ✅ <b>Smart Nutrition</b>\n"
+            "✅ <b>Progress Sync</b> | ✅ <b>HD Video Guides</b>\n\n"
+            "⚡️ <b>ALGORITHM MERIT DISCOUNT</b>\n"
+            f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
+            "💎 Based on your profile score, a <b>35% performance discount</b> has been applied to your ID.\n\n"
+            f"🔥 <b>Live Capacity:</b> 813+ active users. Only <b>12 slots</b> remain for the {data['level'].upper()} tier today.\n\n"
+            "<b>Are you ready to activate your profile?</b>"
         )
-
-    elif lang == "AM":
-        actual_price = int(float(price) / 0.55)
+    else: # Amharic
+        actual_price = int(float(price) / 0.65)
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
-            f"አብዛኛው ሰው ውጤት የማይመጣው በ<b>{obs_phrased}</b> ምክንያት ነው። "
-            f"ይህን <b>{title}</b> ያዘጋጀሁት ይህንኑ ችግርዎን በቀጥታ እንዲፈታ ነው። 🏆\n\n"
+            f"ቃልዎን ተቀብያለሁ። አብዛኛው ሰው በ<b>{obs_phrased}</b> ምክንያት ግባቸውን ይስታሉ፤ "
+            f"የእርስዎ የስኬት እድል <b>94.7%</b> በመሆኑ ለ<b>{title}</b> ፕሮግራም ተመርጠዋል። 🏆\n\n"
             "<b>እቅዱ የሚያካትተው፦</b>\n"
-            "✅ <b>የ8-ሳምንት የለውጥ ጉዞ</b> - ግራ መጋባትን የሚያስቀር።\n"
-            "✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ።\n"
-            "✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
-            "✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
-             "🌟 <b>የትንሳኤ በዓል ልዩ ስጦታ</b>\n"
-        f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
-        "💎 ለትንሳኤ በዓል ብቻ የተዘጋጀ ልዩ <b>35% የቅዱስ ሳምንት ቅናሽ</b> ተግብረናል።\n\n"
-            f"🔥 <b>ወቅታዊ መረጃ፦</b> እስካሁን ከ813 በላይ ሰዎች ገዝተዋል። "
-            f"ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
-            "⚠️ <b>ማሳሰቢያ፦</b> ይህ ቅናሽ ለ1ቀን ብቻ የሚቆይ ይሆናል።"
-            "<b>አሁን ለመጀመር ዝግጁ ነዎት?</b>"
+            "✅ <b>የ8-ሳምንት ጉዞ</b> | ✅ <b>ሳይንሳዊ አመጋገብ</b>\n"
+            "✅ <b>የሂደት መቆጣጠሪያ</b> | ✅ <b>የቪዲዮ መመሪያ</b>\n\n"
+            "⚡️ <b>ልዩ የብቃት ቅናሽ</b>\n"
+            f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
+            f"💎 በግምገማ ውጤትዎ መሰረት <b>የ35% የብቃት ቅናሽ</b> በመለያዎ ላይ ተግብረናል።\n\n"
+            f"🔥 <b>ወቅታዊ መረጃ፦</b> 813+ ሰዎች ተቀላቅለዋል። ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
+            "<b>አሁን መጀመር ይፈልጋሉ?</b>"
         )
 
-    # Send the final pitch
-    await callback.message.answer(
-        pitch, 
-        reply_markup=kb.payment_markup(lang, product['id']), 
-        parse_mode="HTML"
-    )
-
+    await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']), parse_mode="HTML")
+    
+    # Notify Admin and Log time
     asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username))
     import datetime
-
-# Update the DB: user saw the pitch at this exact moment
-    await db.execute(
-        "UPDATE users SET last_pitch_at = $1 WHERE telegram_id = $2",
-        datetime.datetime.now(),
-        user_id
-    )
+    await db.execute("UPDATE users SET last_pitch_at = $1 WHERE telegram_id = $2", datetime.datetime.now(), user_id)
     await state.clear()
     
 def build_pitch(user, product):
