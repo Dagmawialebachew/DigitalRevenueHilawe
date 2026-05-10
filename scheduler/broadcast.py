@@ -183,79 +183,99 @@ URGENCY = {
 def get_rotating_content(lang: str):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     now = datetime.now()
-    idx = ((now.timetuple().tm_yday * 24) + now.hour) % 3
+    
+    # ── FIX: modulo by actual list length, not hardcoded 3 ──
+    testi_list = TESTIMONIALS[lang]
+    proof_list = SOCIAL_PROOF[lang]
+    urgency_list = URGENCY[lang]
+    
+    idx = ((now.timetuple().tm_yday * 24) + now.hour)
+    
+    testi   = testi_list[idx % len(testi_list)]
+    proof   = proof_list[idx % len(proof_list)]
+    urgency = urgency_list[idx % len(urgency_list)]
+    
+    return testi, proof, urgency
 
-    return TESTIMONIALS[lang][idx], SOCIAL_PROOF[lang][idx], URGENCY[lang][idx]
-
-def build_deal_message(lang: str, expires_at: datetime, product_id: int, price: int = 399):
-
+def build_deal_message(
+    lang: str, 
+    product_id: int, 
+    price: int = 300, 
+    original_price: int = 1000
+):
+    """
+    High-conversion message for the 300 ETB 'Barrier-Breaker' price point.
+    Daily cost: 5 ETB (The cost of a single piece of gum).
+    """
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testimonial, social_proof, urgency = get_rotating_content(lang)
-    daily_cost = round(price / 60, 1)
+    
+    # Mathematical anchor: 300/60 days = 5 ETB per day
+    daily_cost = int(price / 60) 
 
     if lang == "AM":
         header = (
-            "<b>የጤና እና የጥንካሬ ጉዞዎን ዛሬ ይጀምሩ 💪</b>\n"
-            "<i>Coach Hilawe Transformation System</i>"
+            "<b>የታላቅ ቅናሽ ማሳሰቢያ 📣</b>\n"
+            "<i>Coach Hilawe: ስፖርት ለሁሉም ኢትዮጵያዊ</i>"
         )
 
         body = (
-            f"ጤናዎን ለመጠበቅ እና የሚፈልጉትን ሰውነት ለመገንባት 8 ሳምንታት ይበቃል። "
-            f"ከብዙ ማብራሪያ ይልቅ ውጤት ላይ ያተኮረ እቅድ አዘጋጅተንልዎታል።\n\n"
+            f"ብዙዎቻችሁ ፕሮግራሙን ለመጀመር ፍላጎት ኖሯችሁ በዋጋ ምክንያት እንደዘገያችሁ አውቃለሁ። "
+            f"ለዚህም ነው ለተወሰኑ ቀናት ዋጋውን ወደ <b>{price} ብር</b> ዝቅ ያደረግነው።\n\n"
             
-            f"💰 <b>ኢንቨስትመንትዎ፦</b>\n"
-            f"<s> 1000 ብር</s> → <b>{price} ብር ብቻ</b>\n"
-            f"<i>(በቀን {daily_cost} ብር — ከአንድ ማኪያቶ ያነሰ ዋጋ)</i>\n\n"
+            f"💰 <b>የእርስዎ ኢንቨስትመንት፦</b>\n"
+            f"<s>1000 ብር</s> → <b>{price} ብር ብቻ</b>\n"
+            f"<i>(በቀን {daily_cost} ብር — አንድ ማስቲካ ከሚገዛው ዋጋ ያነሰ!)</i>\n\n"
             
-            f"<b>ምን ያገኛሉ?</b>\n"
-            f"✅ እያንዳንዱን እንቅስቃሴ የሚያሳዩ ግልፅ ቪዲዮዎች\n"
-            f"✅ በማንኛውም ሰአት ስልክዎ ላይ የሚከፈት የ8 ሳምንት ፕሮግራም\n\n"
-            f"✅ ለኢትዮጵያ ምግብ ተስማሚ የሆነ የአመጋገብ መመሪያ\n"
+            f"<b>እቅዱ ምን ይዟል?</b>\n"
+            f"✅ ጂም ውስጥ የሚሰሩ ግልፅ ስልጠናዎች\n"
+            f"✅ የኢትዮጵያ ምግቦችን ያካተተ የአመጋገብ እቅድ\n"
+            f"✅ የቪዲዮ መመሪያዎች እና የ8 ሳምንት ሙሉ ፕሮግራም\n\n"
             
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"{urgency}\n"
+            f"✨ ይሄ ዋጋ ለ20 ሰዎች ብቻ ነው የሚቆየው።\n"
             f"━━━━━━━━━━━━━━\n\n"
             
-            f"<b>የአባላቶቻችን አስተያየት፦</b>\n"
+            f"<b>የአባላት ምስክርነት፦</b>\n"
             f"💬 <i>\"{testimonial['text']}\"</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
             
-            f"<b>ጉዞዎን ለመጀመር ከታች ያለውን ይንኩ። 👇</b>"
+            f"<b>አሁኑኑ ለመጀመር ከታች ያለውን ይንኩ። 👇</b>"
         )
-        button_text = "🚀 ጉዞዬን እጀምራለሁ"
+        button_text = "🚀 በ300 ብር ጉዞዬን እጀምራለሁ"
 
     else:
         header = (
-            "<b>Your 8-Week Transformation Starts Today 💪</b>\n"
-            "<i>The Coach Hilawe Method</i>"
+            "<b>Price Barrier Removed. No Excuses Left. 📣</b>\n"
+            "<i>Coach Hilawe: Fitness for Every Ethiopian</i>"
         )
 
         body = (
-            f"Building the body you want doesn't have to be complicated. "
-            f"We’ve simplified the science so you can focus on the results.\n\n"
+            f"I want to see more people transforming. That’s why we’ve unlocked a special "
+            f"community access rate for the 8-Week System.\n\n"
             
             f"💰 <b>Your Investment:</b>\n"
             f"<s>1000 ETB</s> → <b>{price} ETB only</b>\n"
-            f"<i>(That's {daily_cost} ETB/day — less than a daily coffee)</i>\n\n"
+            f"<i>(That's {daily_cost} ETB/day — the price of a single piece of gum!)</i>\n\n"
             
-            f"<b>What's Inside:</b>\n"
-            f"✅ Nutrition guides built for Ethiopian lifestyle\n"
-            f"✅ Full HD video demonstrations for every workout\n"
-            f"✅ Lifetime access to your 8-week PDF system\n\n"
+            f"<b>Inside your protocol:</b>\n"
+            f"✅ Step-by-step videos for home or gym\n"
+            f"✅ Ethiopian food guides (No starving!)\n"
+            f"✅ Full 8-Week Blueprint for your phone\n\n"
             
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"{urgency}\n"
+            f"✨ This 300 ETB rate is limited to the next 50 members.\n"
             f"━━━━━━━━━━━━━━\n\n"
             
-            f"<b>From our community:</b>\n"
+            f"<b>Member Spotlight:</b>\n"
             f"💬 <i>\"{testimonial['text']}\"</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
             
-            f"<b>Ready to see what you're capable of? 👇</b>"
+            f"<b>Tap below to secure your spot. 👇</b>"
         )
-        button_text = "🚀 I'M READY TO START"
+        button_text = "🚀 START FOR 300 ETB"
 
     text = f"{header}\n\n{body}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -375,7 +395,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 299) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -388,6 +408,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     )
     SELECT 
         COUNT(*) as total,
+        COUNT(*) FILTER (WHERE effective_price = 299) as p299,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
         COUNT(*) FILTER (WHERE effective_price = 499) as p499,
         COUNT(*) FILTER (WHERE effective_price = 700) as p700
@@ -406,6 +427,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"━━━━━━━━━━━━━━\n"
         f"👥 Total Users: <code>{stats['total']}</code>\n\n"
         f"💰 <b>Tier Breakdown:</b>\n"
+        f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
         f"├ 499 ETB (Survey): <code>{stats['p499']}</code>\n"
         f"└ 700 ETB (Survey): <code>{stats['p700']}</code>\n"
@@ -443,7 +465,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -472,7 +494,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALmsmoAAWs0DmpO6Qb5y6WXKl-NsyLo0wACWw5rGzX1AAFQbU5T0Eov5HABAAMCAAN5AAM7BA"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
@@ -482,11 +504,10 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         async with semaphore:
             try:
                 text, kb = build_deal_message(
-                    user['language'], 
-                    expires_at, 
-                    user['p_id'], 
-                    user['final_price']
-                )
+    lang=user['language'],
+    product_id=user['p_id'],
+    price=int(user['final_price'])
+)
     
                 # ── SEND PHOTO WITH TEXT AS CAPTION ──────────────
                 # Telegram caption limit is 1024 chars.
@@ -557,7 +578,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"🗑 <b>Database Cleaned:</b> <code>{stats['deleted']}</code>\n"
         f"⚠️ <b>Blocked (Preserved):</b> <code>{stats['skipped_cleanup']}</code>\n\n"
         f"💰 <b>Price Tier Distribution:</b>\n"
-        # f"├ 299 ETB: <code>{stats['299']}</code> users\n"
+        f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
         f"└ 700 ETB: <code>{stats['700']}</code> users\n"
@@ -581,6 +602,7 @@ async def broadcast_dryrun(message: types.Message):
                 COUNT(*) FILTER (WHERE EXISTS (
                     SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved'
                 )) as paid_count,
+                COUNT(*) FILTER (WHERE prod.price = 299) as tier_299,
                 COUNT(*) FILTER (WHERE prod.price = 399) as tier_399,
                 COUNT(*) FILTER (WHERE prod.price = 499) as tier_499
             FROM users u
