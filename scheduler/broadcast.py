@@ -91,18 +91,12 @@ TESTIMONIALS = {
         {
 
             "text": (
-
-                "ከዚህ በፊት ብዙ ፕሮግራሞች ሞክሬ ነበር። "
-
-                "ይሄ የተለየ ነው — ምግቡ፣ ልምምዱ፣ እቅዱ "
-
-                "ሁሉም አንድ ላይ አለ። ሁለተኛ ወር ላይ ነኝ "
-
-                "አቋሜ ተስተካክሏል፣ ጡንቻዬ ጠንክሯል።"
-
-            ),
-
-            "name": "ናትናኤል ግርማ ✅ አባል",
+        "መጀመሪያ በቅናሽ ዋጋ ስገዛው ዝም ብሎ መጽሐፍ (PDF) ብቻ መስሎኝ ነበር። "
+        "ግን ውስጥ ያለው የቪዲዮ ስልጠና፣ የምግብ አዘገጃጀት እና ግልጽ የሆነው እቅድ አስገርሞኛል። "
+        "በዚህ ዋጋ ይሄን ያህል ጥራት ያለው ስራ ማግኘት አይታሰብም። "
+        "ዕድሉ ሳያመልጣችሁ አሁኑኑ ተጠቀሙበት!"
+    ),
+    "name": "አቤል ተፈራ ✅ (ባለፈው ቅናሽ የተቀላቀለ አባል)"
 
         }
 
@@ -197,91 +191,69 @@ def get_rotating_content(lang: str):
     
     return testi, proof, urgency
 
-def build_deal_message(
-    lang: str, 
-    product_id: int, 
-    price: int = 300, 
-    original_price: int = 1000
-):
-    """
-    High-conversion message for the 300 ETB 'Barrier-Breaker' price point.
-    Daily cost: 5 ETB (The cost of a single piece of gum).
-    """
+def build_deal_message(lang: str, product_id: int, price: int = 199, original_price: int = 1000):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
-    testimonial, social_proof, urgency = get_rotating_content(lang)
+    testimonial, social_proof, _ = get_rotating_content(lang)
     
-    # Mathematical anchor: 300/60 days = 5 ETB per day
-    daily_cost = int(price / 60) 
+    # Psychological Anchor: 199 ETB / 60 days = 3.3 ETB/day
+    daily_cost = 3.3 
 
     if lang == "AM":
-        header = (
-            "<b>የታላቅ ቅናሽ ማሳሰቢያ 📣</b>\n"
-            "<i>Coach Hilawe: ስፖርት ለሁሉም ኢትዮጵያዊ</i>"
-        )
-
+        header = "<b>199 ብር ብቻ! ⚡️ (ለ3 ሰዓት)</b>\n<i>Coach Hilawe: የማይደገም ዕድል</i>"
         body = (
-            f"ብዙዎቻችሁ ፕሮግራሙን ለመጀመር ፍላጎት ኖሯችሁ በዋጋ ምክንያት እንደዘገያችሁ አውቃለሁ። "
-            f"ለዚህም ነው ለተወሰኑ ቀናት ዋጋውን ወደ <b>{price} ብር</b> ዝቅ ያደረግነው።\n\n"
-            
+            f"ይህን ያደረግኩት ብዙዎቻችሁ አሁን ባለው ሁኔታ ፕሮግራሙን ለመግዛት እንደምትቸገሩ ስለማውቅ ነው። "
+            f"<b>ከህልማችሁ ወደ ኋላ እንድትቀሩ አልፈልግም።</b> ለ100 ሰዎች ብቻ ፕሮግራሙን በ<b>{price} ብር</b> (ከ90% በላይ ቅናሽ) የሰጠሁት ለዚህ ነው።\n\n"
             f"💰 <b>የእርስዎ ኢንቨስትመንት፦</b>\n"
-            f"<s>1000 ብር</s> → <b>{price} ብር ብቻ</b>\n"
+            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ</b>\n"
             f"<i>(በቀን {daily_cost} ብር — አንድ ማስቲካ ከሚገዛው ዋጋ ያነሰ!)</i>\n\n"
             
-            f"<b>እቅዱ ምን ይዟል?</b>\n"
-            f"✅ ጂም ውስጥ የሚሰሩ ግልፅ ስልጠናዎች\n"
-            f"✅ የኢትዮጵያ ምግቦችን ያካተተ የአመጋገብ እቅድ\n"
-            f"✅ የቪዲዮ መመሪያዎች እና የ8 ሳምንት ሙሉ ፕሮግራም\n\n"
+            f"🔥 <b>ምን ያገኛሉ?</b>\n"
+            f"• <b>Full System:</b> የ8 ሳምንት የጂም ስልጠና\n"
+            f"• <b>Nutrition:</b> የኢትዮጵያ ምግብ አዘገጃጀት መመሪያ\n"
+            f"• <b>Access:</b> የቪዲዮ ትምህርቶች (Lifetime Access)\n\n"
             
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"✨ ይሄ ዋጋ ለ20 ሰዎች ብቻ ነው የሚቆየው።\n"
+            f"⚠️ <b>ማሳሰቢያ፦</b> መልእክቱ ሲጠፋ ዋጋው ወደ 1000 ብር ይመለሳል።\n"
             f"━━━━━━━━━━━━━━\n\n"
             
-            f"<b>የአባላት ምስክርነት፦</b>\n"
             f"💬 <i>\"{testimonial['text']}\"</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            
-            f"<b>አሁኑኑ ለመጀመር ከታች ያለውን ይንኩ። 👇</b>"
+            f"<b>አሁኑኑ ለውጥዎን ይጀምሩ 👇</b>"
         )
-        button_text = "🚀 በ300 ብር ጉዞዬን እጀምራለሁ"
+        button_text = f"⚡️ በ{price} ብር አሁን እጀምራለሁ"
 
     else:
-        header = (
-            "<b>Price Barrier Removed. No Excuses Left. 📣</b>\n"
-            "<i>Coach Hilawe: Fitness for Every Ethiopian</i>"
-        )
-
+# English Optimized Header
+        header = "<b>199 ETB ONLY! ⚡️ (Expires in 3hrs)</b>\n<i>The Coach Hilawe Method</i>"       
         body = (
-            f"I want to see more people transforming. That’s why we’ve unlocked a special "
-            f"community access rate for the 8-Week System.\n\n"
+            f"This message will self-destruct in 3 hours. "
+            f"We are unlocking the system for <b>{price} ETB</b> to eliminate every excuse.\n\n"
             
             f"💰 <b>Your Investment:</b>\n"
-            f"<s>1000 ETB</s> → <b>{price} ETB only</b>\n"
-            f"<i>(That's {daily_cost} ETB/day — the price of a single piece of gum!)</i>\n\n"
+            f"<s>{original_price} ETB</s> → <b>{price} ETB only</b>\n"
+            f"<i>(That's {daily_cost} ETB/day — the smallest investment for the biggest change!)</i>\n\n"
             
-            f"<b>Inside your protocol:</b>\n"
-            f"✅ Step-by-step videos for home or gym\n"
-            f"✅ Ethiopian food guides (No starving!)\n"
-            f"✅ Full 8-Week Blueprint for your phone\n\n"
+            f"🔥 <b>The Blueprint:</b>\n"
+            f"• 8-Week Gym Science-Based System\n"
+            f"• Ethiopian Nutrition Masterclass\n"
+            f"• Lifetime HD Video Demonstrations\n\n"
             
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"✨ This 300 ETB rate is limited to the next 50 members.\n"
+            f"⏳ <b>URGENCY:</b> Once this disappears, the price returns to {original_price} ETB.\n"
             f"━━━━━━━━━━━━━━\n\n"
             
-            f"<b>Member Spotlight:</b>\n"
             f"💬 <i>\"{testimonial['text']}\"</i>\n"
             f"— <b>{testimonial['name']}</b>\n\n"
-            
-            f"<b>Tap below to secure your spot. 👇</b>"
+            f"<b>Secure your transformation now 👇</b>"
         )
-        button_text = "🚀 START FOR 300 ETB"
+        button_text = f"⚡️ UNLOCK FOR {price} ETB"
 
     text = f"{header}\n\n{body}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
     ])
-
     return text, kb
 
 import os
@@ -395,7 +367,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 299) as effective_price
+            COALESCE(s.selected_price, 199) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -408,6 +380,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     )
     SELECT 
         COUNT(*) as total,
+        COUNT(*) FILTER (WHERE effective_price = 199) as p199,
         COUNT(*) FILTER (WHERE effective_price = 299) as p299,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
         COUNT(*) FILTER (WHERE effective_price = 499) as p499,
@@ -427,6 +400,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"━━━━━━━━━━━━━━\n"
         f"👥 Total Users: <code>{stats['total']}</code>\n\n"
         f"💰 <b>Tier Breakdown:</b>\n"
+        f"├ 199 ETB (Survey): <code>{stats['p199']}</code>\n"
         f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
         f"├ 499 ETB (Survey): <code>{stats['p499']}</code>\n"
@@ -458,14 +432,14 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # Initialize high-granularity stats
     stats = {
         "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
-        "299": 0, "399": 0, "499": 0, "700": 0
+        "199":0, "299": 0, "399": 0, "499": 0, "700": 0
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 299) as final_price
+            COALESCE(s.selected_price, 199) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -494,7 +468,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALmsmoAAWs0DmpO6Qb5y6WXKl-NsyLo0wACWw5rGzX1AAFQbU5T0Eov5HABAAMCAAN5AAM7BA"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALu1WoB7D-xkr6wLQ0G1JNgQeYpujyyAALoDmsbTnARUD_rAuCa44CwAQADAgADeQADOwQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
@@ -578,6 +552,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"🗑 <b>Database Cleaned:</b> <code>{stats['deleted']}</code>\n"
         f"⚠️ <b>Blocked (Preserved):</b> <code>{stats['skipped_cleanup']}</code>\n\n"
         f"💰 <b>Price Tier Distribution:</b>\n"
+        f"├ 199 ETB: <code>{stats['199']}</code> users\n"
         f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
@@ -602,6 +577,7 @@ async def broadcast_dryrun(message: types.Message):
                 COUNT(*) FILTER (WHERE EXISTS (
                     SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved'
                 )) as paid_count,
+                COUNT(*) FILTER (WHERE prod.price = 199) as tier_199,
                 COUNT(*) FILTER (WHERE prod.price = 299) as tier_299,
                 COUNT(*) FILTER (WHERE prod.price = 399) as tier_399,
                 COUNT(*) FILTER (WHERE prod.price = 499) as tier_499
@@ -620,6 +596,7 @@ async def broadcast_dryrun(message: types.Message):
             f"├ Unpaid (Targets): <code>{stats['unpaid_count']}</code>\n"
             f"└ Paid (Retention): <code>{stats['paid_count']}</code>\n\n"
             f"💰 <b>Pricing Distribution:</b>\n"
+            f"├ 199 ETB Tier: <code>{stats['tier_199']}</code>\n"
             f"├ 299 ETB Tier: <code>{stats['tier_299']}</code>\n"
             f"├ 399 ETB Tier: <code>{stats['tier_399']}</code>\n"
             f"└ 499 ETB Tier: <code>{stats['tier_499']}</code>\n"
