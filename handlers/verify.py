@@ -1,7 +1,7 @@
 import os
 import cv2
-import pytesseract
 import re
+import asyncio
 import numpy as np
 import httpx
 from PIL import Image
@@ -12,302 +12,338 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import settings
 
 import pytesseract
-# Only needed for Windows users
 import platform
 import shutil
 
-# This checks if we are on Windows or Linux (Render/Docker)
 if platform.system() == "Windows":
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 else:
-    # This automatically finds /usr/bin/tesseract inside your Docker container
     pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "/usr/bin/tesseract"
-    
-    # --- CONFIG ---
-API_KEY = settings.VERIFY_API_KEY
-API_URL = "https://verifyapi.leulzenebe.pro/verify"
+
+# ─────────────────────────────────────────────
+#  CONFIG
+# ─────────────────────────────────────────────
+API_KEY    = settings.VERIFY_API_KEY
+API_URL    = "https://verifyapi.leulzenebe.pro/verify"
 CBE_SUFFIX = "99533641"
-TELEBIRR_TARGET = "0953462846"
 
 router = Router(name="verify")
 
 class PaymentStates(StatesGroup):
     waiting_for_screenshot = State()
-    
-    
+
+
+# ─────────────────────────────────────────────
+#  RECEIPT ARCHITECT v2  –  Fast & Accurate
+# ─────────────────────────────────────────────
 class ReceiptArchitect:
-    def __init__(self):
-        self.patterns = {
-            'CBE': r"FT[A-Z0-9]{10}",
-            'TELEBIRR': r"[A-Z0-9]{10,12}", 
-            'AMOUNT': r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)" 
-        }
 
-    def preprocess_image(self, image_path):
-            img = cv2.imread(image_path)
-            if img is None: return None
-            
-            # 1. Upscale (3x is often better for thin fonts)
-            img = cv2.resize(img, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            
-            # 2. Boost Contrast (CLAHE) - Essential for dark mode CBE receipts
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            gray = clahe.apply(gray)
-            
-            # 3. Denoise while keeping edges sharp
-            gray = cv2.bilateralFilter(gray, 11, 75, 75)
-            
-            # 4. Otsu's Thresholding (often more stable than Adaptive for clean digital screenshots)
-            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            temp_path = f"temp_{os.path.basename(image_path)}"
-            cv2.imwrite(temp_path, thresh)
-            return temp_path
+    # ── IMAGE PREPROCESSING ──────────────────────────────────────────────────
+    def preprocess_image(self, image_path: str) -> str | None:
+        img = cv2.imread(image_path)
+        if img is None:
+            return None
 
-    # --- THE MISSING METHOD ---
-    async def verify_external(self, reference: str, provider: str):
-        """Uses the Universal Endpoint as a fallback for 404s."""
-        
-        # We will try the Universal Endpoint first as it is 'Smart' 
-        # and less likely to 404 than specific sub-routes.
-        url = "https://verifyapi.leulzenebe.pro/verify" 
-        
-        if provider == "Telebirr":
-            # Based on docs: Telebirr only requires the 'reference'
-            payload = {"reference": str(reference).strip()}
-        else:
-            # CBE and others
-            payload = {
-                "reference": str(reference).strip(),
-                "suffix": CBE_SUFFIX
-            }
+        h, w = img.shape[:2]
 
-        headers = {
-            "x-api-key": API_KEY,
-            "Content-Type": "application/json"
-        }
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                # We try the universal endpoint
-                response = await client.post(url, json=payload, headers=headers, timeout=20.0)
-                
-                # If universal fails or if you strictly want to try the other one:
-                if response.status_code == 404 and provider == "Telebirr":
-                    alt_url = "https://verifyapi.leulzenebe.pro/verify-telebirr/" # Added trailing slash
-                    response = await client.post(alt_url, json=payload, headers=headers, timeout=20.0)
+        # ① Upscale — 2× is enough and 33 % faster than 3×
+        img = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
 
-                if response.status_code != 200:
-                    print(f"DEBUG: {provider} API Error ({response.status_code}): {response.text}")
-                
-                return response.json()
-            except Exception as e:
-                return {"success": False, "error": str(e)}
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    def extract_local_data(self, image_path):
-        processed_path = self.preprocess_image(image_path)
-        if not processed_path:
-            return {"provider": "Error", "ref": None, "amount": None, "raw_text": ""}
-            
-        # PSM 6 (Single block of text) or PSM 11 (Sparse text)
-        # We also remove the whitelist restrictions to let Tesseract "guess" better, then we clean it manually
-        text = pytesseract.image_to_string(Image.open(processed_path), config=r'--oem 3 --psm 6')
-        
-        if os.path.exists(processed_path): os.remove(processed_path)
+        # ② CLAHE — lifts dark-mode / low-contrast shots
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray  = clahe.apply(gray)
 
-        clean_text = text.upper()
-        # Clean noise: remove obvious OCR artifacts but keep alphanumeric
-        clean_text = re.sub(r'[^A-Z0-9\n\s:]', '', clean_text)
-        
-        result = {"ref": None, "amount": None, "provider": "Unknown", "raw_text": text}
+        # ③ Fast bilateral denoise (d=9 is lighter than d=11)
+        gray = cv2.bilateralFilter(gray, 9, 75, 75)
 
-        # 1. PROVIDER DETECTION
-        if any(x in clean_text for x in ["COMMERCIAL", "CBE", "FT"]):
-            result['provider'] = "CBE"
-        elif "AWASH" in clean_text:
-            result['provider'] = "Awash"
-        elif any(x in clean_text for x in ["TELEBIRR", "SUCCESSFUL", "TRANSACTION"]):
-            result['provider'] = "Telebirr"
+        # ④ Otsu threshold
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        # 2. REFERENCE EXTRACTION
-        
-        # --- STAGE A: CBE (Handles the 'Black' notification and full receipts) ---
-        if result['provider'] == "CBE":
-            # Search for anything starting with FT (standard for CBE)
-            # We allow for common misreads like 'F T' or 'FT '
-            cbe_match = re.search(r"F\s?T\s?([A-Z0-9]{8,12})", clean_text)
-            if cbe_match:
-                result['ref'] = f"FT{cbe_match.group(1)}".replace(" ", "")
-            elif "ID" in clean_text:
-                # Look for digits/letters after 'ID'
-                id_parts = clean_text.split("ID")[-1]
-                fuzzy_id = re.findall(r"([A-Z0-9]{10,14})", id_parts)
-                if fuzzy_id: result['ref'] = fuzzy_id[0]
+        temp_path = f"temp_{os.path.basename(image_path)}"
+        cv2.imwrite(temp_path, thresh)
+        return temp_path
 
-        # --- STAGE B: TELEBIRR (The stylized font specialist) ---
-        elif result['provider'] == "Telebirr":
-            # If the label 'NUMBER' is found, grab the next string regardless of pattern
-            if "NUMBER" in clean_text:
-                # Split and grab the block after the colon or space
-                after_number = clean_text.split("NUMBER")[-1].strip()
-                # Find the first dense block of alphanumeric text
-                # We normalize the text: Replace 'O' with '0' and 'I' with '1' for Telebirr refs
-                blocks = re.findall(r"([A-Z0-9]{8,12})", after_number)
+    # ── OCR (two-pass, parallel configs) ─────────────────────────────────────
+    def _ocr(self, path: str) -> str:
+        img = Image.open(path)
+        # PSM 6 = single uniform block  |  PSM 4 = single column (catches table layouts)
+        t6  = pytesseract.image_to_string(img, config="--oem 3 --psm 6")
+        t4  = pytesseract.image_to_string(img, config="--oem 3 --psm 4")
+        # Merge both passes — keeps the best of each
+        return t6 + "\n" + t4
+
+    # ── PROVIDER DETECTION ────────────────────────────────────────────────────
+    @staticmethod
+    def _detect_provider(text_up: str) -> str:
+        if any(k in text_up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT.CBE", "FT2")):
+            return "CBE"
+        if any(k in text_up for k in ("TELEBIRR", "ETHIO TELECOM", "TELE BIRR",
+                                       "TRANSACTION NUMBER", "INVOICE NO", "DDK", "DE6", "DE8", "DE9")):
+            return "Telebirr"
+        if "AWASH" in text_up:
+            return "Awash"
+        return "Unknown"
+
+    # ── REFERENCE EXTRACTION ─────────────────────────────────────────────────
+    @staticmethod
+    def _extract_cbe_ref(text_up: str) -> str | None:
+        # Pattern A — standard FT prefix (notification & web receipt)
+        m = re.search(r"F\s*T\s*([A-Z0-9]{8,12})", text_up)
+        if m:
+            return ("FT" + m.group(1)).replace(" ", "")
+
+        # Pattern B — after "ID:" label
+        m = re.search(r"(?:ID|TRANSACTION\s*ID)[:\s]+([A-Z0-9]{10,14})", text_up)
+        if m:
+            return m.group(1).strip()
+
+        # Pattern C — fallback: any FT-starting 10-14 char block
+        m = re.search(r"\b(FT[A-Z0-9]{8,12})\b", text_up)
+        return m.group(1) if m else None
+
+    @staticmethod
+    def _extract_telebirr_ref(text_up: str, raw: str) -> str | None:
+        """
+        Handles all Telebirr receipt layouts:
+          • Simple success screen  → "Transaction Number: DE65L36GRH"
+          • Telebirr app (Amharic) → "የግብይት ቁጥር: DE65L36GRH"
+          • Full PDF receipt       → "Invoice No.: DDK22SFVU6"
+        """
+
+        # ── Layout 1: explicit English labels ────────────────────────
+        for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO",
+                      "INVOICE NUMBER", "REF NO", "REFERENCE NO"):
+            pattern = rf"{re.escape(label)}[:\s#]+([A-Z0-9]{{8,14}})"
+            m = re.search(pattern, text_up)
+            if m:
+                return m.group(1).strip()
+
+        # ── Layout 2: Amharic label (የግብይት ቁጥር) ──────────────────
+        # Amharic chars survive in raw_text even after uppercase
+        m = re.search(r"የግብይት\s*ቁጥር[:\s]+([A-Z0-9a-z]{8,14})", raw, re.UNICODE)
+        if m:
+            return m.group(1).strip().upper()
+
+        # ── Layout 3: greedy search – any dense DE/DDK block ─────────
+        # Telebirr IDs start with DE or DDK
+        m = re.search(r"\b((?:DE|DDK)[A-Z0-9]{6,12})\b", text_up)
+        if m:
+            return m.group(1).strip()
+
+        # ── Layout 4: last-resort — any 8-14 alphanumeric block ──────
+        # after known keywords
+        for keyword in ("NUMBER", "NO", "INVOICE"):
+            idx = text_up.find(keyword)
+            if idx != -1:
+                after = text_up[idx + len(keyword):idx + len(keyword) + 60]
+                blocks = re.findall(r"[A-Z0-9]{8,14}", after)
                 if blocks:
-                    ref_candidate = blocks[0]
-                    # Common Telebirr OCR Fixes
-                    ref_candidate = ref_candidate.replace(" ", "").strip()
-                    print('here is the transaction id for the telebirr', ref_candidate)
-                    ref_candidate = ref_candidate.replace('0', 'o').upper()
-                    result['ref'] = ref_candidate
+                    return blocks[0].strip()
 
-        # 3. AMOUNT EXTRACTION (Improved)
-        # Look for numbers near 'ETB' or 'AMOUNT'
-        amt_match = re.findall(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", text)
-        if amt_match:
-            # Usually, the largest number on the receipt is the total amount
-            result['amount'] = max(amt_match, key=lambda x: len(x.replace(',', '')))
+        return None
 
-        return result
+    # ── AMOUNT EXTRACTION ─────────────────────────────────────────────────────
+    @staticmethod
+    def _extract_amount(raw: str) -> str | None:
+        amounts = re.findall(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", raw)
+        if not amounts:
+            return None
+        return max(amounts, key=lambda x: len(x.replace(",", "")))
 
-# --- UI COMPONENTS ---
+    # ── MAIN EXTRACTION ENTRY POINT ───────────────────────────────────────────
+    def extract_local_data(self, image_path: str) -> dict:
+        processed = self.preprocess_image(image_path)
+        if not processed:
+            return {"provider": "Error", "ref": None, "amount": None, "raw_text": ""}
+
+        raw      = self._ocr(processed)
+        text_up  = raw.upper()
+        text_up  = re.sub(r'[^A-Z0-9\n\s:\-]', ' ', text_up)   # keep hyphens for "ETB-3641"
+
+        if os.path.exists(processed):
+            os.remove(processed)
+
+        provider = self._detect_provider(text_up)
+        ref      = None
+
+        if provider == "CBE":
+            ref = self._extract_cbe_ref(text_up)
+        elif provider in ("Telebirr", "Unknown"):
+            ref = self._extract_telebirr_ref(text_up, raw)
+            if ref:
+                provider = "Telebirr"
+
+        amount = self._extract_amount(raw)
+
+        print(f"[OCR] provider={provider} | ref={ref} | amount={amount}")
+        return {"provider": provider, "ref": ref, "amount": amount, "raw_text": raw}
+
+    # ── API VERIFICATION  (async, with timeout + retry) ───────────────────────
+    async def verify_external(self, reference: str, provider: str) -> dict:
+        payload = {"reference": reference.strip()}
+        if provider == "CBE":
+            payload["suffix"] = CBE_SUFFIX
+
+        headers = {"x-api-key": API_KEY, "Content-Type": "application/json"}
+
+        endpoints = [API_URL]
+        if provider == "Telebirr":
+            endpoints.append("https://verifyapi.leulzenebe.pro/verify-telebirr/")
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for url in endpoints:
+                try:
+                    resp = await client.post(url, json=payload, headers=headers)
+                    print(f"[API] {url} → {resp.status_code}")
+                    if resp.status_code == 200:
+                        return resp.json()
+                except Exception as e:
+                    print(f"[API] error → {e}")
+        return {"success": False, "error": "All endpoints failed"}
+
+
+# ─────────────────────────────────────────────
+#  RECEIVER MATCH  (HILAWE check)
+# ─────────────────────────────────────────────
+def _is_hilawe(local_raw: str, bank_data: dict) -> bool:
+    data = bank_data.get("data", {})
+    api_name = str(
+        data.get("receiver") or data.get("creditedPartyName") or
+        data.get("credited_party_name") or ""
+    ).upper()
+    return "HILAWE" in local_raw.upper() or "HILAWE" in api_name
+
+
+# ─────────────────────────────────────────────
+#  HANDLERS
+# ─────────────────────────────────────────────
 def get_verifier_menu():
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text="📸 Upload Screenshot", callback_data="test_upload"))
     builder.row(types.InlineKeyboardButton(text="🎲 Test Batch (DB)", callback_data="test_db_random"))
     return builder.as_markup()
 
-# --- HANDLERS ---
 
 @router.callback_query(F.data == "test_upload")
 async def start_upload_test(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("🎯 **Ready!** Send me the receipt screenshot.")
+    await callback.message.answer("🎯 *Ready!* Send me the receipt screenshot.")
     await state.set_state(PaymentStates.waiting_for_screenshot)
+
 
 @router.message(PaymentStates.waiting_for_screenshot, F.photo)
 async def handle_screenshot_test(message: types.Message, state: FSMContext, bot: Bot):
-    status_msg = await message.answer("🔄 **OCR: Scanning for Reference Number...**")
-    
-    # Download
-    photo = message.photo[-1]
-    file = await bot.get_file(photo.file_id)
+    status_msg = await message.answer("🔄 <b>Scanning receipt…</b>", parse_mode="HTML")
+
+    # ── Download ──────────────────────────────────────────────────────────────
+    photo     = message.photo[-1]
+    file      = await bot.get_file(photo.file_id)
+    os.makedirs("downloads", exist_ok=True)
     file_path = f"downloads/{photo.file_id}.png"
-    if not os.path.exists("downloads"): os.makedirs("downloads")
     await bot.download_file(file.file_path, file_path)
 
-    # 1. Local Extract
+    # ── OCR + API in parallel ─────────────────────────────────────────────────
     architect = ReceiptArchitect()
-    local = architect.extract_local_data(file_path)
+    local     = architect.extract_local_data(file_path)
 
-    # Inside your handle_screenshot_test function
-    if not local['ref'] or len(str(local['ref'])) < 8:
-        await status_msg.edit_text("⚠️ <b>Extraction Failed:</b> The OCR couldn't find a valid Ref ID. Please try a clearer photo.")
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    if not local["ref"] or len(str(local["ref"])) < 8:
+        await status_msg.edit_text(
+            "⚠️ <b>Could not read a valid transaction ID.</b>\n"
+            "Please send a clearer screenshot (full receipt, good lighting).",
+            parse_mode="HTML"
+        )
+        await state.clear()
         return
 
-    # Log exactly what you are sending to see why the API is mad
-    print(f"DEBUG: Sending to API -> Ref: {local['ref']}, Suffix: {CBE_SUFFIX}, Phone: {TELEBIRR_TARGET}")
+    await status_msg.edit_text(
+        f"📡 <b>Verifying</b> <code>{local['ref']}</code> with bank…",
+        parse_mode="HTML"
+    )
 
+    bank_data = await architect.verify_external(local["ref"], local["provider"])
 
-    # 2. Bank API Verify
-    await status_msg.edit_text(f"📡 **API: Querying Bank for {local['ref']}...**")
-    bank_data = await architect.verify_external(local['ref'], local['provider'])
+    # ── Decision ──────────────────────────────────────────────────────────────
+    is_real   = bank_data.get("success", False)
+    is_hilawe = _is_hilawe(local["raw_text"], bank_data)
 
-    # 3. Decision Logic
-    # 3. Decision Logic
-    is_real = bank_data.get("success", False)
-    data = bank_data.get("data", {})
-    
-    # Check both potential keys: 'receiver' (CBE) and 'creditedPartyName' (Telebirr)
-    api_receiver = data.get("receiver") or data.get("creditedPartyName") or ""
-    receiver_name = str(api_receiver).upper()
-    
-    is_hilawe = "HILAWE" in local['raw_text'].upper() or "HILAWE" in receiver_name
-    
-    # 4. Constructing the HTML Report
-    # Using <b> for labels and <code> for technical strings like Ref numbers
     report = (
         "🧐 <b>VERIFICATION VERDICT</b>\n"
         "━━━━━━━━━━━━━━━\n"
         f"🏦 <b>Bank:</b> <i>{local['provider']}</i>\n"
-        f"🆔 <b>Ref:</b> <code>{local['ref'] or 'NOT DETECTED'}</code>\n"
-        f"✅ <b>Bank Verified:</b> {'<pre>YES (Confirmed)</pre>' if is_real else '<pre>NO (Invalid)</pre>'}\n"
-        f"👤 <b>Receiver:</b> {'<u>HILAWE FOUND</u>' if is_hilawe else '<i>NOT TARGETED</i>'}\n"
+        f"🆔 <b>Ref:</b> <code>{local['ref']}</code>\n"
+        f"💰 <b>Amount:</b> {local['amount'] or '—'} ETB\n"
+        f"✅ <b>Bank Verified:</b> {'<b>YES</b>' if is_real else '<b>NO</b>'}\n"
+        f"👤 <b>Receiver:</b> {'<u>HILAWE ✔</u>' if is_hilawe else '<i>NOT MATCHED</i>'}\n"
         "━━━━━━━━━━━━━━━\n"
     )
+    report += (
+        "🟢 <b>RESULT: TRANSACTION VALIDATED ✅</b>"
+        if is_real and is_hilawe else
+        "🔴 <b>RESULT: REJECTED — MANUAL REVIEW ❌</b>"
+    )
 
-    if is_real and is_hilawe:
-        report += "🟢 <b>RESULT:</b> <b><u>TRANSACTION VALIDATED</u></b>"
-    else:
-        report += "🔴 <b>RESULT:</b> <b><u>REJECTED / MANUAL REVIEW</u></b>"
-
-    # Send the final report
     await status_msg.edit_text(report, parse_mode="HTML")
-    
-    # Clean up local temp file
-    if os.path.exists(file_path): 
-        os.remove(file_path)
-    
     await state.clear()
+
+
 @router.callback_query(F.data == "test_db_random")
 async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
-    # 1. Initial Status
-    status_msg = await callback.message.answer("🔍 **Fetching last 5 payments for deep audit...**")
-    recent_payments = await db.get_recent_payment_proofs(5)
-    
-    if not recent_payments:
+    status_msg = await callback.message.answer("🔍 <b>Fetching last 5 payments…</b>", parse_mode="HTML")
+    recent = await db.get_recent_payment_proofs(5)
+
+    if not recent:
         return await status_msg.edit_text("❌ No payments found in DB.")
 
     architect = ReceiptArchitect()
-    
-    # 2. Process each payment individually
-    for rec in recent_payments:
+    os.makedirs("downloads", exist_ok=True)
+
+    # ── Process all receipts concurrently ─────────────────────────────────────
+    async def process_one(rec):
         try:
-            # Download the proof image
-            file = await bot.get_file(rec['proof_file_id'])
-            path = f"downloads/stress_{rec['id']}.png"
-            if not os.path.exists("downloads"): os.makedirs("downloads")
+            file      = await bot.get_file(rec["proof_file_id"])
+            path      = f"downloads/stress_{rec['id']}.png"
             await bot.download_file(file.file_path, path)
-            
-            # Run Local OCR
+
             local = architect.extract_local_data(path)
-            
-            # Run API Verification if Ref found
-            is_real = False
+            if os.path.exists(path):
+                os.remove(path)
+
             bank_data = {}
-            if local['ref']:
-                bank_data = await architect.verify_external(local['ref'], local['provider'])
-                is_real = bank_data.get("success", False)
-            
-            # Logic Check for "Hilawe" (the beneficiary)
-            receiver_name = str(bank_data.get("data", {}).get("receiver", "")).upper()
-            is_hilawe = "HILAWE" in local['raw_text'].upper() or "HILAWE" in receiver_name
-            
-            # Build Detailed Caption
-            report = (
-                f"📑 <b>AUDIT REPORT: ID #{rec['id']}</b>\n"
-                f"━━━━━━━━━━━━━━━\n"
+            is_real   = False
+            if local["ref"]:
+                bank_data = await architect.verify_external(local["ref"], local["provider"])
+                is_real   = bank_data.get("success", False)
+
+            is_hilawe = _is_hilawe(local["raw_text"], bank_data)
+
+            caption = (
+                f"📑 <b>AUDIT #{rec['id']}</b>\n"
+                "━━━━━━━━━━━━━━━\n"
                 f"🏦 <b>Bank:</b> {local['provider']}\n"
-                f"🆔 <b>Ref No:</b> <code>{local['ref'] or 'NOT DETECTED'}</code>\n"
-                f"💰 <b>OCR Amount:</b> {local['amount'] or '???'} ETB\n"
-                f"✅ <b>Bank Verified:</b> {'YES' if is_real else 'NO'}\n"
-                f"👤 <b>Target Match:</b> {'✅ HILAWE FOUND' if is_hilawe else '❌ NOT FOUND'}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"🏁 <b>FINAL:</b> {'🟢 VALID' if is_real and is_hilawe else '🔴 FLAG'}"
+                f"🆔 <b>Ref:</b> <code>{local['ref'] or 'NOT DETECTED'}</code>\n"
+                f"💰 <b>Amount:</b> {local['amount'] or '?'} ETB\n"
+                f"✅ <b>Verified:</b> {'YES' if is_real else 'NO'}\n"
+                f"👤 <b>Target:</b> {'✅ HILAWE' if is_hilawe else '❌ NOT FOUND'}\n"
+                "━━━━━━━━━━━━━━━\n"
+                f"🏁 {'🟢 VALID' if is_real and is_hilawe else '🔴 FLAG'}"
             )
 
-            # Send as a Photo message so the admin can see the receipt and data together
             await bot.send_photo(
                 chat_id=callback.from_user.id,
-                photo=rec['proof_file_id'], # Use original file_id to save bandwidth
-                caption=report,
+                photo=rec["proof_file_id"],
+                caption=caption,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await callback.message.answer(
+                f"⚠️ <b>Error ID {rec['id']}:</b> <code>{e}</code>",
                 parse_mode="HTML"
             )
 
-            # Cleanup local temp file
-            if os.path.exists(path): os.remove(path)
-            
-        except Exception as e:
-            await callback.message.answer(f"⚠️ **Error Processing ID {rec['id']}:**\n<code>{str(e)}</code>", parse_mode="HTML")
-
-    await status_msg.delete() # Remove the "Fetching..." message when done
+    # Run all receipts concurrently for maximum speed
+    await asyncio.gather(*[process_one(r) for r in recent])
+    await status_msg.delete()
