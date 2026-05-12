@@ -637,6 +637,64 @@ async def cmd_test_feedback(message: types.Message, db, bot: Bot, state: FSMCont
 
 
 
+import asyncio
+from aiogram import Router, types, Bot
+from aiogram.filters import Command
+
+admin_router = Router()
+
+@admin_router.message(Command("cleanup_flash"))
+async def cleanup_flash_deal(message: types.Message, bot: Bot, db):
+    # 1. Security Check (Replace with your actual Admin ID)
+    # if message.from_user.id != YOUR_ADMIN_ID:
+    #     return
+
+    await message.answer("🧹 <b>Starting Cleanup...</b>\nInitiating the 3-hour vanishing protocol.")
+
+    # 2. Fetch all users who have a message ID stored
+    # Using 'db._pool' assuming you use asyncpg/PostgreSQL
+    targets = await db._pool.fetch(
+        "SELECT telegram_id, last_broadcast_msg_id FROM users WHERE last_broadcast_msg_id IS NOT NULL"
+    )
+
+    if not targets:
+        return await message.answer("❌ No active flash messages found in the database.")
+
+    total_targets = len(targets)
+    deleted_count = 0
+    failed_count = 0
+
+    # 3. The Execution (The Janitor)
+    # We limit to 30 deletions per second to stay safe with Telegram
+    semaphore = asyncio.Semaphore(30)
+
+    async def delete_for_user(user_id, msg_id):
+        nonlocal deleted_count, failed_count
+        async with semaphore:
+            try:
+                await bot.delete_message(chat_id=user_id, message_id=msg_id)
+                deleted_count += 1
+            except Exception:
+                # Message might be already deleted or user blocked the bot
+                failed_count += 1
+
+    # Run all deletions concurrently
+    await asyncio.gather(*(delete_for_user(t['telegram_id'], t['last_broadcast_msg_id']) for t in targets))
+
+    # 4. Clear the database columns so we are ready for the next deal
+    await db._pool.execute("UPDATE users SET last_broadcast_msg_id = NULL")
+
+    # 5. Final Report
+    report = (
+        f"✅ <b>Cleanup Complete</b>\n\n"
+        f"👤 Total Users: {total_targets}\n"
+        f"🗑 Deleted: {deleted_count}\n"
+        f"⚠️ Skipped/Failed: {failed_count}\n\n"
+        f"<i>The mission-driven flash deal has officially ended.</i>"
+    )
+    await message.answer(report)
+
+
 # from datetime import datetime, timezone
 # import random
 # from datetime import datetime, timezone
