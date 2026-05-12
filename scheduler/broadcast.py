@@ -641,13 +641,12 @@ import asyncio
 from aiogram import Router, types, Bot
 from aiogram.filters import Command
 
-admin_router = Router()
 
-@admin_router.message(Command("cleanup_flash"))
+@router.message(Command("cleanup_flash"))
 async def cleanup_flash_deal(message: types.Message, bot: Bot, db):
     # 1. Security Check (Replace with your actual Admin ID)
-    # if message.from_user.id != YOUR_ADMIN_ID:
-    #     return
+    if message.from_user.id != settings.ADMIN_IDS[0]:  # Assuming the first ID in ADMIN_IDS is the super admin
+        return
 
     await message.answer("🧹 <b>Starting Cleanup...</b>\nInitiating the 3-hour vanishing protocol.")
 
