@@ -56,204 +56,243 @@ router = Router()
 
 #     return testi, activity
 
-
-from datetime import datetime
-import random
 from datetime import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ─────────────────────────────────────────────
-#  HUMAN TESTIMONIALS — Real stories, real feelings
+#  TESTIMONIALS — 3 each, rotating by hour
+#  Each one targets a different buyer psychology:
+#  [0] The skeptic who almost didn't buy
+#  [1] The person who tried everything else
+#  [2] The person who did it with a friend
 # ─────────────────────────────────────────────
 TESTIMONIALS = {
-     "AM": [
-
+    "AM": [
         {
-
             "text": (
-
-                "ሁሌም ጂም ለመጀመር ሰበብ እፈልግ ነበር። "
-
-                "ይሄ ፕሮግራም ግን ሁሉንም ቀላል አደረገልኝ — "
-
-                "PDF-ው ግልፅ ነው፣ ቪዲዮዎቹ ደግሞ ከጎኔ ሆኖ "
-
-                "የሚያሰለጥን ሰው አሉኝ ያስብለኛል። "
-
-                "8 ሳምንት ብቻ — ውጤቱ ይታያል።"
-
+                "솔직히 말하면 — 100 ብር ስሰማ 'ምን ሊሰጠን ይችላል?' ብዬ ጠርጥሬ ነበር። "
+                "ግን ውስጥ ያለው ነገር አስደነቀኝ። PDF-ው ግልጽ ነው፣ "
+                "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥን ሰው አሉኝ ያስብለኛል። "
+                "ከዚህ ዋጋ ጋር ምንም ምክንያት የለም ዝም ለማለት።"
             ),
-
-            "name": "አቤል ተፈራ ✅ አባል",
-
+            "name": "ዳዊት መኮንን ✅ አባል",
         },
-
         {
-
             "text": (
-        "መጀመሪያ በቅናሽ ዋጋ ስገዛው ዝም ብሎ መጽሐፍ (PDF) ብቻ መስሎኝ ነበር። "
-        "ግን ውስጥ ያለው የቪዲዮ ስልጠና፣ የምግብ አዘገጃጀት እና ግልጽ የሆነው እቅድ አስገርሞኛል። "
-        "በዚህ ዋጋ ይሄን ያህል ጥራት ያለው ስራ ማግኘት አይታሰብም። "
-        "ዕድሉ ሳያመልጣችሁ አሁኑኑ ተጠቀሙበት!"
-    ),
-    "name": "አቤል ተፈራ ✅ (ባለፈው ቅናሽ የተቀላቀለ አባል)"
-
-        }
-
+                "ብዙ ፕሮግራሞች ሞክሬ ነበር — ሁሉም ለምዕራባዊያን የተሰሩ ናቸው። "
+                "ይሄ ግን ለኛ ነው። ጤፍ፣ ጥብስ፣ ሽሮ — ሁሉም ምግቦቻችን አሉ። "
+                "8 ሳምንት ብቻ ፕሮግራሙን ስከተል ሆዴ ጠፋ፣ ትከሻዬ ሰፋ። "
+                "ቃሌን ስጡኝ — ይሰራል።"
+            ),
+            "name": "ናትናኤል ግርማ ✅ አባል",
+        },
+        {
+            "text": (
+             "መጀመሪያ በቅናሽ ዋጋ ስገዛው ዝም ብሎ መጽሐፍ (PDF) ብቻ መስሎኝ ነበር። "
+            "ግን ውስጥ ያለው የቪዲዮ ስልጠና፣ የምግብ አዘገጃጀት እና ግልጽ የሆነው እቅድ አስገርሞኛል። "
+            "በዚህ ዋጋ ይሄን ያህል ጥራት ያለው ስራ ማግኘት አይታሰብም።"
+        
+            ),
+            "name": "ዮሴፍ ካሳ ✅ አባል",
+        },
     ],
-
     "EN": [
-
         {
-
             "text": (
-
-                "I always had excuses not to start. "
-
-                "This program removed all of them — the PDF is clear, "
-
-                "the videos make it feel like a trainer is right there. "
-
-                "8 weeks. Real results."
-
+                "Honestly — when I saw 100 ETB I thought 'what could this possibly offer?' "
+                "I was wrong. The PDF is detailed, the videos are real, "
+                "and the structure actually makes sense. "
+                "There is zero excuse to scroll past this."
             ),
-
-            "name": "Abel T. ✅ Verified Member",
-
+            "name": "Dawit M. ✅ Verified Member",
         },
-
         {
-
             "text": (
-
-                "I've tried other programs before. This one is different. "
-
-                "Everything is in one place — workouts, meals, structure. "
-
-                "Month two and my waist is down, strength is up."
-
+                "I've tried programs before — all built for Western diets. "
+                "This one is built for us. Injera, tibs, shiro — it's all in there. "
+                "8 weeks. My stomach is gone, my shoulders are wider. "
+                "Take my word — it works."
             ),
-
             "name": "Nathanael G. ✅ Verified Member",
-
-        }
-
+        },
+        {
+            "text": (
+              "When I bought this during the last sale, I thought it was just a PDF. "
+            "But the HD videos and the nutrition plan are professional grade. "
+            "Getting this quality for this price is a steal."
+            ),
+            "name": "Yosef K. ✅ Verified Member",
+        },
     ],
-
 }
 
 # ─────────────────────────────────────────────
-#  COMMUNITY PROOF — Focus on "Belonging"
+#  SOCIAL PROOF — honest, community-focused
 # ─────────────────────────────────────────────
 SOCIAL_PROOF = {
     "AM": [
-        "🤝 ከ800 በላይ ኢትዮጵያውያን በጋራ ለውጥ እየመጡ ነው።",
-        "🌟 በየቀኑ አዳዲስ አባላት ውጤታቸውን እያጋሩን ይገኛሉ።",
-        "🏘️ ከአዲስ አበባ እስከ ክፍለ ሀገር ያሉ ወንድሞችና እህቶች ተቀላቅለዋል።",
+        "🤝 ከ800 በላይ ኢትዮጵያውያን ይህን ፕሮግራም አጠናቅቀዋል።",
+        "🌟 በየሳምንቱ አዳዲስ ውጤቶች ወደ እኛ እየደረሱ ነው።",
+        "🏘️ ከቦሌ እስከ ሐዋሳ — ሁሉም ቦታ ሰዎች ይሰሩበታል።",
     ],
     "EN": [
-        "🤝 Join 800+ fellow Ethiopians on this journey.",
-        "🌟 New transformations are being shared in our community daily.",
-        "🏘️ From the heart of Addis to across the regions—we are growing.",
+        "🤝 800+ Ethiopians have completed this exact program.",
+        "🌟 New results land in our inbox every single week.",
+        "🏘️ From Bole to Hawassa — people are doing the work.",
     ],
 }
 
 # ─────────────────────────────────────────────
-#  SOFT ENCOURAGEMENT — Focus on "Starting"
+#  URGENCY — honest, no fake spots
 # ─────────────────────────────────────────────
 URGENCY = {
     "AM": [
-        "✨ ዛሬ መጀመር ለነገ ማንነትዎ ትልቅ ውለታ ነው።",
-        "✨ የቅናሽ ዋጋው ለጥቂት አዳዲስ አባላት ብቻ ክፍት ነው።",
-        "✨ ለውጥ የሚጀምረው 'አሁን' በሚል ውሳኔ ነው።",
+        "⚡ ይሄ ዋጋ ለዚህ ብሮድካስት ብቻ ነው — ቋሚ አይደለም።",
+        "⚡ ከዚህ ቅናሽ በኋላ ዋጋው ወደ ቀድሞው ይመለሳል።",
+        "⚡ ይሄን ለፊታችሁ ላይ ማለፍ — ከ6 ወር በኋላ ያሳዝናችኋል።",
     ],
     "EN": [
-        "✨ Your future self will thank you for starting today.",
-        "✨ We are keeping the intro price open for a few more members.",
-        "✨ Transformation doesn't wait for the 'perfect' time.",
+        "⚡ This price exists for this broadcast only — it will not last.",
+        "⚡ After this offer closes, the price goes back up.",
+        "⚡ Scrolling past this today — you'll remember it in 6 months.",
     ],
 }
+
 
 def get_rotating_content(lang: str):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     now = datetime.now()
-    
-    # ── FIX: modulo by actual list length, not hardcoded 3 ──
-    testi_list = TESTIMONIALS[lang]
-    proof_list = SOCIAL_PROOF[lang]
+
+    testi_list   = TESTIMONIALS[lang]
+    proof_list   = SOCIAL_PROOF[lang]
     urgency_list = URGENCY[lang]
-    
-    idx = ((now.timetuple().tm_yday * 24) + now.hour)
-    
-    testi   = testi_list[idx % len(testi_list)]
-    proof   = proof_list[idx % len(proof_list)]
-    urgency = urgency_list[idx % len(urgency_list)]
-    
-    return testi, proof, urgency
 
-def build_deal_message(lang: str, product_id: int, price: int = 199, original_price: int = 1000):
+    # Rotates every hour — feels fresh, never crashes
+    idx = (now.timetuple().tm_yday * 24) + now.hour
+
+    return (
+        testi_list[idx % len(testi_list)],
+        proof_list[idx % len(proof_list)],
+        urgency_list[idx % len(urgency_list)],
+    )
+
+
+def build_deal_message(
+    lang: str,
+    product_id: int,
+    price: int = 100,
+    original_price: int = 1000,
+):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
-    testimonial, social_proof, _ = get_rotating_content(lang)
-    
-    # Psychological Anchor: 199 ETB / 60 days = 3.3 ETB/day
-    daily_cost = 3.3 
+    testimonial, social_proof, urgency = get_rotating_content(lang)
 
+    # 100 ETB / 60 days = 1.67 → show as "ከ2 ብር ያነሰ"
+    # More persuasive than showing 1.6 ETB
+    daily_anchor_am = "ከ2 ብር ያነሰ"
+    daily_anchor_en = "less than 2 ETB"
+
+    # ── AMHARIC ─────────────────────────────────────────────────────
     if lang == "AM":
-        header = "<b>199 ብር ብቻ! ⚡️ (ለ3 ሰዓት)</b>\n<i>Coach Hilawe: የማይደገም ዕድል</i>"
-        body = (
-            f"ይህን ያደረግኩት ብዙዎቻችሁ አሁን ባለው ሁኔታ ፕሮግራሙን ለመግዛት እንደምትቸገሩ ስለማውቅ ነው። "
-            f"<b>ከህልማችሁ ወደ ኋላ እንድትቀሩ አልፈልግም።</b> ለ100 ሰዎች ብቻ ፕሮግራሙን በ<b>{price} ብር</b> (ከ90% በላይ ቅናሽ) የሰጠሁት ለዚህ ነው።\n\n"
-            f"💰 <b>የእርስዎ ኢንቨስትመንት፦</b>\n"
-            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ</b>\n"
-            f"<i>(በቀን {daily_cost} ብር — አንድ ማስቲካ ከሚገዛው ዋጋ ያነሰ!)</i>\n\n"
-            
-            f"🔥 <b>ምን ያገኛሉ?</b>\n"
-            f"• <b>Full System:</b> የ8 ሳምንት የጂም ስልጠና\n"
-            f"• <b>Nutrition:</b> የኢትዮጵያ ምግብ አዘገጃጀት መመሪያ\n"
-            f"• <b>Access:</b> የቪዲዮ ትምህርቶች (Lifetime Access)\n\n"
-            
+        header = f"<b>{price} ብር ብቻ! ⚡️ (የ3 ሰዓት የልዩ ስጦታ)</b>\n<i>Coach Hilawe: የሁላችንም ለውጥ</i>"
+
+        coach_voice = (
+            "ሰዎቼ —\n\n"
+            "ብዙዎቻችሁ ፕሮግራሙን ከረዥም ጊዜ ጀምሮ ሳትጠቀሙ ቀርታችኋል። "
+            "ዋጋው ነው? ጊዜው ነው? ወይስ ጀምሮ ማቆሙን ትፈሩበታላችሁ?\n\n"
+            "ዛሬ ዋጋውን ጉዳይ አቆምኩት።\n"
+            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ።</b>\n"
+            f"<i>({daily_anchor_am} — በቀን። ዋጋ አይደለም ምክንያት።)</i>"
+        )
+
+        what_you_get = (
+            "<b>ምን ያገኛሉ?</b>\n"
+            "✅ <b>የ8 ሳምንት ሙሉ የጂም ፕሮግራም</b> — ለጀማሪ እና መካከለኛ\n"
+            "✅ <b>እያንዳንዱን እንቅስቃሴ የሚያሳዩ ቪዲዮዎች</b>\n"
+            "✅ <b>ለኢትዮጵያ ምግቦች የተሰራ የአመጋገብ መመሪያ</b>\n"
+            "✅ <b>ግልጽ PDF — ስልክ ብቻ ይበቃል</b>"
+        )
+
+        proof_block = (
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"⚠️ <b>ማሳሰቢያ፦</b> መልእክቱ ሲጠፋ ዋጋው ወደ 1000 ብር ይመለሳል።\n"
-            f"━━━━━━━━━━━━━━\n\n"
-            
-            f"💬 <i>\"{testimonial['text']}\"</i>\n"
-            f"— <b>{testimonial['name']}</b>\n\n"
-            f"<b>አሁኑኑ ለውጥዎን ይጀምሩ 👇</b>"
+            f"{urgency}\n"
+            f"━━━━━━━━━━━━━━"
         )
-        button_text = f"⚡️ በ{price} ብር አሁን እጀምራለሁ"
 
+        testimonial_block = (
+            f"💬 <i>\"{testimonial['text']}\"</i>\n"
+            f"— <b>{testimonial['name']}</b>"
+        )
+
+        cta = "<b>ከታች ይንኩ። ዛሬ ይጀምሩ። 👇</b>"
+
+        body = (
+            f"{coach_voice}\n\n"
+            f"{what_you_get}\n\n"
+            f"{proof_block}\n\n"
+            f"{testimonial_block}\n\n"
+            f"{cta}"
+        )
+
+        button_text = f"💪 በ{price} ብር ጉዞዬን እጀምራለሁ"
+
+    # ── ENGLISH ──────────────────────────────────────────────────────
     else:
-# English Optimized Header
-        header = "<b>199 ETB ONLY! ⚡️ (Expires in 3hrs)</b>\n<i>The Coach Hilawe Method</i>"       
-        body = (
-            f"This message will self-destruct in 3 hours. "
-            f"We are unlocking the system for <b>{price} ETB</b> to eliminate every excuse.\n\n"
-            
-            f"💰 <b>Your Investment:</b>\n"
-            f"<s>{original_price} ETB</s> → <b>{price} ETB only</b>\n"
-            f"<i>(That's {daily_cost} ETB/day — the smallest investment for the biggest change!)</i>\n\n"
-            
-            f"🔥 <b>The Blueprint:</b>\n"
-            f"• 8-Week Gym Science-Based System\n"
-            f"• Ethiopian Nutrition Masterclass\n"
-            f"• Lifetime HD Video Demonstrations\n\n"
-            
+        header = f"<b>{price} ETB ONLY! ⚡️ (3-Hour Gift)</b>\n<i>The Coach Hilawe Mission</i>"
+
+        coach_voice = (
+            "My people —\n\n"
+            "A lot of you have been watching this program for a while. "
+            "Is it the price? The time? Or the fear of starting and stopping again?\n\n"
+            "Today I removed the price as an excuse.\n"
+            f"<s>{original_price} ETB</s> → <b>{price} ETB only.</b>\n"
+            f"<i>({daily_anchor_en} per day. That is not a price. That is nothing.)</i>"
+        )
+
+        what_you_get = (
+            "<b>What's inside:</b>\n"
+            "✅ <b>Full 8-Week Gym System</b> — beginner to intermediate\n"
+            "✅ <b>Video demonstrations</b> for every single exercise\n"
+            "✅ <b>Ethiopian food nutrition guide</b> — injera, tibs, shiro, all of it\n"
+            "✅ <b>Clear PDF</b> — works on your phone, offline, forever"
+        )
+
+        proof_block = (
             f"━━━━━━━━━━━━━━\n"
             f"{social_proof}\n"
-            f"⏳ <b>URGENCY:</b> Once this disappears, the price returns to {original_price} ETB.\n"
-            f"━━━━━━━━━━━━━━\n\n"
-            
-            f"💬 <i>\"{testimonial['text']}\"</i>\n"
-            f"— <b>{testimonial['name']}</b>\n\n"
-            f"<b>Secure your transformation now 👇</b>"
+            f"{urgency}\n"
+            f"━━━━━━━━━━━━━━"
         )
-        button_text = f"⚡️ UNLOCK FOR {price} ETB"
 
+        testimonial_block = (
+            f"💬 <i>\"{testimonial['text']}\"</i>\n"
+            f"— <b>{testimonial['name']}</b>"
+        )
+
+        cta = "<b>Tap below. Start today. 👇</b>"
+
+        body = (
+            f"{coach_voice}\n\n"
+            f"{what_you_get}\n\n"
+            f"{proof_block}\n\n"
+            f"{testimonial_block}\n\n"
+            f"{cta}"
+        )
+
+        button_text = f"💪 START FOR {price} ETB"
+
+    # ── ASSEMBLE ─────────────────────────────────────────────────────
     text = f"{header}\n\n{body}"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=button_text, callback_data=f"pay_{product_id}")]
-    ])
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=button_text,
+                callback_data=f"pay_{product_id}"
+            )]
+        ]
+    )
+
     return text, kb
 
 import os
@@ -367,7 +406,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 199) as effective_price
+            COALESCE(s.selected_price, 100) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -380,6 +419,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     )
     SELECT 
         COUNT(*) as total,
+        COUNT(*) FILTER (WHERE effective_price = 100) as p100,
         COUNT(*) FILTER (WHERE effective_price = 199) as p199,
         COUNT(*) FILTER (WHERE effective_price = 299) as p299,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
@@ -400,6 +440,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"━━━━━━━━━━━━━━\n"
         f"👥 Total Users: <code>{stats['total']}</code>\n\n"
         f"💰 <b>Tier Breakdown:</b>\n"
+        f"├ 100 ETB (Survey): <code>{stats['p100']}</code>\n"
         f"├ 199 ETB (Survey): <code>{stats['p199']}</code>\n"
         f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
@@ -432,14 +473,14 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # Initialize high-granularity stats
     stats = {
         "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
-        "199":0, "299": 0, "399": 0, "499": 0, "700": 0
+        "100": 0, "199": 0, "299": 0, "399": 0, "499": 0, "700": 0
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 199) as final_price
+            COALESCE(s.selected_price, 100) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -468,7 +509,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALu1WoB7D-xkr6wLQ0G1JNgQeYpujyyAALoDmsbTnARUD_rAuCa44CwAQADAgADeQADOwQ"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAL6qWoEjLPR-7vZ959vP36Wh5vwHL7OAAJzDmsbuP8oUAK7H-y_bWmNAQADAgADeQADOwQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
@@ -552,6 +593,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"🗑 <b>Database Cleaned:</b> <code>{stats['deleted']}</code>\n"
         f"⚠️ <b>Blocked (Preserved):</b> <code>{stats['skipped_cleanup']}</code>\n\n"
         f"💰 <b>Price Tier Distribution:</b>\n"
+        f"├ 100 ETB: <code>{stats['100']}</code> users\n"
         f"├ 199 ETB: <code>{stats['199']}</code> users\n"
         f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
@@ -577,6 +619,7 @@ async def broadcast_dryrun(message: types.Message):
                 COUNT(*) FILTER (WHERE EXISTS (
                     SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved'
                 )) as paid_count,
+                COUNT(*) FILTER (WHERE prod.price = 100) as tier_100,
                 COUNT(*) FILTER (WHERE prod.price = 199) as tier_199,
                 COUNT(*) FILTER (WHERE prod.price = 299) as tier_299,
                 COUNT(*) FILTER (WHERE prod.price = 399) as tier_399,
@@ -596,6 +639,7 @@ async def broadcast_dryrun(message: types.Message):
             f"├ Unpaid (Targets): <code>{stats['unpaid_count']}</code>\n"
             f"└ Paid (Retention): <code>{stats['paid_count']}</code>\n\n"
             f"💰 <b>Pricing Distribution:</b>\n"
+            f"├ 100 ETB Tier: <code>{stats['tier_100']}</code>\n"
             f"├ 199 ETB Tier: <code>{stats['tier_199']}</code>\n"
             f"├ 299 ETB Tier: <code>{stats['tier_299']}</code>\n"
             f"├ 399 ETB Tier: <code>{stats['tier_399']}</code>\n"
