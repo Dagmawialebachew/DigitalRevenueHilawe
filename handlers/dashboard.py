@@ -506,6 +506,19 @@ async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
 #     await message.reply(response, parse_mode="Markdown")
 
 
+# @router.message(F.document)
+# async def get_document_id(message: types.Message):
+#     file_id = message.document.file_id
+#     file_name = message.document.file_name
+#     await message.reply(
+#         f"✅ *Document File ID Captured:*\n\n"
+#         f"📄 *File:* `{file_name}`\n"
+#         f"`{file_id}`\n\n"
+#         f"Copy the ID above and paste it into your config.",
+#         parse_mode="Markdown"
+#     )
+
+
 from aiogram import F, types
 
 # @router.message(F.voice)

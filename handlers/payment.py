@@ -1,5 +1,6 @@
 import asyncio
 from aiogram import Router, F, types, Bot
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatAction
@@ -227,7 +228,12 @@ async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, pay
 
 admin_id = 1131741322
 from aiogram import Router, F, types, Bot
-@router.message()
+@router.message(
+    F.chat.type == "private",    # 🚨 CRITICAL: Only trigger in Direct Messages
+    ~Command("start"),           # EXCLUDE the /start command
+    ~Command("admin"),           # EXCLUDE admin commands too
+    F.text                       # ONLY catch Text
+)
 async def forward_random_signals(message: types.Message, bot: Bot, db: Database):
     """
     Forwards random text to Admin and gives the user the Support Bot link.

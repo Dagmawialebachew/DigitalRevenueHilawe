@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in – Google Accounts</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root[data-theme="dark"] {
+  --bg-page: #1f1f1f;
+  --bg-card: #2d2d2d;
+  --border-card: transparent;
+  --border-input: #5f6368;
+  --border-focus: #8ab4f8;
+  --border-error: #f28b82;
+  --text-primary: #e3e3e3;
+  --text-secondary: #ababab;
+  --link-color: #8ab4f8;
+  --btn-primary-bg: #8ab4f8;
+  --btn-primary-fg: #202124;
+  --btn-text-fg: #8ab4f8;
+  --btn-text-hover: rgba(138,180,248,0.1);
+  --input-label: #ababab;
+  --label-focus: #8ab4f8;
+  --label-error: #f28b82;
+  --error-color: #f28b82;
+  --chip-border: #5f6368;
+  --chip-hover: rgba(255,255,255,0.06);
+  --avatar-bg: #4285f4;
+  --divider: #3c3c3c;
+  --footer-text: #ababab;
+  --footer-hover: #e3e3e3;
+  --autofill-bg: #2d2d2d;
+  --autofill-color: #e3e3e3;
+}
+:root[data-theme="light"] {
+  --bg-page: #f1f3f4;
+  --bg-card: #ffffff;
+  --border-card: #dadce0;
+  --border-input: #dadce0;
+  --border-focus: #1a73e8;
+  --border-error: #d93025;
+  --text-primary: #202124;
+  --text-secondary: #5f6368;
+  --link-color: #1a73e8;
+  --btn-primary-bg: #1a73e8;
+  --btn-primary-fg: #ffffff;
+  --btn-text-fg: #1a73e8;
+  --btn-text-hover: #e8f0fe;
+  --input-label: #5f6368;
+  --label-focus: #1a73e8;
+  --label-error: #d93025;
+  --error-color: #d93025;
+  --chip-border: #dadce0;
+  --chip-hover: #f1f3f4;
+  --avatar-bg: #1a73e8;
+  --divider: #e0e0e0;
+  --footer-text: #5f6368;
+  --footer-hover: #202124;
+  --autofill-bg: #ffffff;
+  --autofill-color: #202124;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: background .25s, color .25s;
+}
+
+/* THEME TOGGLE */
+.theme-btn {
+  position: fixed;
+  top: 16px; right: 16px; z-index: 999;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-input);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, border .2s;
+  box-shadow: 0 1px 6px rgba(0,0,0,.25);
+}
+.theme-btn:hover { background: var(--chip-hover); }
+#icon-sun { display: none; }
+[data-theme="light"] #icon-moon { display: none; }
+[data-theme="light"] #icon-sun  { display: block; }
+
+/* MAIN */
+main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+/* CARD */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 28px;
+  width: 100%;
+  max-width: 860px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  transition: background .25s, border .25s;
+  overflow: hidden;
+}
+
+/* PANELS */
+.panel-left {
+  padding: 56px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.panel-right {
+  padding: 56px 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* DIVIDER */
+.v-divider { background: var(--divider); transition: background .25s; }
+
+/* G MARK */
+.g-mark { width: 40px; height: 40px; }
+
+/* HEADINGS */
+.heading {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.2;
+  transition: color .25s;
+}
+.subtext {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  max-width: 270px;
+  margin-top: 12px;
+  transition: color .25s, opacity .2s;
+}
+
+/* AVATAR CHIP */
+.avatar-chip {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 270px;
+  border: 1px solid var(--chip-border);
+  border-radius: 100px;
+  padding: 6px 14px 6px 6px;
+  cursor: pointer;
+  transition: background .15s, border .25s;
+  margin-top: 4px;
+}
+.avatar-chip:hover { background: var(--chip-hover); }
+.avatar-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--avatar-bg);
+  color: #fff;
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.chip-label {
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+  transition: color .25s;
+}
+.chip-caret { font-size: 10px; color: var(--text-secondary); }
+
+/* STEP */
+.step { display: flex; flex-direction: column; }
+.step.hidden { display: none; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.step:not(.hidden) { animation: slideIn .2s ease; }
+
+/* FIELD */
+.field-wrap { position: relative; width: 100%; }
+.field-wrap input {
+  width: 100%;
+  height: 56px;
+  padding: 22px 16px 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  outline: none;
+  caret-color: var(--border-focus);
+  transition: border .15s, color .25s;
+  -webkit-text-fill-color: var(--text-primary);
+}
+.field-wrap input:-webkit-autofill,
+.field-wrap input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg) inset !important;
+  -webkit-text-fill-color: var(--autofill-color) !important;
+}
+.field-wrap input:focus {
+  border: 2px solid var(--border-focus);
+  padding: 22px 15px 8px;
+}
+.field-wrap input.err {
+  border: 2px solid var(--border-error);
+  padding: 22px 15px 8px;
+}
+.field-wrap label {
+  position: absolute;
+  left: 17px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--input-label);
+  pointer-events: none;
+  transition: top .15s, transform .15s, font-size .15s, color .15s;
+  transform-origin: left center;
+}
+.field-wrap input:focus ~ label,
+.field-wrap input:not(:placeholder-shown) ~ label {
+  top: 10px;
+  transform: translateY(0) scale(.75);
+  color: var(--label-focus);
+}
+.field-wrap input.err ~ label,
+.field-wrap input.err:focus ~ label {
+  color: var(--label-error);
+}
+/* eye */
+.eye-btn {
+  position: absolute;
+  right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  padding: 8px; border-radius: 50%;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.eye-btn:hover { background: var(--chip-hover); }
+
+/* ERROR ROW */
+.error-row {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 12px; color: var(--error-color);
+  line-height: 1.4;
+  max-height: 0; overflow: hidden;
+  transition: max-height .2s ease, margin .2s ease;
+  margin-top: 0;
+}
+.error-row.show { max-height: 60px; margin-top: 6px; }
+.error-row svg { flex-shrink: 0; margin-top: 1px; }
+
+/* LINKS */
+.link {
+  color: var(--link-color);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  transition: color .15s;
+  cursor: pointer;
+}
+.link:hover { text-decoration: underline; }
+.info-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-top: 28px;
+  transition: color .25s;
+}
+
+/* BTN ROW */
+.btn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 40px;
+}
+.btn-text {
+  background: none; border: none;
+  color: var(--btn-text-fg);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  padding: 10px 8px; border-radius: 4px;
+  cursor: pointer; letter-spacing: .25px;
+  transition: background .1s;
+}
+.btn-text:hover { background: var(--btn-text-hover); }
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+  border: none;
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  padding: 10px 28px; border-radius: 100px;
+  cursor: pointer; letter-spacing: .25px;
+  transition: filter .1s;
+}
+.btn-primary:hover { filter: brightness(.92); }
+.btn-primary:active { filter: brightness(.86); }
+
+
+/* FOOTER */
+footer {
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer-lang {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--footer-text); font-size: 13px;
+  background: none; border: none; cursor: pointer;
+  font-family: 'Roboto', sans-serif;
+  transition: color .2s;
+  padding: 0;
+}
+.footer-lang:hover { color: var(--footer-hover); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  color: var(--footer-text); font-size: 13px;
+  text-decoration: none;
+  transition: color .2s;
+}
+.footer-links a:hover { color: var(--footer-hover); text-decoration: underline; }
+
+/* RESPONSIVE */
+@media (max-width: 680px) {
+  .card {
+    grid-template-columns: 1fr;
+    border-radius: 0;
+    border-left: none; border-right: none; border-top: none;
+    max-width: 100%;
+  }
+  .v-divider { display: none; }
+  .panel-left {
+    padding: 40px 24px 20px;
+    gap: 20px;
+  }
+  .heading { font-size: 26px; }
+  .subtext { max-width: 100%; }
+  .panel-right { padding: 12px 24px 48px; }
+  main { padding: 0; align-items: flex-start; }
+}
+@media (max-width: 420px) {
+  .panel-left { padding: 32px 20px 16px; }
+  .panel-right { padding: 12px 20px 40px; }
+  .heading { font-size: 22px; }
+  .btn-primary { padding: 10px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- THEME TOGGLE -->
+<button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark/light mode">
+  <svg id="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+  <svg id="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+</button>
+
+<main>
+  <div class="card" id="main-card">
+
+    <!-- LEFT -->
+    <div class="panel-left">
+      <!-- Google G mark -->
+      <svg class="g-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <path d="M39.2 20.45c0-1.55-.14-3.04-.4-4.47H20v8.46h10.8c-.47 2.47-1.87 4.57-3.98 5.97v4.96h6.44c3.77-3.47 5.94-8.59 5.94-14.92z" fill="#4285F4"/>
+        <path d="M20 40c5.4 0 9.94-1.79 13.26-4.84l-6.44-4.96c-1.8 1.2-4.1 1.91-6.82 1.91-5.25 0-9.69-3.55-11.28-8.32H2.07v5.12A20 20 0 0 0 20 40z" fill="#34A853"/>
+        <path d="M8.72 23.79A12.02 12.02 0 0 1 8.1 20c0-1.31.22-2.58.62-3.79V11.1H2.07A20 20 0 0 0 0 20c0 3.23.77 6.29 2.07 9.01l6.65-5.22z" fill="#FBBC05"/>
+        <path d="M20 7.95c2.96 0 5.61 1.02 7.7 3.02l5.78-5.78C29.93 1.99 25.39 0 20 0A20 20 0 0 0 2.07 11.1l6.65 5.12C10.31 11.5 14.75 7.95 20 7.95z" fill="#EA4335"/>
+      </svg>
+
+      <!-- heading block -->
+      <div>
+        <h1 class="heading" id="main-heading">Sign in</h1>
+        <p class="subtext" id="main-subtext">with your Google Account. This account will be available to other Google apps in the browser.</p>
+      </div>
+
+      <!-- avatar chip -->
+      <div class="avatar-chip" id="avatar-chip" onclick="goBackToEmail()" role="button" tabindex="0" aria-label="Change account" onkeydown="if(event.key==='Enter')goBackToEmail()">
+        <div class="avatar-circle" id="avatar-circle">A</div>
+        <span class="chip-label" id="chip-email">user@gmail.com</span>
+        <span class="chip-caret">▾</span>
+      </div>
+    </div>
+
+    <!-- DIVIDER -->
+    <div class="v-divider"></div>
+
+    <!-- RIGHT -->
+    <div class="panel-right">
+
+      <!-- STEP 1: EMAIL -->
+      <div class="step" id="step-email">
+        <div class="field-wrap">
+          <input type="email" id="email-input" placeholder=" " autocomplete="email"/>
+          <label for="email-input" class="email-input-label">Email or phone</label>
+        </div>
+        <div class="error-row" id="email-err">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0zm1 15H9v-2h2v2zm0-4H9V5h2v6z"/></svg>
+          <span id="email-err-text">Enter an email or phone number</span>
+        </div>
+
+        <div style="margin-top:16px;"><a href="#" class="link">Forgot email?</a></div>
+
+        <p class="info-text">
+          Not your computer? Use Guest mode to sign in privately.
+          <a href="#" class="link" style="font-weight:400;">Learn more about using Guest mode</a>
+        </p>
+
+        <div class="btn-row">
+          <button class="btn-text">Create account</button>
+          <button class="btn-primary" onclick="goToPassword()">Next</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: PASSWORD -->
+      <div class="step hidden" id="step-password">
+        <div class="field-wrap">
+          <input type="password" id="pw-input" placeholder=" " autocomplete="current-password"/>
+          <label for="pw-input">Enter your password</label>
+          <button class="eye-btn" onclick="togglePw()" type="button" id="eye-btn" aria-label="Show password">
+            <svg id="eye-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg id="eye-off" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
+        <div class="error-row" id="pw-err">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0zm1 15H9v-2h2v2zm0-4H9V5h2v6z"/></svg>
+          <span>Wrong password. Try again or click Forgot password to reset it.</span>
+        </div>
+
+        <div style="margin-top:16px;"><a href="#" class="link">Forgot password?</a></div>
+
+        <p class="info-text" style="font-size:14px;">
+          To protect your account, Google wants to make sure it's really you trying to sign in.
+        </p>
+
+        <div class="btn-row">
+          <button class="btn-text" onclick="goBackToEmail()">Back</button>
+          <button class="btn-primary" onclick="signIn()">Next</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <button class="footer-lang" aria-label="Change language">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    English (United States)
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div class="footer-links">
+    <a href="#">Help</a>
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+  </div>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* Theme */
+function toggleTheme() {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('g-signin-theme', t);
+}
+const saved = localStorage.getItem('g-signin-theme');
+if (saved) document.documentElement.dataset.theme = saved;
+
+/* Validation */
+function isValidEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || /^\+?[\d\s\-().]{7,20}$/.test(v);
+}
+
+/* Error helpers */
+function showErr(id, msg) {
+  const row = $(id);
+  if (msg) { const s = row.querySelector('span'); if(s) s.textContent = msg; }
+  row.classList.add('show');
+}
+function hideErr(id) { $(id).classList.remove('show'); }
+
+/* Flow */
+function goToPassword() {
+  const email = $('email-input').value.trim();
+  if (!email) { showErr('email-err','Enter an email or phone number'); $('email-input').classList.add('err'); return; }
+  if (!isValidEmail(email)) { showErr('email-err',"That doesn't look like a valid email or phone number."); $('email-input').classList.add('err'); return; }
+  hideErr('email-err'); $('email-input').classList.remove('err');
+
+  $('chip-email').textContent    = email;
+  $('avatar-circle').textContent = email[0].toUpperCase();
+  $('avatar-chip').style.display = 'flex';
+  $('main-subtext').style.opacity = '0';
+  $('main-subtext').style.pointerEvents = 'none';
+
+  $('step-email').classList.add('hidden');
+  $('step-password').classList.remove('hidden');
+  setTimeout(() => $('pw-input').focus(), 60);
+}
+
+function goBackToEmail() {
+  $('step-password').classList.add('hidden');
+  $('step-email').classList.remove('hidden');
+  $('avatar-chip').style.display = 'none';
+  $('main-subtext').style.opacity = '';
+  $('main-subtext').style.pointerEvents = '';
+  $('pw-input').value = '';
+  hideErr('pw-err'); $('pw-input').classList.remove('err');
+  setTimeout(() => $('email-input').focus(), 60);
+}
+
+function togglePw() {
+  const inp = $('pw-input');
+  const isP = inp.type === 'password';
+  inp.type = isP ? 'text' : 'password';
+  $('eye-open').style.display = isP ? 'none' : '';
+  $('eye-off').style.display  = isP ? '' : 'none';
+  $('eye-btn').setAttribute('aria-label', isP ? 'Hide password' : 'Show password');
+}
+
+function signIn() {
+  const pw = $('pw-input').value;
+  if (!pw) { showErr('pw-err', null); $('pw-input').classList.add('err'); return; }
+  hideErr('pw-err'); $('pw-input').classList.remove('err');
+  alert('Signed in as ' + $('email-input').value.trim());
+}
+
+/* Enter key */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (!$('step-email').classList.contains('hidden')) goToPassword();
+  else if (!$('step-password').classList.contains('hidden')) signIn();
+});
+
+/* Live clear */
+$('email-input').addEventListener('input', () => { hideErr('email-err'); $('email-input').classList.remove('err'); });
+$('pw-input').addEventListener('input',    () => { hideErr('pw-err');    $('pw-input').classList.remove('err'); });
+</script>
+</body>
+</html>

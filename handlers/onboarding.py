@@ -286,50 +286,111 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
     await callback.message.answer(commitment_text, reply_markup=kb.commitment_markup(lang))
     await state.set_state(OnboardingStepping.commitment)
     
+
+FREE_PDF_FILE_ID = "BQACAgQAAxkBAAEBDhpqDDbKTKH6YIxnxBPQjpoGxIlS_gACxB8AArrsYFBoIU3RMXPYuTsE"  # drop it when ready
+
+    
 @router.callback_query(OnboardingStepping.commitment, F.data == "commit_YES")
 async def process_commitment(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
-    data = await state.get_data()
-    lang = data['language']
-    user_id = callback.from_user.id
-    full_name = callback.from_user.full_name
-    freq = data['frequency']
-
-    # Delete the commitment message to clear space
-    await callback.message.delete()
-    
-    # MATCH THE PRODUCT
-    product = await db.match_product(lang, data['level'], freq)
-    if not product:
-        return # Safety check
-
-    # 5. SEND THE PITCH (Refined for "Algorithm/Merit" Scarcity)
-    title = product['title']
-    price = product['price']
-    complete_label = get_text(lang, "analysis_complete")
-    
     OBSTACLE_MAP = {
-        "EN": {"DIET": "Nutrition & Diet", "CONSISTENCY": "Consistency", "NOPLAN": "Lack of Structure"},
-        "AM": {"DIET": "የአመጋገብ ስርዓት", "CONSISTENCY": "ተነሳሽነት", "NOPLAN": "የተዋቀረ እቅድ"}
-    }
-    obs_phrased = OBSTACLE_MAP[lang].get(data.get('obstacle', 'CONSISTENCY'), "Consistency")
+    "EN": {"DIET": "Nutrition & Diet", "CONSISTENCY": "Consistency", "NOPLAN": "Lack of Structure"},
+    "AM": {"DIET": "የአመጋገብ ስርዓት", "CONSISTENCY": "ተነሳሽነት", "NOPLAN": "የተዋቀረ እቅድ"},
+}
+    data      = await state.get_data()
+    lang      = data["language"]
+    user_id   = callback.from_user.id
+    full_name = callback.from_user.full_name
+    freq      = data["frequency"]
+
+    await callback.message.delete()
+
+    # ── GIVEAWAY DROP ──────────────────────────────────────────────
+    # Why here: they just made a micro-commitment. Dopamine is up.
+    # Trust is earned. We reward BEFORE asking for money.
+    # PDF quality justifies the price that follows.
+    # Free → Proof → Price is the only sequence that converts.
+
+    if lang == "AM":
+        giveaway_caption = (
+            "🎁 <b>ይሄን ፋይል አሁኑኑ ክፈቱት (የኔ ስጦታ ለእርስዎ) 🤫</b>\n\n"
+            "ቃልዎን ስላከበሩ ትልቅ ክብር አለኝ። ገና ወደ ሙሉው ጉዟችን ሳንገባ፣ "
+            "ለአሁኑኑ የሚጠቅምዎት ውድ ስጦታ ልስጥዎት።\n\n"
+            "ሌሎች <b>ብር</b> ከፍለው የሚወስዱትን የ8-ሳምንት መመሪያ አጭር ቅምሻ ዛሬ ለእርስዎ <b>ነፃ</b> አድርጌዋለሁ።\n\n"
+            "🔥 <b>ገጽ 2 እና 3 ላይ ፈጠን ብለው ይዩት፦</b>\n"
+            "• የኢትዮጵያ ምግቦች የጾም እና የፍስግ አማራጮች (እንጀራ፣ ሽንብራ፣ ሥጋ...)\n"
+            "• ሆድዎን በፍጥነት ለማጥፋት የሚረዱ ጥብቅ የአመጋገብ ህጎች\n\n"
+            "<i>አሁኑኑ አውርደው ይመልከቱት። ፋይሉን አይተው ሲጨርሱ ወዲያው ወደዚህ ቻት ተመለሱ... "
+            "ትልቁ ሰርፕራይዝ እዚህ እየጠበቀዎት ነው። 👀👇</i>"
+        )
+    else:
+        giveaway_caption = (
+            "🎁 <b>Open this file immediately (My personal gift to you) 🤫</b>\n\n"
+            "My people—you kept your word, and I respect that heavily. Before we even unlock the main engine, "
+            "here is a massive quick win for you.\n\n"
+            "The exact blueprint snippet others pay **500 ETB** to get their hands on—yours right now, completely **FREE**.\n\n"
+            "🔥 **Take a quick 1-minute look at page 2 & 3:**\n"
+            "• Our exact **Fasting & Non-Fasting protocols** (Injera, Shiro, Beef...) [cite: 59, 67, 80]\n"
+            "• The **Nutrition Rules** to instantly drop belly fat [cite: 57]\n\n"
+            "*Download it right now. Once your mind is blown, look back at this chat... "
+            "The real surprise is waiting for you right here. 👀👇*"
+        )
+
+    await bot.send_document(
+        chat_id=user_id,
+        document=FREE_PDF_FILE_ID,  # ← drop your file_id in config when ready
+        caption=giveaway_caption,
+        parse_mode="HTML"
+    )
+
+    # Let the PDF land and breathe — don't rush into the pitch
+    await asyncio.sleep(3.5)
+
+    # # ── BRIDGE — pull them back toward the pitch ──────────────────
+    if lang == "AM":
+        bridge = (
+            "<b>እሺ! ገጽ 2 እና 3 ላይ ያለውን ነገር እንዳያችሁት እርግጠኛ ነኝ። 😎</b>\n\n"
+            "ያ ያያችሁት መመሪያ የጉዟችን <b>መነሻ (Preview)</b> ብቻ ነው። "
+            "አሁን ደግሞ በእርስዎ የሰውነት አይነት፣ ደረጃ እና ግብ ላይ ተመስርቶ የተሰራውን "
+            "<b>ሙሉውን የ8-ሳምንት እቅድ</b> እንክፈተው! 🔓"
+        )
+    else:
+        bridge = (
+            "<b>Alright my people! I know you just saw the fire on pages 2 & 3. 😎</b>\n\n"
+            "That guide is just the raw <b>foundation</b>. "
+            "Now — let's unlock the <b>full 8-week protocol</b> built specifically for your body architecture. 🔓"
+        )
+
+    await callback.message.answer(bridge, parse_mode="HTML")
+    await asyncio.sleep(1.5)
+
+    # ── PITCH ─────────────────────────────────────────────────────
+    product = await db.match_product(lang, data["level"], freq)
+    if not product:
+        return
+
+    title       = product["title"]
+    price       = product["price"]
+    actual_price = int(float(price) / 0.65)
+    obs_phrased  = OBSTACLE_MAP[lang].get(data.get("obstacle", "CONSISTENCY"), "Consistency")
+    complete_label = get_text(lang, "analysis_complete")
 
     if lang == "EN":
-        actual_price = int(float(price) / 0.65) # Adjusted for 35% discount logic
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
-            f"I’ve accepted your commitment. Most people fail because of <b>{obs_phrased}</b>. "
-            f"But because your potential is <b>94.7%</b>, you have been fast-tracked for the <b>{title}</b> protocol. 🏆\n\n"
+            f"I've accepted your commitment. Most people fail because of <b>{obs_phrased}</b>. "
+            f"But because your potential is <b>94.7%</b>, you have been fast-tracked "
+            f"for the <b>{title}</b> protocol. 🏆\n\n"
             "<b>Your plan includes:</b>\n"
             "✅ <b>8-Week Phase</b> | ✅ <b>Smart Nutrition</b>\n"
             "✅ <b>Progress Sync</b> | ✅ <b>HD Video Guides</b>\n\n"
             "⚡️ <b>ALGORITHM MERIT DISCOUNT</b>\n"
             f"<s>{actual_price} ETB</s> ➡️ <code>{price} ETB</code>\n"
-            "💎 Based on your profile score, a <b>35% performance discount</b> has been applied to your ID.\n\n"
-            f"🔥 <b>Live Capacity:</b> 813+ active users. Only <b>12 slots</b> remain for the {data['level'].upper()} tier today.\n\n"
+            "💎 A <b>35% performance discount</b> has been applied to your ID.\n\n"
+            f"🔥 <b>Live Capacity:</b> 813+ active users. Only <b>12 slots</b> remain "
+            f"for the {data['level'].upper()} tier today.\n\n"
             "<b>Are you ready to activate your profile?</b>"
         )
-    else: # Amharic
-        actual_price = int(float(price) / 0.65)
+    else:
         pitch = (
             f"🎯 <b>{complete_label}</b>\n\n"
             f"ቃልዎን ተቀብያለሁ። አብዛኛው ሰው በ<b>{obs_phrased}</b> ምክንያት ግባቸውን ይስታሉ፤ "
@@ -339,18 +400,31 @@ async def process_commitment(callback: types.CallbackQuery, state: FSMContext, d
             "✅ <b>የሂደት መቆጣጠሪያ</b> | ✅ <b>የቪዲዮ መመሪያ</b>\n\n"
             "⚡️ <b>ልዩ የብቃት ቅናሽ</b>\n"
             f"<s>{actual_price} ብር</s> ➡️ <code>{price} ብር</code>\n"
-            f"💎 በግምገማ ውጤትዎ መሰረት <b>የ35% የብቃት ቅናሽ</b> በመለያዎ ላይ ተግብረናል።\n\n"
-            f"🔥 <b>ወቅታዊ መረጃ፦</b> 813+ ሰዎች ተቀላቅለዋል። ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
+            "💎 በግምገማ ውጤትዎ መሰረት <b>የ35% የብቃት ቅናሽ</b> በመለያዎ ላይ ተግብረናል።\n\n"
+            f"🔥 <b>ወቅታዊ፦</b> 813+ ሰዎች ተቀላቅለዋል። "
+            f"ለ{data['level']} ደረጃ የቀሩት <b>12 ቦታዎች</b> ብቻ ናቸው።\n\n"
             "<b>አሁን መጀመር ይፈልጋሉ?</b>"
         )
 
-    await callback.message.answer(pitch, reply_markup=kb.payment_markup(lang, product['id']), parse_mode="HTML")
-    
-    # Notify Admin and Log time
-    asyncio.create_task(notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username))
+    await callback.message.answer(
+        pitch,
+        reply_markup=kb.payment_markup(lang, product["id"]),
+        parse_mode="HTML"
+    )
+
+    asyncio.create_task(
+        notify_admin_new_lead(bot, data, full_name, user_id, username=callback.from_user.username)
+    )
     import datetime
-    await db.execute("UPDATE users SET last_pitch_at = $1 WHERE telegram_id = $2", datetime.datetime.now(), user_id)
+
+    await db.execute(
+        "UPDATE users SET last_pitch_at = $1 WHERE telegram_id = $2",
+        datetime.datetime.now(), user_id
+    )
     await state.clear()
+    
+    
+    
     
 def build_pitch(user, product):
     # Force uppercase to avoid "en" vs "EN" mismatch
