@@ -343,7 +343,7 @@ async def process_commitment(callback: types.CallbackQuery, state: FSMContext, d
     )
 
     # Let the PDF land and breathe — don't rush into the pitch
-    await asyncio.sleep(3.5)
+    await asyncio.sleep(10.5)
 
     # # ── BRIDGE — pull them back toward the pitch ──────────────────
     if lang == "AM":
@@ -361,7 +361,7 @@ async def process_commitment(callback: types.CallbackQuery, state: FSMContext, d
         )
 
     await callback.message.answer(bridge, parse_mode="HTML")
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(8.5)
 
     # ── PITCH ─────────────────────────────────────────────────────
     product = await db.match_product(lang, data["level"], freq)
