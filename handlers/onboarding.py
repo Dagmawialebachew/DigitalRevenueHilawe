@@ -482,7 +482,7 @@ def build_pitch(user, product):
         "✅ <b>Video Guides</b> - Learn the perfect form for every move.\n"
         "🔥 People who bought this program: <b> 813+ </b>\n\n"
         "🌟 <b>HOLY WEEK SPECIAL OFFER</b>\n"
-    f"<s>1,000 ETB</s> ➡️ <code>599 ETB</code>\n"
+    f"<s>1,500 ETB</s> ➡️ <code>899 ETB</code>\n"
     "💎 You have a limited-time <b>40% Holy Week Discount</b> for Tinsae.\n\n"
     "<b>Are you ready to start, or will you stay exactly where you are?</b>"
     )
