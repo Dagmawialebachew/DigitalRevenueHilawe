@@ -62,11 +62,18 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 #  TESTIMONIALS — 3 each, rotating by hour
 #  እያንዳንዱ ምስክርነት የተለየ ገዢ ስነ-ልቦናን ያጠቃልላል።
 # ─────────────────────────────────────────────
+from datetime import datetime
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# ─────────────────────────────────────────────
+#  TESTIMONIALS — 3 each, rotating by hour
+#  እያንዳንዱ ምስክርነት የተለየ ገዢ ስነ-ልቦናን ያጠቃልላል።
+# ─────────────────────────────────────────────
 TESTIMONIALS = {
     "AM": [
         {
             "text": (
-                "እውነቱን ለመናገር — 499 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
+                "እውነቱን ለመናገር — 399 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
                 "ግን ውስጥ ያለውን ሲስተም ስከፍተው ደነገጥኩ! PDF መመሪያው እጅግ ግልጽ ነው፣ "
                 "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥነኝ የግል አሰልጣኝ ያለኝ ያህል ነው የሚሰማኝ። "
                 "በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው።"
@@ -93,7 +100,7 @@ TESTIMONIALS = {
     "EN": [
         {
             "text": (
-                "Honestly — when I saw 499 ETB I thought 'what could this possibly offer?' "
+                "Honestly — when I saw 399 ETB I thought 'what could this possibly offer?' "
                 "I was wrong. The PDF is detailed, the videos are premium, "
                 "and the structure actually makes sense. "
                 "There is zero excuse to scroll past this."
@@ -141,12 +148,12 @@ SOCIAL_PROOF = {
 # ─────────────────────────────────────────────
 URGENCY = {
     "AM": [
-        "⚠️ ማሳሰቢያ፡ ይህ የ50% ቅናሽ ዋጋ ለሚቀጥሉት 3 ሰዓታት ብቻ የሚቆይ ነው።",
+        "⚠️ ማሳሰቢያ፡ ይህ የ60% ቅናሽ ዋጋ ለሚቀጥሉት 3 ሰዓታት ብቻ የሚቆይ ነው።",
         "⏳ ሰዓቱ ሲያልቅ ይህ መልዕክት በራሱ ይጠፋል፤ ዋጋውም ወደ 1,000 ብር ይመለሳል።",
         "🔥 አሁኑኑ ካልወሰኑት፣ ከ6 ወር በኋላ መስታወት ፊት ሲቆሙ መቆጨትዎ አይቀርም።",
     ],
     "EN": [
-        "⚠️ NOTICE: This 50% discount expires strictly in 3 hours.",
+        "⚠️ NOTICE: This 60% discount expires strictly in 3 hours.",
         "⏳ Once the countdown ends, this post disappears and price resets to 1,000 ETB.",
         "🔥 If you scroll past this, you will heavily regret it in 6 months.",
     ],
@@ -174,25 +181,25 @@ def get_rotating_content(lang: str):
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 499,
+    price: int = 399,
     original_price: int = 1000,
 ):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testimonial, social_proof, urgency = get_rotating_content(lang)
 
-    # 499 ብር / 60 ቀናት = 8.3 ብር በቀን። ከእለታዊ ማኪያቶ ዋጋ ያነሰ!
-    daily_anchor_am = "በቀን 8.3 ብር ብቻ"
-    daily_anchor_en = "just 8.3 ETB per day"
+    # 399 ብር / 60 ቀናት = 6.65 ብር በቀን። ከባዶ ማስቲካ ዋጋ ያነሰ!
+    daily_anchor_am = "በቀን 6.6 ብር ብቻ"
+    daily_anchor_en = "just 6.6 ETB per day"
 
     # ── AMHARIC (HIGH CONVERSION) ───────────────────────────────────
     if lang == "AM":
-        header = f"<b>⚡️ የአርብ ልዩ የ3 ሰዓት ፍላሽ ሴል! [50% ቅናሽ] ⚡️</b>\n<i>አሰልጣኝ ህላዌ፡ ሰበቦችን አቁመን ወደ ለውጥ!</i>"
+        header = f"<b>⚡️ ልዩ የ3 ሰዓት ፍላሽ ሴል! [60% ቅናሽ] ⚡️</b>\n<i>አሰልጣኝ ህላዌ፡ ሰበቦችን አቁመን ወደ ለውጥ!</i>"
 
         coach_voice = (
             "ሰዎቼ —\n\n"
             "እስከዛሬ ድረስ በጥንካሬ ካሰለጠንኳቸው በሺዎች የሚቆጠሩ ስኬታማ ሰዎች ውስጥ ያልተቀላቀላችሁት በምን ምክንያት ነው? "
             "ዋጋው ከብዶዎት? ጊዜ አጥተው? ወይስ ጀምሮ የማቆም ፍርሃት ሰንጎዎት?\n\n"
-            "ዛሬ አርብ ነው — አዲስ ማንነት ለመጀመር ምርጡ ቀን! ሁሉንም ሰበብ ዛሬ ሰባብሬዋለሁ።\n"
+            "ዛሬ ቅዳሜ ነው — አዲስ ማንነት ለመጀመር ምርጡ ቀን! ሁሉንም ሰበብ ዛሬ ሰባብሬዋለሁ።\n"
             f"💰 <s>{original_price} ብር</s> → <b>{price} ብር ብቻ!</b>\n"
             f"<i>({daily_anchor_am} — ከአንድ ማኪያቶ ዋጋ ያነሰ! ይህ ዋጋ አይደለም፣ ለራሱ ክብር ያለው ሰው ለሰውነቱ የሚያደርገው ኢንቨስትመንት ነው።)</i>"
         )
@@ -231,13 +238,13 @@ def build_deal_message(
 
     # ── ENGLISH (HIGH CONVERSION) ───────────────────────────────────
     else:
-        header = f"<b>⚡️ FRIDAY 3-HOUR FLASH SALE! [50% OFF] ⚡️</b>\n<i>Coach Hilawe: No More Excuses.</i>"
+        header = f"<b>⚡️ [60% OFF] ⚡️</b>\n<i>Coach Hilawe: No More Excuses.</i>"
 
         coach_voice = (
             "My people —\n\n"
             "Why are you still standing on the sidelines while thousands are transforming their bodies? "
             "Is it the price? The timing? Or the fear of quitting again?\n\n"
-            "Today is Friday — the ultimate day to trigger change. I have removed every single barrier.\n"
+            "Today is Saturday — the ultimate day to trigger change. I have removed every single barrier.\n"
             f"💰 <s>{original_price} ETB</s> → <b>{price} ETB ONLY!</b>\n"
             f"<i>({daily_anchor_en} — less than the price of a single macchiato. This is a commitment to your future self.)</i>"
         )
@@ -287,7 +294,6 @@ def build_deal_message(
     )
 
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -418,7 +424,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 499) as effective_price
+            COALESCE(s.selected_price, 399) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -494,7 +500,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 499) as final_price
+            COALESCE(s.selected_price, 399) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -540,7 +546,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBJwFqEGooFSQBFCulfpQbLgs0hcDrAwACDg5rG4-4gVBAx7t0agEoAQEAAwIAA3kAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBNCVqEbtViWNj9B6t7wybN6QJveXQdgACmQ5rG82pkVD6LKmgwdKb6AEAAwIAA3kAAzsE"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
