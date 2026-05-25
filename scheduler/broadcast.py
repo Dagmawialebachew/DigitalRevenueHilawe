@@ -69,93 +69,97 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 #  TESTIMONIALS — 3 each, rotating by hour
 #  እያንዳንዱ ምስክርነት የተለየ ገዢ ስነ-ልቦናን ያጠቃልላል።
 # ─────────────────────────────────────────────
+from datetime import datetime
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# ─────────────────────────────────────────────
+#  TESTIMONIALS — Monday-focused reality checks
+#  ተጠቃሚው ሁልጊዜ ሰኞ ሰኞ የሚገባውን የውሸት ቃል የሚያጋልጡ እውነተኛ ምስክርነቶች
+# ─────────────────────────────────────────────
 TESTIMONIALS = {
     "AM": [
         {
             "text": (
-                "እውነቱን ለመናገር — 399 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
-                "ግን ውስጥ ያለውን ሲስተም ስከፍተው ደነገጥኩ! PDF መመሪያው እጅግ ግልጽ ነው፣ "
-                "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥነኝ የግል አሰልጣኝ ያለኝ ያህል ነው የሚሰማኝ። "
-                "በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው።"
+                "ለስንት አመት መሰላችሁ 'ከሰኞ እጀምራለሁ' እያልኩ ራሴን ያታለልኩት? ስንት ሰኞ አለፈ! "
+                "ባለፈው ወር ግን ሰኞ እለተ ይሄን መመሪያ በ299 ብር ገዝቼ በቁርጠኝነት ጀመርኩ። "
+                "በ8 ሳምንት ውስጥ ሆዴ ጠፍቶ ትከሻዬ ሲሰፋ ያየሁት ለውጥ ለምን ቀደም ብዬ እንዳልጀመርኩ አስቆጭቶኛል።"
             ),
-            "name": "ዳዊት መኮንን ✅ አባል",
+            "name": "አማኑኤል ደረጄ ✅ አባል",
         },
         {
             "text": (
-                "ከዚህ በፊት ብዙ የውጪ ፕሮግራሞችን ሞክሬ አልሰሩልኝም — ምክንያቱም ምግባቸው ለኛ አይሆንም። "
-                "ይሄ ግን ለኛ ለኢትዮጵያውያን የተሰራ ነው። እንጀራ፣ ጥብስ፣ ሽሮ — ሁሉም የሀገራችን ምግቦች አሉ። "
-                "8 ሳምንት ብቻ በስነስርዓት ተከትዬ ሆዴ ሙሉ በሙሉ ጠፋ፣ ትከሻዬ ሰፋ! ቃሌን እሰጣለሁ — ይሰራል።"
+                "299 ብር ለስልክ ካርድ ወይም ለባዶ መዝናኛ የምናጠፋት ናት። እሷን እዚህ ላይ አውጥቼ "
+                "ያገኘሁት የሰውነት ለውጥ ግን በሚሊዮን ብር የማይገዛ በራስ መተማመን ሰጥቶኛል። "
+                "የሀገራችን ምግቦች (እንጀራ፣ ሽሮ) መካተታቸው ደግሞ ስራውን እጅግ ቀላል ያደርገዋል።"
             ),
-            "name": "ናትናኤል ግርማ ✅ አባል",
+            "name": "ዮናስ ተስፋዬ ✅ አባል",
         },
         {
             "text": (
-                "መጀመሪያ በቅናሽ ዋጋ ስገዛው ዝም ብሎ መጽሐፍ (PDF) ብቻ መስሎኝ ነበር። "
-                "ግን ውስጥ ያለው የቪዲዮ ስልጠና፣ የምግብ አዘገጃጀት እና ግልጽ የሆነው እቅድ አስገርሞኛል። "
-                "በዚህ ዋጋ ይሄን ያህል ጥራት ያለው ስራ ማግኘት በሀገራችን አይታሰብም።"
+                "ዝም ብሎ መጽሐፍ (PDF) ብቻ መስሎኝ ነበር። ግን ውስጥ ያለው የHD ቪዲዮ ስልጠና እና "
+                "የአመጋገብ እቅድ ልክ የግል አሰልጣኝ በየቀኑ ከጎኔ ቆሞ የሚያሰራኝ ያህል ነው። "
+                "ዛሬውኑ ካልጀመራችሁ ሰኞን እንደለመዳችሁት በሰበብ ማሳለፋችሁ አይቀሬ ነው።"
             ),
-            "name": "ዮሴፍ ካሳ ✅ አባል",
+            "name": "ኬብሮን ኃይሉ ✅ አባል",
         },
     ],
     "EN": [
         {
             "text": (
-                "Honestly — when I saw 399 ETB I thought 'what could this possibly offer?' "
-                "I was wrong. The PDF is detailed, the videos are premium, "
-                "and the structure actually makes sense. "
-                "There is zero excuse to scroll past this."
+                "How many Mondays have you wasted saying 'I'll start next week'? I did that for years. "
+                "Then I spent 299 ETB on this blueprint on a Monday morning. 8 weeks later, "
+                "my belly fat is completely gone and I am in the best shape of my life. Don't wait."
             ),
-            "name": "Dawit M. ✅ Verified Member",
+            "name": "Amanuel D. ✅ Verified Member",
         },
         {
             "text": (
-                "I've tried programs before — all built for Western diets. "
-                "This one is built for us. Injera, tibs, shiro — it's all in there. "
-                "8 weeks. My stomach is gone, my shoulders are wider. "
-                "Take my word — it works."
+                "299 ETB is pocket change you easily waste on local cafes. Investing it here "
+                "gave me a flawless roadmap using local foods (injera, shiro). "
+                "The HD videos are clean and professional grade. Best choice ever."
             ),
-            "name": "Nathanael G. ✅ Verified Member",
+            "name": "Yonas T. ✅ Verified Member",
         },
         {
             "text": (
-                "When I bought this during the last sale, I thought it was just a simple PDF. "
-                "But the HD videos and the nutrition plan are professional grade. "
-                "Getting this quality for this price is an absolute steal."
+                "I thought this was just a simple PDF, but the structure is elite. "
+                "It feels like having Coach Hilawe inside your phone 24/7 guiding your lifts. "
+                "Stop scrolling and invest in your reflection."
             ),
-            "name": "Yosef K. ✅ Verified Member",
+            "name": "Kebron H. ✅ Verified Member",
         },
     ],
 }
 
 # ─────────────────────────────────────────────
-#  SOCIAL PROOF — የማህበረሰብ ተጽዕኖ ማሳያ
+#  SOCIAL PROOF — ማህበረሰባዊ ግፊት
 # ─────────────────────────────────────────────
 SOCIAL_PROOF = {
     "AM": [
-        "🤝 ከ3,500 በላይ ኢትዮጵያውያን በዚህ ሲስተም ማንነታቸውን ቀይረዋል።",
-        "🌟 በየቀኑ አስደናቂ የሰውነት መለወጥ ውጤቶች (Results) እያገኘን ነው።",
-        "🏘️ ከባህር ዳር እስከ ቦሌ — ሁሉም ቦታ ላይ ሰዎች ውጤት እያመጡበት ነው።",
+        "🔥 ልክ አሁኑኑ አንተ እያመነታህ ባለህበት ሰከንድ፣ 3,500+ ኢትዮጵያውያን በቦቱ ስልጠናቸውን እየሰሩ ነው።",
+        "📉 በየቀኑ በመቶዎች የሚቆጠሩ ወንዶች ወደ ጀግና ማንነታቸው ሲቀየሩ፣ አንተ ግን አሁንም በድሮው አካልህ ውስጥ ነህ።",
+        "🏘️ ከቦሌ እስከ ክልል ከተሞች — በተግባር የሚያሳዩ ወንዶች ዛሬ ሰኞን በለውጥ ጀምረውታል።",
     ],
     "EN": [
-        "🤝 3,500+ Ethiopians have completed this exact transformation.",
-        "🌟 Mind-blowing body transformation results are dropping daily.",
-        "🏘️ From Bole to Hawassa — real people are getting ripped.",
+        "🔥 While you look at this screen, 3,500+ Ethiopians are actively crushing their goals inside this system.",
+        "📉 Every single day, hundreds of men are upgrading their physiques while you remain unchanged.",
+        "🏘️ From Addis to every region — elite transformations are dropping live right now.",
     ],
 }
 
 # ─────────────────────────────────────────────
-#  URGENCY — እውነተኛ ሰዓት-ተኮር አስገዳጅነት
+#  URGENCY — ጊዜን የመጠቀም አስገዳጅነት
 # ─────────────────────────────────────────────
 URGENCY = {
     "AM": [
-        "⚠️ ማሳሰቢያ፡ ይህ የ60% ቅናሽ ዋጋ ለሚቀጥሉት 3 ሰዓታት ብቻ የሚቆይ ነው።",
-        "⏳ ሰዓቱ ሲያልቅ ይህ መልዕክት በራሱ ይጠፋል፤ ዋጋውም ወደ 1,000 ብር ይመለሳል።",
-        "🔥 አሁኑኑ ካልወሰኑት፣ ከ6 ወር በኋላ መስታወት ፊት ሲቆሙ መቆጨትዎ አይቀርም።",
+        "⚠️ የሰኞ እጣ ፈንታህ፦ ይህንን የ70% ቅናሽ ተጠቅመህ አሁኑኑ መጀመር ወይም እንደተለመደው ማዘግየት!",
+        "⏳ ከ3 ሰዓት በኋላ ይህ መልዕክት በራሱ ይጠፋል፤ ዋጋውም ወዲያውኑ ወደ 1,000 ብር ይመለሳል።",
+        "🔥 ዛሬ ካልወሰንከው፣ በሚቀጥለው ሰኞም በተመሳሳይ ደካማ አካል እና በቁጭት ውስጥ መሆንህን እወቀው።",
     ],
     "EN": [
-        "⚠️ NOTICE: This 60% discount expires strictly in 3 hours.",
-        "⏳ Once the countdown ends, this post disappears and price resets to 1,000 ETB.",
-        "🔥 If you scroll past this, you will heavily regret it in 6 months.",
+        "⚠️ MONDAY ULTIMATUM: Break your cycle of broken promises now or remain exactly the same.",
+        "⏳ In strictly 3 hours, this special 70% discount expires and price reverts to 1,000 ETB.",
+        "🔥 If you bypass this today, you will face the exact same insecure reflection next Monday.",
     ],
 }
 
@@ -168,7 +172,7 @@ def get_rotating_content(lang: str):
     proof_list   = SOCIAL_PROOF[lang]
     urgency_list = URGENCY[lang]
 
-    # በየሰዓቱ ይዘቱ በራሱ ይሽከረከራል — ሁሌም አዲስ ስሜት ይሰጣል
+    # በየሰዓቱ ይዘቱ በራሱ ይሽከረከራል — ሁሌም አዲስና አንቀጥቃጭ ስሜት ይሰጣል
     idx = (now.timetuple().tm_yday * 24) + now.hour
 
     return (
@@ -181,35 +185,34 @@ def get_rotating_content(lang: str):
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 399,
+    price: int = 299,
     original_price: int = 1000,
 ):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testimonial, social_proof, urgency = get_rotating_content(lang)
 
-    # 399 ብር / 60 ቀናት = 6.65 ብር በቀን። ከባዶ ማስቲካ ዋጋ ያነሰ!
-    daily_anchor_am = "በቀን 6.6 ብር ብቻ"
-    daily_anchor_en = "just 6.6 ETB per day"
+    # 299 ብር / 60 ቀናት = 4.9 ብር በቀን። ከእለታዊ ባዶ ማስቲካ ዋጋ ያነሰ!
+    daily_anchor_am = "በቀን 5 ብር ብቻ"
+    daily_anchor_en = "just 5 ETB per day"
 
-    # ── AMHARIC (HIGH CONVERSION) ───────────────────────────────────
+    # ── AMHARIC (MONDAY BREAKTHROUGH STYLE) ────────────────────────
     if lang == "AM":
-        header = f"<b>⚡️ ልዩ የ3 ሰዓት ፍላሽ ሴል! [60% ቅናሽ] ⚡️</b>\n<i>አሰልጣኝ ህላዌ፡ ሰበቦችን አቁመን ወደ ለውጥ!</i>"
+        header = f"<b>🚨 የሰኞ ልዩ የ3 ሰዓት ፍላሽ ሴል! [70% ቅናሽ] 🚨</b>\n<i>አሰልጣኝ ህላዌ፦ ራስህን መዋሸት የምታቆምበት የመጨረሻው ሰኞ!</i>"
 
         coach_voice = (
             "ሰዎቼ —\n\n"
-            "እስከዛሬ ድረስ በጥንካሬ ካሰለጠንኳቸው በሺዎች የሚቆጠሩ ስኬታማ ሰዎች ውስጥ ያልተቀላቀላችሁት በምን ምክንያት ነው? "
-            "ዋጋው ከብዶዎት? ጊዜ አጥተው? ወይስ ጀምሮ የማቆም ፍርሃት ሰንጎዎት?\n\n"
-            "ዛሬ ቅዳሜ ነው — አዲስ ማንነት ለመጀመር ምርጡ ቀን! ሁሉንም ሰበብ ዛሬ ሰባብሬዋለሁ።\n"
+            "ለስንት ሳምንት እና ለስንት አመት ነው 'ከሚቀጥለው ሰኞ እጀምራለሁ' እያልክ ራስህን የዋሸኸው? ዛሬ ሰኞ ነው! "
+            "የዛሬውን ሰኞስ በምን ሰበብ ልታሳልፈው ነው? ዋጋው ከብዶኝ ነው እንዳትለኝ — የአንድ ቀን የሞባይል ካርድ ዋጋ አድርጌልሃለሁ።\n\n"
             f"💰 <s>{original_price} ብር</s> → <b>{price} ብር ብቻ!</b>\n"
-            f"<i>({daily_anchor_am} — ከአንድ ማኪያቶ ዋጋ ያነሰ! ይህ ዋጋ አይደለም፣ ለራሱ ክብር ያለው ሰው ለሰውነቱ የሚያደርገው ኢንቨስትመንት ነው።)</i>"
+            f"<i>({daily_anchor_am} — ከአንድ ማኪያቶ ወይም ማስቲካ ዋጋ ያነሰ! ዛሬም ካልወሰንክ፣ ችግሩ የገንዘብ ሳይሆን ለውጥን የመፍራትና ሰነፍ ሆኖ የመቅረት በሽታ ነው!)</i>"
         )
 
         what_you_get = (
-            "🔥 <b>በዚህ ሙሉ ሲስተም ውስጥ ምን ያገኛሉ?</b>\n"
-            "✅ <b>የ8 ሳምንት ደረጃ በደረጃ የተቀመጠ የጂም ስልጠና</b> — ከጀማሪ እስከ ከፍተኛ\n"
-            "✅ <b>እያንዳንዱን እንቅስቃሴ በግልፅ የሚያሳዩ HD ቪዲዮዎች</b>\n"
-            "✅ <b>የሀገራችንን ምግቦች መነሻ ያደረገ ሳይንሳዊ የአመጋገብ መመሪያ (የምግብ አዘገጃጀት)</b>\n"
-            "✅ <b>በቀላሉ በስልክዎ የሚከፈትና ለዘላለም የእርስዎ የሚሆን Premium PDF</b>"
+            "🔥 <b>በዚህ ሙሉ የ60 ቀናት ሲስተም ውስጥ ምን ያገኛሉ?</b>\n"
+            "✅ <b>የ8 ሳምንት ጨካኝ እና ውጤታማ የጂም ስልጠና</b> — ከቅዠት ወደ እውነት\n"
+            "✅ <b>እያንዳንዱን እንቅስቃሴ በግልፅ የሚያሳዩ HD ቪዲዮዎች</b> — ስህተትን የሚያጠፉ\n"
+            "✅ <b>የሀገራችንን ምግቦች (እንጀራ፣ ሽሮ፣ ጥብስ) መነሻ ያደረገ ሳይንሳዊ የአመጋገብ መመሪያ</b>\n"
+            "✅ <b>በስልክዎ የሚቀመጥ፣ ዳታ የማይበላ Premium PDF መመሪያ</b>"
         )
 
         proof_block = (
@@ -224,7 +227,7 @@ def build_deal_message(
             f"— <b>{testimonial['name']}</b>"
         )
 
-        cta = "<b>የቀሩት ቦታዎች ውስን ናቸው። አሁኑኑ ከታች ይንኩና ህይወትዎን ይቀይሩ! 👇</b>"
+        cta = "<b>ይህ እድል በህይወትህ አንዴ ብቻ ነው የሚመጣው። ዛሬ ሰኞን በተግባር ጀምረው! 👇</b>"
 
         body = (
             f"{coach_voice}\n\n"
@@ -234,27 +237,26 @@ def build_deal_message(
             f"{cta}"
         )
 
-        button_text = f"⚡️ በ{price} ብር አሁኑኑ ጉዞዬን እጀምራለሁ"
+        button_text = f"⚡️ ሰበብ አቁሜ በ{price} ብር ዛሬ እጀምራለሁ"
 
-    # ── ENGLISH (HIGH CONVERSION) ───────────────────────────────────
+    # ── ENGLISH (MONDAY BREAKTHROUGH STYLE) ────────────────────────
     else:
-        header = f"<b>⚡️ [60% OFF] ⚡️</b>\n<i>Coach Hilawe: No More Excuses.</i>"
+        header = f"<b>🚨 MONDAY FLASH SALE! [70% OFF] 🚨</b>\n<i>Coach Hilawe: Stop Lying to Yourself. Today is the Day.</i>"
 
         coach_voice = (
             "My people —\n\n"
-            "Why are you still standing on the sidelines while thousands are transforming their bodies? "
-            "Is it the price? The timing? Or the fear of quitting again?\n\n"
-            "Today is Saturday — the ultimate day to trigger change. I have removed every single barrier.\n"
+            "How many times have you looked in the mirror and said, 'I'll start next Monday'? Today is Monday. "
+            "Are you going to let another week slip away while your belly grows? I have stripped away every single financial barrier.\n\n"
             f"💰 <s>{original_price} ETB</s> → <b>{price} ETB ONLY!</b>\n"
-            f"<i>({daily_anchor_en} — less than the price of a single macchiato. This is a commitment to your future self.)</i>"
+            f"<i>({daily_anchor_en} — less than a single piece of gum. If you still hesitate, it's not the money; it's your lack of discipline.)</i>"
         )
 
         what_you_get = (
-            "🔥 <b>What is Inside the Full System:</b>\n"
-            "✅ <b>Full 8-Week Step-by-Step Gym Protocol</b> — beginner to advanced\n"
-            "✅ <b>Premium HD Video Demonstrations</b> for every single movement\n"
-            "✅ <b>Custom Ethiopian Food Nutrition Blueprint</b> — injera, tibs, shiro included\n"
-            "✅ <b>Clear Offline-Ready PDF</b> — lives on your phone forever"
+            "🔥 <b>What is Inside the Brutally Honest System:</b>\n"
+            "✅ <b>Full 8-Week Elite Blueprint</b> — designed to shatter plateaus\n"
+            "✅ <b>Premium HD Video Demonstrations</b> — zero guesswork, total execution\n"
+            "✅ <b>Custom Ethiopian Nutrition Guide</b> — build muscle with injera, shiro, and tibs\n"
+            "✅ <b>Lifetime Offline PDF</b> — lives on your phone forever"
         )
 
         proof_block = (
@@ -269,7 +271,7 @@ def build_deal_message(
             f"— <b>{testimonial['name']}</b>"
         )
 
-        cta = "<b>Allocations are strictly limited. Tap below to claim your spot instantly! 👇</b>"
+        cta = "<b>This broadcast self-destructs in 3 hours. Stop being a spectator. Tap below now! 👇</b>"
 
         body = (
             f"{coach_voice}\n\n"
@@ -279,7 +281,7 @@ def build_deal_message(
             f"{cta}"
         )
 
-        button_text = f"⚡️ START PROTOCOL FOR {price} ETB"
+        button_text = f"⚡️ STOP DELAYING & START FOR {price} ETB"
 
     # ── ASSEMBLE ─────────────────────────────────────────────────────
     text = f"{header}\n\n{body}"
@@ -294,7 +296,6 @@ def build_deal_message(
     )
 
     return text, kb
-
 import os
 from datetime import datetime, timedelta
 
@@ -424,7 +425,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 299) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -500,7 +501,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -546,7 +547,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBNCVqEbtViWNj9B6t7wybN6QJveXQdgACmQ5rG82pkVD6LKmgwdKb6AEAAwIAA3kAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBQItqFHC9vpyQQEZNWelJneUMbrKihQAChRBrG1qroFDAqt5Ej-LjcgEAAwIAA3kAAzsE"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
