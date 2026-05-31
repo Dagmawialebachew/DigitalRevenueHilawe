@@ -495,6 +495,17 @@ async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
     
 
 
+@router.message(F.photo)
+async def get_photo_id(message: types.Message):
+    photo = message.photo[-1]
+
+    await message.reply(
+        f"✅ *Photo Information*\n\n"
+        f"📸 *File ID:*\n`{photo.file_id}`\n\n"
+        f"🔑 *Unique File ID:*\n`{photo.file_unique_id}`",
+        parse_mode="Markdown"
+    )
+
 
 # @router.message(F.document)
 # async def get_document_id(message: types.Message):
