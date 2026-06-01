@@ -117,17 +117,6 @@ async def settings_view(message: types.Message, db: Database):
     await message.answer(bio_card, reply_markup=builder.as_markup())
 
 
-@router.message(F.photo)
-async def get_photo_id(message: types.Message):
-    photo = message.photo[-1]
-
-    await message.reply(
-        f"✅ *Photo Information*\n\n"
-        f"📸 *File ID:*\n`{photo.file_id}`\n\n"
-        f"🔑 *Unique File ID:*\n`{photo.file_unique_id}`",
-        parse_mode="Markdown"
-    )
-
     
     
 @router.message(F.text.in_({"💳 Unlock Plan", "💳 እቅዴን ክፈት"}))
