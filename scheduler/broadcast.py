@@ -576,7 +576,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBXmZqHG-XlAFdihV2rhj-ebMwHSvjGgACcA5rGyXF6VA47Uqka7wxNgEAAwIAA3kAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBatFqHa1EUzlewl061AO0_8FKKGMJyAACvg5rG-XJ8VC51ifmHCwcqQEAAwIAA3cAAzsE"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):
