@@ -186,35 +186,46 @@ def get_rotating_content(lang: str):
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 399,
+    price: int = 299,
     original_price: int = 1000,
 ):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testimonial, social_proof, urgency = get_rotating_content(lang)
 
-    # 399 ብር / 60 ቀናት = 6.65 ብር በቀን። ከባዶ ማስቲካ ዋጋ ያነሰ!
-    daily_anchor_am = "በቀን 6.6 ብር ብቻ"
-    daily_anchor_en = "just 6.6 ETB per day"
+    # 299 / 60 days = 4.98 → "ከ5 ብር ያነሰ" hits harder than 4.98
+    daily_anchor_am = "ከ5 ብር ያነሰ በቀን"
+    daily_anchor_en = "under 5 ETB per day"
 
-    # ── AMHARIC (HIGH CONVERSION) ───────────────────────────────────
+    # ── AMHARIC ─────────────────────────────────────────────────────
     if lang == "AM":
-        header = f"<b>⚡️ ልዩ የ3 ሰዓት ፍላሽ ሴል! [60% ቅናሽ] ⚡️</b>\n<i>አሰልጣኝ ህላዌ፡ ሰበቦችን አቁመን ወደ ለውጥ!</i>"
+
+        header = (
+            "<b>ዛሬ ብቻ — 299 ብር።</b>\n"
+            "<i>Coach Hilawe 8-Week System</i>"
+        )
 
         coach_voice = (
             "ሰዎቼ —\n\n"
-            "እስከዛሬ ድረስ በጥንካሬ ካሰለጠንኳቸው በሺዎች የሚቆጠሩ ስኬታማ ሰዎች ውስጥ ያልተቀላቀላችሁት በምን ምክንያት ነው? "
-            "ዋጋው ከብዶዎት? ጊዜ አጥተው? ወይስ ጀምሮ የማቆም ፍርሃት ሰንጎዎት?\n\n"
-            "ዛሬ እሁድ ነው — አዲስ ማንነት ለመጀመር ምርጡ ቀን! ሁሉንም ሰበብ ዛሬ ሰባብሬዋለሁ።\n"
-            f"💰 <s>{original_price} ብር</s> → <b>{price} ብር ብቻ!</b>\n"
-            f"<i>({daily_anchor_am} — ከአንድ ማኪያቶ ዋጋ ያነሰ! ይህ ዋጋ አይደለም፣ ለራሱ ክብር ያለው ሰው ለሰውነቱ የሚያደርገው ኢንቨስትመንት ነው።)</i>"
+            "ዛሬ አንድ ጥያቄ ብቻ አለኝ።\n\n"
+            "ሰውነትዎን ለመቀየር ስንት ጊዜ 'ሳምንት ቢቀጥል' ብለዋል?\n\n"
+            "ያ ሳምንት — ዛሬ ነው።\n\n"
+            f"<s>{original_price} ብር</s>  →  <b>{price} ብር ብቻ።</b>\n"
+            f"<i>({daily_anchor_am} — ከቡና ዋጋ ያነሰ።\n"
+            f"ለ60 ቀናት ሙሉ ፕሮግራም።)</i>"
         )
 
         what_you_get = (
-            "🔥 <b>በዚህ ሙሉ ሲስተም ውስጥ ምን ያገኛሉ?</b>\n"
-            "✅ <b>የ8 ሳምንት ደረጃ በደረጃ የተቀመጠ የጂም ስልጠና</b> — ከጀማሪ እስከ ከፍተኛ\n"
-            "✅ <b>እያንዳንዱን እንቅስቃሴ በግልፅ የሚያሳዩ HD ቪዲዮዎች</b>\n"
-            "✅ <b>የሀገራችንን ምግቦች መነሻ ያደረገ ሳይንሳዊ የአመጋገብ መመሪያ (የምግብ አዘገጃጀት)</b>\n"
-            "✅ <b>በቀላሉ በስልክዎ የሚከፈትና ለዘላለም የእርስዎ የሚሆን Premium PDF</b>"
+            "<b>ምን ያገኛሉ?</b>\n"
+            "▸ <b>የ8 ሳምንት ሙሉ የጂም ፕሮግራም</b> — ለጀማሪ እና መካከለኛ\n"
+            "▸ <b>HD ቪዲዮ ለእያንዳንዱ እንቅስቃሴ</b>\n"
+            "▸ <b>ለኢትዮጵያ ምግቦች የተሰራ የአመጋገብ መመሪያ</b>\n"
+            "▸ <b>ለዘላለም በስልክዎ ላይ ያለ PDF</b>"
+        )
+
+        mirror_moment = (
+            "ስምንት ሳምንት ቆጥሩ ከዛሬ።\n"
+            "ያ ቀን መስታወት ፊት ሲቆሙ —\n"
+            "ዛሬ የወሰኑት ውሳኔ ነው የሚታዩዎ።"
         )
 
         proof_block = (
@@ -229,37 +240,50 @@ def build_deal_message(
             f"— <b>{testimonial['name']}</b>"
         )
 
-        cta = "<b>የቀሩት ቦታዎች ውስን ናቸው። አሁኑኑ ከታች ይንኩና ህይወትዎን ይቀይሩ! 👇</b>"
+        cta = "<b>ከታች ይንኩ። ዛሬ ይጀምሩ። 👇</b>"
 
-        body = (
-            f"{coach_voice}\n\n"
-            f"{what_you_get}\n\n"
-            f"{proof_block}\n\n"
-            f"{testimonial_block}\n\n"
-            f"{cta}"
-        )
+        body = "\n\n".join([
+            coach_voice,
+            what_you_get,
+            mirror_moment,
+            proof_block,
+            testimonial_block,
+            cta,
+        ])
 
-        button_text = f"⚡️ በ{price} ብር አሁኑኑ ጉዞዬን እጀምራለሁ"
+        button_text = f"💪 በ{price} ብር ዛሬ እጀምራለሁ"
 
-    # ── ENGLISH (HIGH CONVERSION) ───────────────────────────────────
+    # ── ENGLISH ──────────────────────────────────────────────────────
     else:
-        header = f"<b>⚡️ [60% OFF] ⚡️</b>\n<i>Coach Hilawe: No More Excuses.</i>"
+
+        header = (
+            "<b>Today only — 299 ETB.</b>\n"
+            "<i>Coach Hilawe 8-Week System</i>"
+        )
 
         coach_voice = (
             "My people —\n\n"
-            "Why are you still standing on the sidelines while thousands are transforming their bodies? "
-            "Is it the price? The timing? Or the fear of quitting again?\n\n"
-            "Today is Sunday — the ultimate day to trigger change. I have removed every single barrier.\n"
-            f"💰 <s>{original_price} ETB</s> → <b>{price} ETB ONLY!</b>\n"
-            f"<i>({daily_anchor_en} — less than the price of a single macchiato. This is a commitment to your future self.)</i>"
+            "One question.\n\n"
+            "How many times have you said\n"
+            "'I'll start next week'?\n\n"
+            "That week is today.\n\n"
+            f"<s>{original_price} ETB</s>  →  <b>{price} ETB only.</b>\n"
+            f"<i>({daily_anchor_en} — less than your daily coffee.\n"
+            f"Full program. 60 days.)</i>"
         )
 
         what_you_get = (
-            "🔥 <b>What is Inside the Full System:</b>\n"
-            "✅ <b>Full 8-Week Step-by-Step Gym Protocol</b> — beginner to advanced\n"
-            "✅ <b>Premium HD Video Demonstrations</b> for every single movement\n"
-            "✅ <b>Custom Ethiopian Food Nutrition Blueprint</b> — injera, tibs, shiro included\n"
-            "✅ <b>Clear Offline-Ready PDF</b> — lives on your phone forever"
+            "<b>What's inside:</b>\n"
+            "▸ <b>Full 8-Week Gym System</b> — beginner to intermediate\n"
+            "▸ <b>HD video</b> for every single exercise\n"
+            "▸ <b>Ethiopian food nutrition guide</b> — built for our meals\n"
+            "▸ <b>PDF on your phone forever</b>"
+        )
+
+        mirror_moment = (
+            "Count 8 weeks from today.\n"
+            "When you stand in front of the mirror that morning —\n"
+            "it will be today's decision looking back at you."
         )
 
         proof_block = (
@@ -274,17 +298,18 @@ def build_deal_message(
             f"— <b>{testimonial['name']}</b>"
         )
 
-        cta = "<b>Allocations are strictly limited. Tap below to claim your spot instantly! 👇</b>"
+        cta = "<b>Tap below. Start today. 👇</b>"
 
-        body = (
-            f"{coach_voice}\n\n"
-            f"{what_you_get}\n\n"
-            f"{proof_block}\n\n"
-            f"{testimonial_block}\n\n"
-            f"{cta}"
-        )
+        body = "\n\n".join([
+            coach_voice,
+            what_you_get,
+            mirror_moment,
+            proof_block,
+            testimonial_block,
+            cta,
+        ])
 
-        button_text = f"⚡️ START PROTOCOL FOR {price} ETB"
+        button_text = f"💪 {price} ETB — I start today"
 
     # ── ASSEMBLE ─────────────────────────────────────────────────────
     text = f"{header}\n\n{body}"
@@ -299,7 +324,6 @@ def build_deal_message(
     )
 
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -430,7 +454,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 299) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -506,7 +530,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -552,7 +576,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBXmZqHG-XlAFdihV2rhj-ebMwHSvjGgACcA5rGyXF6VA47Uqka7wxNgEAAwIAA3kAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBatFqHa1EUzlewl061AO0_8FKKGMJyAACvg5rG-XJ8VC51ifmHCwcqQEAAwIAA3cAAzsE"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):

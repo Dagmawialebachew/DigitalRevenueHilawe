@@ -115,6 +115,8 @@ async def settings_view(message: types.Message, db: Database):
     builder.adjust(2)
 
     await message.answer(bio_card, reply_markup=builder.as_markup())
+
+
     
     
 @router.message(F.text.in_({"💳 Unlock Plan", "💳 እቅዴን ክፈት"}))
