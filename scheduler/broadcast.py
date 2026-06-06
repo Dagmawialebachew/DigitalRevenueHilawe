@@ -80,7 +80,7 @@ TESTIMONIALS = {
     "AM": [
         {
             "text": (
-                "እውነቱን ለመናገር — 399 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
+                "እውነቱን ለመናገር — 499 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
                 "ግን ውስጥ ያለውን ሲስተም ስከፍተው ደነገጥኩ! PDF መመሪያው እጅግ ግልጽ ነው፣ "
                 "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥነኝ የግል አሰልጣኝ ያለኝ ያህል ነው የሚሰማኝ። "
                 "በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው።"
@@ -107,7 +107,7 @@ TESTIMONIALS = {
     "EN": [
         {
             "text": (
-                "Honestly — when I saw 399 ETB I thought 'what could this possibly offer?' "
+                "Honestly — when I saw 499 ETB I thought 'what could this possibly offer?' "
                 "I was wrong. The PDF is detailed, the videos are premium, "
                 "and the structure actually makes sense. "
                 "There is zero excuse to scroll past this."
@@ -183,145 +183,56 @@ def get_rotating_content(lang: str):
         urgency_list[idx % len(urgency_list)],
     )
 
-def build_deal_message(
-    lang: str,
-    product_id: int,
-    price: int = 299,
-    original_price: int = 1000,
-):
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def build_deal_message(lang: str, product_id: int, price: int = 500, original_price: int = 1100):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
-    testimonial, social_proof, urgency = get_rotating_content(lang)
+    testi, proof, urgency = get_rotating_content(lang)
 
-    # 299 / 60 days = 4.98 → "ከ5 ብር ያነሰ" hits harder than 4.98
-    daily_anchor_am = "ከ5 ብር ያነሰ በቀን"
-    daily_anchor_en = "under 5 ETB per day"
-
-    # ── AMHARIC ─────────────────────────────────────────────────────
+    # የይዘት ምርጫ (Content Selection)
     if lang == "AM":
+            title = "🏆 <b>ለአካል ብቃትዎ የሚያስፈልገው የተሟላ መፍትሄ</b>"
+            value_intro = "💡 የሚፈልጉትን የሰውነት ቅርጽ ለማግኘት ትክክለኛ እቅድ እና መመሪያ ያስፈልግዎታል። ይህ ፕሮግራም ያንን ክፍተት እንዲሞላ ተዘጋጅቷል።"
+            features = (
+                "✅ <b>የ8 ሳምንት የጂም ስልጠና</b> — በደረጃ የተከፋፈለ\n"
+                "✅ <b>HD ቪዲዮዎች</b> — ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር\n"
+                "✅ <b>የኢትዮጵያ ምግቦችን ያካተተ</b> — የሀገራችን ምግቦች ተካተውበታል\n"
+                "✅ <b>PDF መመሪያ</b> — ሁልጊዜ በስልክዎ ላይ"
+            )
+            investment = f"🔥 <b>ኢንቨስትመንቱ፡</b> <s>{original_price} ብር</s> → <b>{price} ብር ብቻ።</b>"
+            call_to_action = "🚀 ይህ ዋጋ ከሚያገኙት ዕውቀትና ለውጥ አንጻር እዚህ ግባ የሚባል አይደለም። የዛሬውን ውሳኔ ያድርጉ።"
+            btn_text = f"💪 ፕሮግራሙን እጀምራለሁ"
 
-        header = (
-            "<b>ዛሬ ብቻ — 299 ብር።</b>\n"
-            "<i>Coach Hilawe 8-Week System</i>"
-        )
-
-        coach_voice = (
-            "ሰዎቼ —\n\n"
-            "ዛሬ አንድ ጥያቄ ብቻ አለኝ።\n\n"
-            "ሰውነትዎን ለመቀየር ስንት ጊዜ 'ሳምንት ቢቀጥል' ብለዋል?\n\n"
-            "ያ ሳምንት — ዛሬ ነው።\n\n"
-            f"<s>{original_price} ብር</s>  →  <b>{price} ብር ብቻ።</b>\n"
-            f"<i>({daily_anchor_am} — ከቡና ዋጋ ያነሰ።\n"
-            f"ለ60 ቀናት ሙሉ ፕሮግራም።)</i>"
-        )
-
-        what_you_get = (
-            "<b>ምን ያገኛሉ?</b>\n"
-            "▸ <b>የ8 ሳምንት ሙሉ የጂም ፕሮግራም</b> — ለጀማሪ እና መካከለኛ\n"
-            "▸ <b>HD ቪዲዮ ለእያንዳንዱ እንቅስቃሴ</b>\n"
-            "▸ <b>ለኢትዮጵያ ምግቦች የተሰራ የአመጋገብ መመሪያ</b>\n"
-            "▸ <b>ለዘላለም በስልክዎ ላይ ያለ PDF</b>"
-        )
-
-        mirror_moment = (
-            "ስምንት ሳምንት ቆጥሩ ከዛሬ።\n"
-            "ያ ቀን መስታወት ፊት ሲቆሙ —\n"
-            "ዛሬ የወሰኑት ውሳኔ ነው የሚታዩዎ።"
-        )
-
-        proof_block = (
-            f"━━━━━━━━━━━━━━\n"
-            f"{social_proof}\n"
-            f"{urgency}\n"
-            f"━━━━━━━━━━━━━━"
-        )
-
-        testimonial_block = (
-            f"💬 <i>\"{testimonial['text']}\"</i>\n"
-            f"— <b>{testimonial['name']}</b>"
-        )
-
-        cta = "<b>ከታች ይንኩ። ዛሬ ይጀምሩ። 👇</b>"
-
-        body = "\n\n".join([
-            coach_voice,
-            what_you_get,
-            mirror_moment,
-            proof_block,
-            testimonial_block,
-            cta,
-        ])
-
-        button_text = f"💪 በ{price} ብር ዛሬ እጀምራለሁ"
-
-    # ── ENGLISH ──────────────────────────────────────────────────────
     else:
+            title = "🏆 <b>The Complete Fitness Solution</b>"
+            value_intro = "💡 To achieve the physique you want, you need a proven plan and expert guidance. This program fills that gap perfectly."
+            features = (
+                "✅ <b>8-Week Gym System</b> — Step-by-step progress\n"
+                "✅ <b>HD Videos</b> — Proper form for every movement\n"
+                "✅ <b>Ethiopian Diet Plan</b> — Tailored for our local food\n"
+                "✅ <b>Lifetime PDF access</b> — On your phone"
+            )
+            investment = f"🔥 <b>Investment:</b> <s>{original_price} ETB</s> → <b>{price} ETB only.</b>"
+            call_to_action = "🚀 This price is negligible compared to the value you receive. Take the step today."
+            btn_text = f"💪 Start Now"
 
-        header = (
-            "<b>Today only — 299 ETB.</b>\n"
-            "<i>Coach Hilawe 8-Week System</i>"
-        )
-
-        coach_voice = (
-            "My people —\n\n"
-            "One question.\n\n"
-            "How many times have you said\n"
-            "'I'll start next week'?\n\n"
-            "That week is today.\n\n"
-            f"<s>{original_price} ETB</s>  →  <b>{price} ETB only.</b>\n"
-            f"<i>({daily_anchor_en} — less than your daily coffee.\n"
-            f"Full program. 60 days.)</i>"
-        )
-
-        what_you_get = (
-            "<b>What's inside:</b>\n"
-            "▸ <b>Full 8-Week Gym System</b> — beginner to intermediate\n"
-            "▸ <b>HD video</b> for every single exercise\n"
-            "▸ <b>Ethiopian food nutrition guide</b> — built for our meals\n"
-            "▸ <b>PDF on your phone forever</b>"
-        )
-
-        mirror_moment = (
-            "Count 8 weeks from today.\n"
-            "When you stand in front of the mirror that morning —\n"
-            "it will be today's decision looking back at you."
-        )
-
-        proof_block = (
-            f"━━━━━━━━━━━━━━\n"
-            f"{social_proof}\n"
-            f"{urgency}\n"
-            f"━━━━━━━━━━━━━━"
-        )
-
-        testimonial_block = (
-            f"💬 <i>\"{testimonial['text']}\"</i>\n"
-            f"— <b>{testimonial['name']}</b>"
-        )
-
-        cta = "<b>Tap below. Start today. 👇</b>"
-
-        body = "\n\n".join([
-            coach_voice,
-            what_you_get,
-            mirror_moment,
-            proof_block,
-            testimonial_block,
-            cta,
-        ])
-
-        button_text = f"💪 {price} ETB — I start today"
-
-    # ── ASSEMBLE ─────────────────────────────────────────────────────
-    text = f"{header}\n\n{body}"
-
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(
-                text=button_text,
-                callback_data=f"pay_{product_id}"
-            )]
-        ]
+    # አቀነባበር (Assembly)
+    text = (
+        f"{title}\n\n"
+        f"{value_intro}\n\n"
+        f"{features}\n\n"
+        f"{investment}\n"
+        f"<i>{call_to_action}</i>\n\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"<b>ምስክርነት (Testimonial):</b>\n💬 <i>\"{testi['text']}\"</i>\n— {testi['name']}\n\n"
+        f"📈 {proof}\n\n"
+        f"⏳ {urgency}\n"
+        f"━━━━━━━━━━━━━━"
     )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn_text, callback_data=f"pay_{product_id}")]
+    ])
 
     return text, kb
 
@@ -454,7 +365,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 299) as effective_price
+            COALESCE(s.selected_price, 499) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -530,7 +441,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 299) as final_price
+            COALESCE(s.selected_price, 499) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -576,7 +487,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBatFqHa1EUzlewl061AO0_8FKKGMJyAACvg5rG-XJ8VC51ifmHCwcqQEAAwIAA3cAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBfyBqJC72HbJzkFCsizoQhIwZWSuotQAClA9rG0TsIFFgI14u5ygxaAEAAwIAA3kAAzsE"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     async def send_to_user(user):

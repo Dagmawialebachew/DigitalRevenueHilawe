@@ -463,6 +463,23 @@ async def about_the_coach(message: types.Message, db: Database):
         "👇 Tap below to get your personalized program" if lang == "EN" else "👇 የእርስዎን እቅድ ለማግኘት ከታች ይጫኑ።",
         reply_markup=builder.as_markup()
     )
+    
+
+    
+# @router.message(F.photo)
+# async def get_photo_id(message: types.Message):
+#     # message.photo is a list of different sizes; [-1] is the highest quality
+#     file_id = message.photo[-1].file_id
+    
+#     response = (
+#        f"✅ *High-Res File ID Captured:*\n\n"
+#        f"`{file_id}`\n\n"
+#        f"Copy the ID above and paste it into your MediaGroupBuilder."
+#    )
+#     await message.reply(response, parse_mode="Markdown")
+
+
+
 @router.callback_query(F.data == "trigger_unlock")
 async def process_unlock_callback(callback: types.CallbackQuery, db: Database):
     # 1. Stop the loading spinner on the button
