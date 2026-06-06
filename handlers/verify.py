@@ -385,6 +385,20 @@ async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
 
     async def process_one(rec):
         start_time = time.perf_counter()
+        t0 = time.perf_counter()
+        file = await bot.get_file(rec["proof_file_id"])
+        await bot.download_file(file.file_path, destination=img_stream)
+        print(f"DEBUG: Download took {time.perf_counter() - t0:.2f}s")
+        
+        # Measure OCR
+        t1 = time.perf_counter()
+        local = await extract_local_data(img_stream)
+        print(f"DEBUG: OCR took {time.perf_counter() - t1:.2f}s")
+        
+        # Measure API
+        t2 = time.perf_counter()
+        bank_data = await verify_external(local["ref"], local["provider"])
+        print(f"DEBUG: API Call took {time.perf_counter() - t2:.2f}s")
         try:
             file = await bot.get_file(rec["proof_file_id"])
             img_stream = io.BytesIO()
