@@ -1,25 +1,26 @@
 """
-verify_fast.py  —  Premium speed edition
-Target: ~5–10s per transaction (down from 60–120s)
+verify.py  —  Render-Optimized Edition
+Target: < 3 seconds per transaction
 
-Speed gains:
-  1. Module-level persistent httpx.AsyncClient (warm connection pool, no cold-start)
-  2. 2× upscale only (vs 3×) — 56% less pixels, same OCR accuracy on phone screenshots
-  3. Gaussian blur replaces bilateral filter — 20× faster, same noise reduction for digital screenshots
-  4. Two Tesseract configs run with asyncio.gather (true parallel via loop.run_in_executor)
-  5. asyncio.gather for batch — all receipts hit API concurrently
+Speed & Architecture for Cloud (Render):
+  1. API Authority: Always prioritizes exact amounts from the API over local OCR.
+  2. Smart Failover OCR: Tries PSM 6 first. If it misses, falls back to PSM 4.
+  3. Precision Binarization: Adjusted numpy thresholding to preserve light gray text (crucial for Telebirr receipts).
+  4. Memory Guard: Downscales massive phone screenshots to prevent Out-Of-Memory crashes.
+  5. Persistent Async HTTP: Warm connection pools for zero-latency API handshakes.
 """
 
 import os
+import io
 import asyncio
 import re
 import platform
 import shutil
+import time
 
-import cv2
 import numpy as np
 import httpx
-from PIL import Image
+from PIL import Image, ImageEnhance
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -34,7 +35,7 @@ else:
     pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "/usr/bin/tesseract"
 
 # ─────────────────────────────────────────────
-#  CONFIG
+#  CONFIG & PERSISTENT CLIENT
 # ─────────────────────────────────────────────
 API_KEY    = settings.VERIFY_API_KEY
 API_URL    = "https://verifyapi.leulzenebe.pro/verify"
@@ -42,19 +43,14 @@ CBE_SUFFIX = "99533641"
 
 router = Router(name="verify")
 
-# ─────────────────────────────────────────────
-#  PERSISTENT HTTP CLIENT  ← biggest speed win
-#  Created once at module load; reused forever.
-#  Warm connection pool = no TLS handshake on each request.
-# ─────────────────────────────────────────────
 _http_client: httpx.AsyncClient | None = None
 
 def get_http_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None or _http_client.is_closed:
         _http_client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
-            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            timeout=httpx.Timeout(connect=3.0, read=10.0, write=3.0, pool=3.0),
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
             headers={
                 "x-api-key": API_KEY,
                 "Content-Type": "application/json",
@@ -62,73 +58,62 @@ def get_http_client() -> httpx.AsyncClient:
         )
     return _http_client
 
-
 class PaymentStates(StatesGroup):
     waiting_for_screenshot = State()
 
+# ─────────────────────────────────────────────
+#  IN-MEMORY IMAGE PREPROCESSING
+# ─────────────────────────────────────────────
+def _preprocess_in_memory(img_stream: io.BytesIO) -> Image.Image:
+    """Processes image in RAM using PIL and numpy. Protects Render from OOM."""
+    img = Image.open(img_stream).convert("L")
+    w, h = img.size
+
+    # Memory Guard
+    if w > 1500:
+        ratio = 1500 / w
+        img = img.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
+    elif w < 800:
+        img = img.resize((w * 2, h * 2), Image.Resampling.BICUBIC)
+
+    # Boost contrast before matrix conversion
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(2.0)
+
+    # Vectorized fast thresholding
+    # 0.92 multiplier ensures light gray text (Telebirr) isn't washed out into the white background
+    img_array = np.array(img)
+    threshold = np.mean(img_array) * 0.92
+    binary_matrix = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+    
+    return Image.fromarray(binary_matrix)
 
 # ─────────────────────────────────────────────
-#  IMAGE PREPROCESSING  ← second biggest win
+#  SMART FAILOVER OCR
 # ─────────────────────────────────────────────
-def _preprocess(image_path: str) -> str | None:
-    img = cv2.imread(image_path)
-    if img is None:
-        return None
+def _run_tesseract(img: Image.Image, psm: int) -> str:
+    return pytesseract.image_to_string(img, config=f"--oem 3 --psm {psm}")
 
-    h, w = img.shape[:2]
-
-    # 2× (not 3×) — phone screenshots are already high-res (1080p+).
-    # Going to 3× gives near-zero OCR improvement while tripling memory + CPU time.
-    img = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # CLAHE — keeps dark-mode and low-contrast boosts
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    gray  = clahe.apply(gray)
-
-    # Gaussian blur instead of bilateral filter.
-    # Bilateral: O(r²) per pixel, very slow.
-    # Gaussian:  O(1) separable kernel, 20× faster.
-    # For digital screenshots (flat colours, minimal natural texture), results are identical.
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
-
-    # Otsu threshold
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    out = f"temp_{os.path.basename(image_path)}"
-    cv2.imwrite(out, thresh)
-    return out
-
-
-# ─────────────────────────────────────────────
-#  PARALLEL OCR  ← third win
-#  Two Tesseract configs run concurrently via
-#  executor so they don't block the event loop.
-# ─────────────────────────────────────────────
-def _run_tesseract(path: str, psm: int) -> str:
-    return pytesseract.image_to_string(
-        Image.open(path), config=f"--oem 3 --psm {psm}"
-    )
-
-async def _ocr_parallel(path: str) -> str:
+async def _ocr_smart(img: Image.Image) -> str:
     loop = asyncio.get_running_loop()
-    t6, t4 = await asyncio.gather(
-        loop.run_in_executor(None, _run_tesseract, path, 6),
-        loop.run_in_executor(None, _run_tesseract, path, 4),
-    )
-    return t6 + "\n" + t4
-
+    
+    text = await loop.run_in_executor(None, _run_tesseract, img, 6)
+    
+    # Failover condition: Look for either a CBE ID or a 10-character Telebirr ID
+    if not re.search(r"[A-Z0-9]{8,}", text):
+        fallback_text = await loop.run_in_executor(None, _run_tesseract, img, 4)
+        text = f"{text}\n{fallback_text}"
+        
+    return text
 
 # ─────────────────────────────────────────────
 #  EXTRACTION LOGIC
 # ─────────────────────────────────────────────
 def _detect_provider(up: str) -> str:
-    if any(k in up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT.CBE", "FT2")):
+    if any(k in up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT", "FT2")):
         return "CBE"
-    if any(k in up for k in ("TELEBIRR", "ETHIO TELECOM", "TELE BIRR",
-                               "TRANSACTION NUMBER", "INVOICE NO",
-                               "DDK", "DE6", "DE8", "DE9")):
+    # Added regex pattern to detect Telebirr IDs (starting with D, 10 chars) even if brand name is unreadable
+    if any(k in up for k in ("TELEBIRR", "ETHIO TELECOM", "TELE BIRR")) or re.search(r"\b(D[A-Z0-9]{9})\b", up):
         return "Telebirr"
     if "AWASH" in up:
         return "Awash"
@@ -136,81 +121,55 @@ def _detect_provider(up: str) -> str:
 
 def _extract_cbe(up: str) -> str | None:
     m = re.search(r"F\s*T\s*([A-Z0-9]{8,12})", up)
-    if m:
-        return ("FT" + m.group(1)).replace(" ", "")
+    if m: return ("FT" + m.group(1)).replace(" ", "")
     m = re.search(r"(?:ID|TRANSACTION\s*ID)[:\s]+([A-Z0-9]{10,14})", up)
-    if m:
-        return m.group(1).strip()
+    if m: return m.group(1).strip()
     m = re.search(r"\b(FT[A-Z0-9]{8,12})\b", up)
     return m.group(1) if m else None
 
 def _extract_telebirr(up: str, raw: str) -> str | None:
-    for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO",
-                  "INVOICE NUMBER", "REF NO", "REFERENCE NO"):
-        m = re.search(rf"{re.escape(label)}[:\s#]+([A-Z0-9]{{8,14}})", up)
-        if m:
-            return m.group(1).strip()
+    for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO", "INVOICE NUMBER", "REF NO", "REFERENCE NO", "NUMBER"):
+        m = re.search(rf"{label}[:\s#]+([A-Z0-9]{{8,14}})", up)
+        if m: return m.group(1).strip()
     m = re.search(r"የግብይት\s*ቁጥር[:\s]+([A-Z0-9a-z]{8,14})", raw, re.UNICODE)
-    if m:
-        return m.group(1).strip().upper()
-    m = re.search(r"\b((?:DE|DDK)[A-Z0-9]{6,12})\b", up)
-    if m:
-        return m.group(1).strip()
-    for kw in ("NUMBER", "NO", "INVOICE"):
-        idx = up.find(kw)
-        if idx != -1:
-            blocks = re.findall(r"[A-Z0-9]{8,14}", up[idx + len(kw):idx + 80])
-            if blocks:
-                return blocks[0].strip()
+    if m: return m.group(1).strip().upper()
+    
+    # Strong fallback: Telebirr IDs heavily follow the 10-character D-prefix format
+    m = re.search(r"\b(D[A-Z0-9]{9})\b", up)
+    if m: return m.group(1).strip()
     return None
 
-def _extract_amount(raw: str) -> str | None:
+def _extract_amount_fallback(raw: str) -> str | None:
+    # Used strictly as a fallback if the API fails to return the exact amount
     amounts = re.findall(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", raw)
     return max(amounts, key=lambda x: len(x.replace(",", ""))) if amounts else None
 
-
 # ─────────────────────────────────────────────
-#  MAIN EXTRACTION — now async end-to-end
+#  PUBLIC EXPOSED HOOKS (Imported by payment.py)
 # ─────────────────────────────────────────────
-async def extract_local_data(image_path: str) -> dict:
+async def extract_local_data(img_stream: io.BytesIO) -> dict:
     loop = asyncio.get_running_loop()
 
-    # Preprocessing on executor (CPU-bound, don't block event loop)
-    processed = await loop.run_in_executor(None, _preprocess, image_path)
-    if not processed:
-        return {"provider": "Error", "ref": None, "amount": None, "raw_text": ""}
+    processed_img = await loop.run_in_executor(None, _preprocess_in_memory, img_stream)
+    raw = await _ocr_smart(processed_img)
 
-    raw = await _ocr_parallel(processed)
-
-    if os.path.exists(processed):
-        os.remove(processed)
-
-    up = raw.upper()
-    up = re.sub(r'[^A-Z0-9\n\s:\-]', ' ', up)
-
+    up = re.sub(r'[^A-Z0-9\n\s:\-]', ' ', raw.upper())
     provider = _detect_provider(up)
-    ref      = None
+    ref = None
 
     if provider == "CBE":
         ref = _extract_cbe(up)
     elif provider in ("Telebirr", "Unknown"):
         ref = _extract_telebirr(up, raw)
-        if ref:
-            provider = "Telebirr"
+        if ref: provider = "Telebirr"
 
-    amount = _extract_amount(raw)
-    print(f"[OCR] provider={provider} | ref={ref} | amount={amount}")
-    return {"provider": provider, "ref": ref, "amount": amount, "raw_text": raw}
+    amount_fallback = _extract_amount_fallback(raw)
+    return {"provider": provider, "ref": ref, "amount_fallback": amount_fallback, "raw_text": raw}
 
-
-# ─────────────────────────────────────────────
-#  API VERIFICATION — persistent client, no cold start
-# ─────────────────────────────────────────────
 async def verify_external(reference: str, provider: str) -> dict:
     client  = get_http_client()
     payload = {"reference": reference.strip()}
-    if provider == "CBE":
-        payload["suffix"] = CBE_SUFFIX
+    if provider == "CBE": payload["suffix"] = CBE_SUFFIX
 
     endpoints = [API_URL]
     if provider == "Telebirr":
@@ -219,139 +178,251 @@ async def verify_external(reference: str, provider: str) -> dict:
     for url in endpoints:
         try:
             resp = await client.post(url, json=payload)
-            print(f"[API] {url} → {resp.status_code}")
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                
+                # 🔥 MASSIVE PRINT DEBUGGER TO SEE EXACT API PAYLOADS 🔥
+                print("\n" + "═"*50)
+                print(f"🔥 [API RAW RESPONSE | {provider}] 🔥")
+                print(f"REF: {reference}")
+                print(f"URL: {url}")
+                print(data)
+                print("═"*50 + "\n")
+                
+                return data
         except Exception as e:
-            print(f"[API] error at {url} → {e}")
+            print(f"⚠️ Network error hitting {url}: {e}")
+            continue
 
-    return {"success": False, "error": "All endpoints failed"}
+    return {"success": False, "error": "Endpoints unverified"}
 
-
-# ─────────────────────────────────────────────
-#  RECEIVER CHECK
-# ─────────────────────────────────────────────
-def _is_hilawe(raw: str, bank_data: dict) -> bool:
-    data     = bank_data.get("data", {})
+def is_hilawe_receiver(raw: str, bank_data: dict) -> bool:
+    """Synced name: This is perfectly matched to the import in payment.py"""
+    data = bank_data.get("data", {})
     api_name = str(
-        data.get("receiver") or data.get("creditedPartyName") or
-        data.get("credited_party_name") or ""
+        data.get("receiver") or data.get("creditedPartyName") or data.get("credited_party_name") or ""
     ).upper()
     return "HILAWE" in raw.upper() or "HILAWE" in api_name
 
-
 # ─────────────────────────────────────────────
-#  UI
+#  TEST ROUTERS (Isolated manual verifier UI)
 # ─────────────────────────────────────────────
 def get_verifier_menu():
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text="📸 Upload Screenshot", callback_data="test_upload"))
-    builder.row(types.InlineKeyboardButton(text="🎲 Test Batch (DB)",   callback_data="test_db_random"))
+    builder.row(types.InlineKeyboardButton(text="📋 Test Batch (DB)", callback_data="test_db_random"))
     return builder.as_markup()
 
-
-# ─────────────────────────────────────────────
-#  HANDLERS
-# ─────────────────────────────────────────────
 @router.callback_query(F.data == "test_upload")
 async def start_upload_test(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("🎯 <b>Ready.</b> Send me the receipt screenshot.", parse_mode="HTML")
+    await callback.message.answer("📝 <b>Ready.</b> Please send the receipt screenshot.", parse_mode="HTML")
     await state.set_state(PaymentStates.waiting_for_screenshot)
 
+from datetime import datetime, timezone
+import re
 
 @router.message(PaymentStates.waiting_for_screenshot, F.photo)
 async def handle_screenshot_test(message: types.Message, state: FSMContext, bot: Bot):
-    status_msg = await message.answer("🔄 <b>Scanning…</b>", parse_mode="HTML")
+    start_time = time.perf_counter()
+    status_msg = await message.answer("🔄 <b>Analyzing transaction receipt...</b>", parse_mode="HTML")
+    
+    # 1. Image Extraction
+    photo = message.photo[-1]
+    file = await bot.get_file(photo.file_id)
+    img_stream = io.BytesIO()
+    await bot.download_file(file.file_path, destination=img_stream)
+    img_stream.seek(0)
+    
+    local = await extract_local_data(img_stream)
 
-    photo     = message.photo[-1]
-    file      = await bot.get_file(photo.file_id)
-    os.makedirs("downloads", exist_ok=True)
-    file_path = f"downloads/{photo.file_id}.png"
-
-    # Download + OCR launch together — download while we prepare
-    await bot.download_file(file.file_path, file_path)
-
-    local = await extract_local_data(file_path)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
+    # 2. Safety Check
     if not local["ref"] or len(str(local["ref"])) < 8:
         await status_msg.edit_text(
-            "⚠️ <b>Couldn't read a valid transaction ID.</b>\n"
-            "Send a clearer full-screen screenshot.",
+            f"🤖 <b>AUDIT FAILED: MANUAL REVIEW</b>\n"
+            f"────────────────────\n"
+            f"⚠️ Could not extract a valid transaction ID.\n"
+            f"⏱️ <b>Process latency:</b> {time.perf_counter() - start_time:.2f}s",
             parse_mode="HTML"
         )
         await state.clear()
         return
 
-    await status_msg.edit_text(
-        f"📡 <b>Verifying</b> <code>{local['ref']}</code>…",
-        parse_mode="HTML"
-    )
-
+    # 3. API Verification
+    await status_msg.edit_text(f"📡 <b>Querying ledger:</b> <code>{local['ref']}</code>...", parse_mode="HTML")
     bank_data = await verify_external(local["ref"], local["provider"])
-    is_real   = bank_data.get("success", False)
-    is_hilawe = _is_hilawe(local["raw_text"], bank_data)
+    is_real = bank_data.get("success", False)
+    
+    # 4. Data Parsing (API is no longer nested in 'data')
+    payer = bank_data.get("payer", "Unknown")
+    receiver = bank_data.get("receiver", "N/A")
+    amount = bank_data.get("amount", 0)
+    
+    # Time calculation (ISO Format parsing)
+    time_display = "(Time unknown)"
+    try:
+        payment_time_str = bank_data.get("date") # Expects '2026-06-06T14:35:00.000Z'
+        if payment_time_str:
+            # Convert ISO string to timezone-aware datetime
+            pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
+            
+            # Calculate duration
+            now = datetime.now(timezone.utc)
+            total_seconds = int((now - pay_dt).total_seconds())
+            
+            # Format Logic
+            if total_seconds < 0:
+                time_display = "(Future?)"
+            else:
+                days = total_seconds // 86400
+                hours = (total_seconds % 86400) // 3600
+                minutes = (total_seconds % 3600) // 60
+                
+                if days > 0:
+                    time_display = f"({days}d {hours}h ago)"
+                elif hours > 0:
+                    time_display = f"({hours}h {minutes}m ago)"
+                else:
+                    time_display = f"({minutes}m ago)"
+                    
+    except Exception as e:
+        print(f"Time parsing error: {e}")
 
-    report = (
-        "🧐 <b>VERIFICATION VERDICT</b>\n"
-        "━━━━━━━━━━━━━━━\n"
-        f"🏦 <b>Bank:</b> <i>{local['provider']}</i>\n"
-        f"🆔 <b>Ref:</b> <code>{local['ref']}</code>\n"
-        f"💰 <b>Amount:</b> {local['amount'] or '—'} ETB\n"
-        f"✅ <b>Verified:</b> {'<b>YES</b>' if is_real else '<b>NO</b>'}\n"
-        f"👤 <b>Receiver:</b> {'<u>HILAWE ✔</u>' if is_hilawe else '<i>NOT MATCHED</i>'}\n"
-        "━━━━━━━━━━━━━━━\n"
-    )
-    report += (
-        "🟢 <b>RESULT: VALIDATED ✅</b>"
-        if is_real and is_hilawe else
-        "🔴 <b>RESULT: REJECTED ❌</b>"
-    )
+    # Logic Verification
+    is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+    elapsed = time.perf_counter() - start_time
+
+    # 5. Final Report Construction
+    if is_real and is_hilawe:
+        report = (
+            f"✅ <b>TRANSACTION VERIFIED</b>\n"
+            f"────────────────────\n"
+            f"👤 <b>Payer:</b> <code>{payer}</code>\n"
+            f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
+            f"🏦 <b>Bank:</b> {local['provider']} {time_display}\n"
+            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n"
+            f"🎯 <b>Receiver:</b> {receiver}\n\n"
+            f"🟢 <b>Outcome:</b> Approved.\n"
+            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+        )
+    else:
+        fail_reason = "Receiver name mismatch" if is_real else "Invalid / Not found in ledger"
+        report = (
+            f"🚨 <b>TRANSACTION REJECTED</b>\n"
+            f"────────────────────\n"
+            f"❌ <b>Result:</b> {fail_reason}\n"
+            f"👤 <b>Payer:</b> {payer} {time_display}\n"
+            f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
+            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n\n"
+            f"⚠️ <b>Protocol:</b> Do not release products.\n"
+            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+        )
 
     await status_msg.edit_text(report, parse_mode="HTML")
     await state.clear()
 
+from datetime import datetime, timezone
 
+def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
+    # Parsing
+    data = bank_data
+    payer = data.get("payer", "Unknown")
+    receiver = data.get("receiver", "N/A")
+    amount = data.get("amount", 0)
+    
+    # Time Calculation
+    time_display = "(Time unknown)"
+    try:
+        payment_time_str = data.get("date")
+        if payment_time_str:
+            pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
+            total_minutes = int((datetime.now(timezone.utc) - pay_dt).total_seconds() / 60)
+            
+            # Logic: Convert total minutes into readable format
+            if total_minutes < 60:
+                time_display = f"({total_minutes}m ago)"
+            elif total_minutes < 1440: # Less than 24 hours
+                hours = total_minutes // 60
+                mins = total_minutes % 60
+                time_display = f"({hours}h {mins}m ago)"
+            else: # 24 hours or more
+                days = total_minutes // 1440
+                time_display = f"({days}d ago)"
+    except Exception as e:
+        print(f"Time parsing error: {e}")
+    # Construct
+    if is_real and is_hilawe:
+        return (
+            f"✅ <b>TRANSACTION VERIFIED</b>\n"
+            f"────────────────────\n"
+            f"👤 <b>Payer:</b> <code>{payer}</code>\n"
+            f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
+            f"🏦 <b>Bank:</b> {local['provider']} {time_display}\n"
+            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n"
+            f"🎯 <b>Receiver:</b> {receiver}\n\n"
+            f"🟢 <b>Outcome:</b> Approved.\n"
+            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+        )
+    else:
+        fail_reason = "Receiver name mismatch" if is_real else "Invalid / Not found"
+        return (
+            f"🚨 <b>TRANSACTION REJECTED</b>\n"
+            f"────────────────────\n"
+            f"❌ <b>Result:</b> {fail_reason}\n"
+            f"👤 <b>Payer:</b> {payer} {time_display}\n"
+            f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
+            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n\n"
+            f"⚠️ <b>Protocol:</b> Do not release products.\n"
+            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+        )
+        
 @router.callback_query(F.data == "test_db_random")
 async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
-    status_msg = await callback.message.answer("🔍 <b>Auditing last 5 payments…</b>", parse_mode="HTML")
+    status_msg = await callback.message.answer("🔍 <b>Auditing recent payments...</b>", parse_mode="HTML")
     recent = await db.get_recent_payment_proofs(5)
+    
     if not recent:
-        return await status_msg.edit_text("❌ No payments found.")
-
-    os.makedirs("downloads", exist_ok=True)
+        return await status_msg.edit_text("❌ No recent payments found.")
 
     async def process_one(rec):
+        start_time = time.perf_counter()
         try:
-            file  = await bot.get_file(rec["proof_file_id"])
-            path  = f"downloads/stress_{rec['id']}.png"
-            await bot.download_file(file.file_path, path)
+            file = await bot.get_file(rec["proof_file_id"])
+            img_stream = io.BytesIO()
+            await bot.download_file(file.file_path, destination=img_stream)
+            img_stream.seek(0)
 
-            local     = await extract_local_data(path)
+            local = await extract_local_data(img_stream)
             bank_data = {}
-            is_real   = False
-
-            if os.path.exists(path):
-                os.remove(path)
+            is_real = False
 
             if local["ref"]:
                 bank_data = await verify_external(local["ref"], local["provider"])
-                is_real   = bank_data.get("success", False)
+                is_real = bank_data.get("success", False)
 
-            is_hilawe = _is_hilawe(local["raw_text"], bank_data)
+            is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+            
+            api_amount = bank_data.get("data", {}).get("amount")
+            display_amount = f"{float(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "?")
 
-            caption = (
-                f"📑 <b>AUDIT #{rec['id']}</b>\n"
-                "━━━━━━━━━━━━━━━\n"
-                f"🏦 <b>Bank:</b> {local['provider']}\n"
-                f"🆔 <b>Ref:</b> <code>{local['ref'] or 'NOT DETECTED'}</code>\n"
-                f"💰 <b>Amount:</b> {local['amount'] or '?'} ETB\n"
-                f"✅ <b>Verified:</b> {'YES' if is_real else 'NO'}\n"
-                f"👤 <b>Target:</b> {'✅ HILAWE' if is_hilawe else '❌ NOT FOUND'}\n"
-                "━━━━━━━━━━━━━━━\n"
-                f"🏁 {'🟢 VALID' if is_real and is_hilawe else '🔴 FLAG'}"
-            )
+            elapsed = time.perf_counter() - start_time
+
+            if is_real and is_hilawe:
+                caption = (
+                    f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n"
+                    f"────────────────────\n"
+                    f"🟢 <b>Audit #{rec['id']}</b> • 100% authentic ledger match.\n\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref']}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
+                )
+            else:
+                caption = (
+                    f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n"
+                    f"────────────────────\n"
+                    f"🔴 <b>Audit #{rec['id']}</b> • Fraud guard triggered. No bank match.\n\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref'] or 'N/A'}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
+                )
+
             await bot.send_photo(
                 chat_id=callback.from_user.id,
                 photo=rec["proof_file_id"],
@@ -359,11 +430,7 @@ async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
                 parse_mode="HTML",
             )
         except Exception as e:
-            await callback.message.answer(
-                f"⚠️ <b>Error ID {rec['id']}:</b> <code>{e}</code>",
-                parse_mode="HTML",
-            )
+            await callback.message.answer(f"⚠️ <b>Error on #{rec['id']}:</b> <code>{e}</code>", parse_mode="HTML")
 
-    # All 5 receipts processed fully concurrently
     await asyncio.gather(*[process_one(r) for r in recent])
     await status_msg.delete()
