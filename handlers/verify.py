@@ -220,27 +220,29 @@ async def start_upload_test(callback: types.CallbackQuery, state: FSMContext):
 
 from datetime import datetime, timezone
 import re
-
 @router.message(PaymentStates.waiting_for_screenshot, F.photo)
 async def handle_screenshot_test(message: types.Message, state: FSMContext, bot: Bot):
     start_time = time.perf_counter()
-    status_msg = await message.answer("🔄 <b>Analyzing transaction receipt...</b>", parse_mode="HTML")
+    status_msg = await message.answer("🔄 <b>Analyzing receipt...</b>", parse_mode="HTML")
     
-    # 1. Image Extraction
+    # 1. Download & Image Extraction
+    t0 = time.perf_counter()
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
     img_stream = io.BytesIO()
     await bot.download_file(file.file_path, destination=img_stream)
     img_stream.seek(0)
+    download_time = time.perf_counter() - t0
     
+    t1 = time.perf_counter()
     local = await extract_local_data(img_stream)
-
-    # 2. Safety Check
+    ocr_time = time.perf_counter() - t1
+    
+    # 2. Safety Check (Abort early if no ref found to save time)
     if not local["ref"] or len(str(local["ref"])) < 8:
         await status_msg.edit_text(
-            f"🤖 <b>AUDIT FAILED: MANUAL REVIEW</b>\n"
-            f"────────────────────\n"
-            f"⚠️ Could not extract a valid transaction ID.\n"
+            f"🤖 <b>AUDIT FAILED</b>\n"
+            f"⚠️ Could not extract valid ID.\n"
             f"⏱️ <b>Process latency:</b> {time.perf_counter() - start_time:.2f}s",
             parse_mode="HTML"
         )
@@ -248,78 +250,64 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
         return
 
     # 3. API Verification
-    await status_msg.edit_text(f"📡 <b>Querying ledger:</b> <code>{local['ref']}</code>...", parse_mode="HTML")
+    await status_msg.edit_text(f"📡 <b>Querying:</b> <code>{local['ref']}</code>...", parse_mode="HTML")
+    t2 = time.perf_counter()
     bank_data = await verify_external(local["ref"], local["provider"])
+    api_time = time.perf_counter() - t2
     is_real = bank_data.get("success", False)
     
-    # 4. Data Parsing (API is no longer nested in 'data')
+    # Log performance
+    total_elapsed = time.perf_counter() - start_time
+    print(f"DEBUG: Dwn:{download_time:.2f}s | OCR:{ocr_time:.2f}s | API:{api_time:.2f}s | Total:{total_elapsed:.2f}s")
+    
+    # 4. Data Parsing
     payer = bank_data.get("payer", "Unknown")
     receiver = bank_data.get("receiver", "N/A")
     amount = bank_data.get("amount", 0)
     
-    # Time calculation (ISO Format parsing)
+    # Integrated Time Calculation
     time_display = "(Time unknown)"
     try:
-        payment_time_str = bank_data.get("date") # Expects '2026-06-06T14:35:00.000Z'
+        payment_time_str = bank_data.get("date")
         if payment_time_str:
-            # Convert ISO string to timezone-aware datetime
             pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
-            
-            # Calculate duration
-            now = datetime.now(timezone.utc)
-            total_seconds = int((now - pay_dt).total_seconds())
-            
-            # Format Logic
-            if total_seconds < 0:
-                time_display = "(Future?)"
-            else:
-                days = total_seconds // 86400
-                hours = (total_seconds % 86400) // 3600
-                minutes = (total_seconds % 3600) // 60
-                
-                if days > 0:
-                    time_display = f"({days}d {hours}h ago)"
-                elif hours > 0:
-                    time_display = f"({hours}h {minutes}m ago)"
-                else:
-                    time_display = f"({minutes}m ago)"
-                    
+            total_seconds = int((datetime.now(timezone.utc) - pay_dt).total_seconds())
+            if total_seconds > 0:
+                days, rem = divmod(total_seconds, 86400)
+                hours, rem = divmod(rem, 3600)
+                minutes, _ = divmod(rem, 60)
+                if days > 0: time_display = f"({days}d {hours}h ago)"
+                elif hours > 0: time_display = f"({hours}h {minutes}m ago)"
+                else: time_display = f"({minutes}m ago)"
     except Exception as e:
         print(f"Time parsing error: {e}")
 
-    # Logic Verification
-    is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
-    elapsed = time.perf_counter() - start_time
-
     # 5. Final Report Construction
+    is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
     if is_real and is_hilawe:
         report = (
-            f"✅ <b>TRANSACTION VERIFIED</b>\n"
-            f"────────────────────\n"
+            f"✅ <b>TRANSACTION VERIFIED</b>\n────────────────────\n"
             f"👤 <b>Payer:</b> <code>{payer}</code>\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
             f"🏦 <b>Bank:</b> {local['provider']} {time_display}\n"
             f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n"
             f"🎯 <b>Receiver:</b> {receiver}\n\n"
-            f"🟢 <b>Outcome:</b> Approved.\n"
-            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+            f"🟢 <b>Outcome:</b> Approved.\n⏱️ <b>Audit:</b> {total_elapsed:.2f}s"
         )
     else:
-        fail_reason = "Receiver name mismatch" if is_real else "Invalid / Not found in ledger"
+        fail_reason = "Receiver name mismatch" if is_real else "Invalid / Not found"
         report = (
-            f"🚨 <b>TRANSACTION REJECTED</b>\n"
-            f"────────────────────\n"
+            f"🚨 <b>TRANSACTION REJECTED</b>\n────────────────────\n"
             f"❌ <b>Result:</b> {fail_reason}\n"
             f"👤 <b>Payer:</b> {payer} {time_display}\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
             f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n\n"
-            f"⚠️ <b>Protocol:</b> Do not release products.\n"
-            f"⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
+            f"⚠️ <b>Protocol:</b> Do not release.\n⏱️ <b>Audit:</b> {total_elapsed:.2f}s"
         )
 
     await status_msg.edit_text(report, parse_mode="HTML")
     await state.clear()
-
+    
 from datetime import datetime, timezone
 
 def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
