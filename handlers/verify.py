@@ -40,6 +40,7 @@ else:
 API_KEY    = settings.VERIFY_API_KEY
 API_URL    = "https://verifyapi.leulzenebe.pro/verify"
 CBE_SUFFIX = "99533641"
+ABYSSINIA_SUFFIX = "53299555"  # <-- Add this line
 
 router = Router(name="verify")
 
@@ -110,6 +111,8 @@ async def _ocr_smart(img: Image.Image) -> str:
 #  EXTRACTION LOGIC
 # ─────────────────────────────────────────────
 def _detect_provider(up: str) -> str:
+    if any(k in up for k in ("ABYSSINIA", "BOA")):
+        return "Abyssinia"
     if any(k in up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT", "FT2")):
         return "CBE"
     # Added regex pattern to detect Telebirr IDs (starting with D, 10 chars) even if brand name is unreadable
@@ -157,7 +160,7 @@ async def extract_local_data(img_stream: io.BytesIO) -> dict:
     provider = _detect_provider(up)
     ref = None
 
-    if provider == "CBE":
+    if provider in ("CBE", "Abyssinia"):
         ref = _extract_cbe(up)
     elif provider in ("Telebirr", "Unknown"):
         ref = _extract_telebirr(up, raw)
@@ -169,11 +172,17 @@ async def extract_local_data(img_stream: io.BytesIO) -> dict:
 async def verify_external(reference: str, provider: str) -> dict:
     client  = get_http_client()
     payload = {"reference": reference.strip()}
-    if provider == "CBE": payload["suffix"] = CBE_SUFFIX
+    
+    if provider == "CBE": 
+        payload["suffix"] = CBE_SUFFIX
+    elif provider == "Abyssinia":
+        payload["suffix"] = ABYSSINIA_SUFFIX
 
     endpoints = [API_URL]
     if provider == "Telebirr":
         endpoints.append("https://verifyapi.leulzenebe.pro/verify-telebirr/")
+    elif provider == "Abyssinia":
+        endpoints.append("https://verifyapi.leulzenebe.pro/verify-abyssinia")
 
     for url in endpoints:
         try:
@@ -181,7 +190,6 @@ async def verify_external(reference: str, provider: str) -> dict:
             if resp.status_code == 200:
                 data = resp.json()
                 
-                # 🔥 MASSIVE PRINT DEBUGGER TO SEE EXACT API PAYLOADS 🔥
                 print("\n" + "═"*50)
                 print(f"🔥 [API RAW RESPONSE | {provider}] 🔥")
                 print(f"REF: {reference}")
@@ -195,6 +203,7 @@ async def verify_external(reference: str, provider: str) -> dict:
             continue
 
     return {"success": False, "error": "Endpoints unverified"}
+
 
 def is_hilawe_receiver(raw: str, bank_data: dict) -> bool:
     """Synced name: This is perfectly matched to the import in payment.py"""
