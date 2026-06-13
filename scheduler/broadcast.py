@@ -183,50 +183,56 @@ def get_rotating_content(lang: str):
         urgency_list[idx % len(urgency_list)],
     )
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-def build_deal_message(lang: str, product_id: int, price: int = 399, original_price: int = 1100):
+def build_deal_message(lang: str, product_id: int, price: int = 399, original_price: int = 1000):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testi, proof, urgency = get_rotating_content(lang)
+    
+    # Dynamically calculate daily cost based on a standard 2-month/60-day cycle to hit that perfect anchor
+    daily_cost = round(price / 60, 1)
 
     if lang == "AM":
         text = (
-            f"🚨 <b>የ{price} ብር ቅናሽ ለጥቂት ሰዓታት!</b>\n\n"
-            f"ለዚህ እሁድ ልዩ የ8-ሳምንቱን ሙሉ የለውጥ ፕሮግራም/እቅድ በታላቅ ቅናሽ ከፍተናል! 🎉\n\n"
-            f"<b>እቅዱ የሚያካትተው፦</b>\n"
-            f"✅ <b>የ8-ሳምንት እንቅስቃሴ እና መመሪያ</b> - ግራ መጋባት የሚያስወግድ።\n"
-            f"✅ <b>ሳይንሳዊ የአመጋገብ ስርአት</b> - ለፈጣን ለውጥ የሚረዳ (የሀገራችን ምግቦች የተካተቱበት)።\n"
-            f"✅ <b>የሂደት መቆጣጠሪያ</b> - ለውጥዎን በየሳምንቱ የሚከታተሉበት።\n"
-            f"✅ <b>የቪዲዮ መመሪያ</b> - ለእያንዳንዱ እንቅስቃሴ ትክክለኛ አሰራር።\n\n"
+            f"የጤና እና የጥንካሬ ጉዞዎን ዛሬ ይጀምሩ 🚀\n"
+            f"<b>Coach Hilawe Transformation System</b>\n\n"
+            f"ጤናዎን ለመጠበቅ እና የሚፈልጉትን ሰውነት ለመገንባት 8 ሳምንታት ይበቃል። ከብዙ ማብራሪያ ይልቅ ውጤት ላይ ያተኮረ እቅድ አዘጋጅተንልዎታል።\n\n"
+            f"💰 <b>ኢንቨስትመንትዎ፦</b>\n"
+            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ</b>\n"
+            f"(በቀን {daily_cost} ብር — ከአንድ ማኪያቶ ያነሰ ዋጋ)\n\n"
+            f"<b>ምን ያገኛሉ?</b>\n"
+            f"✅ እያንዳንዱን እንቅስቃሴ የሚያሳዩ ግልፅ ቪዲዮዎች\n"
+            f"✅ በማንኛውም ሰአት ስልክዎ ላይ የሚከፈት የ8 ሳምንት ፕሮግራም\n"
+            f"✅ ለኢትዮጵያ ምግብ ተስማሚ የሆነ የአመጋገብ መመሪያ\n"
             f"━━━━━━━━━━━━━━\n"
-            f"📍 <b>ማሳሰቢያ፦</b>\n"
-            f"🎤 ከላይ ያለውን የድምጽ መልዕክት ያዳምጡ!\n\n"
-            f"🔥 <b>በቅርብ ጊዜ የተመዘገቡ፦</b> {testi['name']}\n\n"
-            f"💬 <i>\"{testi['text']}\"</i>\n"
-            f"📈 {proof}\n"
+            f"🌟 በየቀኑ አዳዲስ አባላት ውጤታቸውን እያጋሩን ይገኛሉ።\n"
+            f"✨ የቅናሽ ዋጋው ለጥቂት አዳዲስ አባላት ብቻ ክፍት ነው።\n"
             f"━━━━━━━━━━━━━━\n\n"
-            f"ነገ ዋጋው ወደ {original_price} ብር ከመመለሱ በፊት ለመመዝገብ ከታች ያለውን ቁልፍ ይጫኑ፦ ቀሪ ክፍት ቦታ 14።"
+            f"<b>የአባላቶቻችን አስተያየት፦</b>\n"
+            f"💬 <i>\"{testi.get('text', 'ከዚህ በፊት ብዙ ፕሮግራሞች ሞክሬ ነበር። ይሄ የተለየ ነው — ምግቡ፣ ልምምዱ፣ እቅዱ ሁሉም አንድ ላይ አለ። ሁለተኛ ወር ላይ ነኝ አቋሜ ተስተካክሏል፣ ጡንቻዬ ጠንክሯል።')}\"</i>\n"
+            f"— <b>{testi.get('name', 'ናትናኤል ግርማ')}</b> ✅ አባል\n\n"
+            f"ጉዞዎን ለመጀመር ከታች ያለውን ይንኩ። 👇"
         )
         btn_text = f"💪 በ{price} ብር አሁኑኑ እመዘገባለሁ"
 
     else:
         text = (
-            f"🚨 <b>{price} ETB Discount for a Few Hours!</b>\n\n"
-            f"We have opened the full 8-week transformation system at an exclusive Sunday rate! 🎉\n\n"
-            f"<b>What the plan includes:</b>\n"
-            f"✅ <b>8-Week Movement & Guidance</b> - eliminates all confusion.\n"
-            f"✅ <b>Scientific Nutrition System</b> - for fast results (built around local meals).\n"
-            f"✅ <b>Progress Tracker</b> - monitor your transformation weekly.\n"
-            f"✅ <b>Video Guide</b> - proper form for every single exercise.\n\n"
+            f"Start Your Health & Strength Journey Today 🚀\n"
+            f"<b>Coach Hilawe Transformation System</b>\n\n"
+            f"8 weeks is all it takes to protect your health and build the body you want. Instead of endless explanations, we've designed a result-focused plan for you.\n\n"
+            f"💰 <b>Your Investment:</b>\n"
+            f"<s>{original_price} ETB</s> → <b>{price} ETB Only</b>\n"
+            f"(Just {daily_cost} ETB a day — less than the price of a macchiato)\n\n"
+            f"<b>What do you get?</b>\n"
+            f"✅ Clear instructional videos showing every single movement\n"
+            f"✅ An 8-week program accessible on your phone at any time\n"
+            f"✅ A scientific nutrition guide tailored perfectly to Ethiopian meals\n"
             f"━━━━━━━━━━━━━━\n"
-            f"📍 <b>Note:</b>\n"
-            f"🎤 Listen to the voice message above!\n\n"
-            f"🔥 <b>Recently Registered:</b> {testi['name']}\n\n"
-            f"💬 <i>\"{testi['text']}\"</i>\n"
-            f"📈 {proof}\n"
+            f"🌟 New members are sharing their incredible results every single day.\n"
+            f"✨ This exclusive discount is open for a limited number of new slots only.\n"
             f"━━━━━━━━━━━━━━\n\n"
-            f"Click the button below to register before the price returns to {original_price} ETB tomorrow:"
+            f"<b>Member Testimonials:</b>\n"
+            f"💬 <i>\"{testi.get('text', 'I have tried many programs before. This one is completely different — the food, the workouts, the plan, everything is all in one place. I am in my second month and my posture has improved while my muscles are getting stronger.')}\"</i>\n"
+            f"— <b>{testi.get('name', 'Nathnael Girma')}</b> ✅ Member\n\n"
+            f"Click below to start your transformation journey today. 👇"
         )
         btn_text = f"💪 Register Now for {price} ETB"
 
@@ -235,8 +241,6 @@ def build_deal_message(lang: str, product_id: int, price: int = 399, original_pr
     ])
 
     return text, kb
-
-
 import os
 from datetime import datetime, timedelta
 
@@ -488,133 +492,132 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEBfyBqJC72HbJzkFCsizoQhIwZWSuotQAClA9rG0TsIFFgI14u5ygxaAEAAwIAA3kAAzsE"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     
-    CAMPAIGN_VOICE_FILE_ID = "CQACAgQAAxkBAAEBhP9qJH0Is51RM0ooxHIau7dnUwTlRwACLiIAAkTsIFEW7H9xgG871zsE"
     
-#     async def send_to_user(user):
-#         uid = user['telegram_id']
-#         price_key = str(int(user['final_price']))
-    
-#         async with semaphore:
-#             try:
-#                 text, kb = build_deal_message(
-#     lang=user['language'],
-#     product_id=user['p_id'],
-#     price=int(user['final_price'])
-# )
-    
-#                 # ── SEND PHOTO WITH TEXT AS CAPTION ──────────────
-#                 # Telegram caption limit is 1024 chars.
-#                 # If your text ever exceeds that, we fall back to
-#                 # photo + separate text message automatically.
-    
-#                 if len(text) <= 1024:
-#                     sent_msg = await bot.send_photo(
-#                         chat_id=uid,
-#                         photo=CAMPAIGN_IMAGE_FILE_ID,
-#                         caption=text,
-#                         reply_markup=kb,
-#                         parse_mode="HTML"
-#                     )
-#                 else:
-#                     # Caption too long — send photo clean, text below
-#                     await bot.send_photo(
-#                         chat_id=uid,
-#                         photo=CAMPAIGN_IMAGE_FILE_ID,
-#                         parse_mode="HTML"
-#                     )
-#                     sent_msg = await bot.send_message(
-#                         chat_id=uid,
-#                         text=text,
-#                         reply_markup=kb,
-#                         parse_mode="HTML"
-#                     )
-#                 # ─────────────────────────────────────────────────
-    
-#                 await db._pool.execute(
-#                     "UPDATE users SET last_broadcast_msg_id = $1, matched_product_id = $2 WHERE telegram_id = $3",
-#                     sent_msg.message_id, user['p_id'], uid
-#                 )
-    
-#                 stats["sent"] += 1
-#                 if price_key in stats:
-#                     stats[price_key] += 1
-#                 logger.info(f"✅ Delivered: {uid} | Price: {price_key}")
-    
-#             except Exception as e:
-#                 stats["failed"] += 1
-#                 err = str(e).lower()
-#                 logger.error(f"❌ Delivery Failed for {uid}: {err}")
-    
-#                 if any(x in err for x in ["blocked", "chat not found", "deactivated", "user_is_deactivated"]):
-#                     try:
-#                         await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
-#                         stats["deleted"] += 1
-#                         logger.info(f"🗑 Cleaned user {uid} from database.")
-#                     except Exception as db_err:
-#                         stats["skipped_cleanup"] += 1
-#                         logger.warning(f"⚠️ Could not delete {uid} (Referenced in payments): {db_err}")
-    
-#             await asyncio.sleep(0.05)
-
     async def send_to_user(user):
-            uid = user['telegram_id']
-            price_key = str(int(user['final_price']))
-        
-            async with semaphore:
-                try:
-                    # የፅሁፍ መልዕክቱን እና በተንቀሳቃሽ ቁልፉን ማዘጋጀት
-                    text, kb = build_deal_message(
-                        lang=user['language'],
-                        product_id=user['p_id'],
-                        price=int(user['final_price'])
-                    )
-        
-                    # ── 1. መጀመሪያ የድምፅ መልዕክቱን መላክ ──────────────────
-                    await bot.send_voice(
+        uid = user['telegram_id']
+        price_key = str(int(user['final_price']))
+    
+        async with semaphore:
+            try:
+                text, kb = build_deal_message(
+    lang=user['language'],
+    product_id=user['p_id'],
+    price=int(user['final_price'])
+)
+    
+                # ── SEND PHOTO WITH TEXT AS CAPTION ──────────────
+                # Telegram caption limit is 1024 chars.
+                # If your text ever exceeds that, we fall back to
+                # photo + separate text message automatically.
+    
+                if len(text) <= 1024:
+                    sent_msg = await bot.send_photo(
                         chat_id=uid,
-                        voice=CAMPAIGN_VOICE_FILE_ID
+                        photo=CAMPAIGN_IMAGE_FILE_ID,
+                        caption=text,
+                        reply_markup=kb,
+                        parse_mode="HTML"
                     )
-                    
-                    # ── 2. በመቀጠል ሙሉ የፅሁፍ መረጃውን ከቁልፍ ጋር መላክ ───────
-                    # የፅሁፍ ገደብ (1024) ስጋት የለብንም ምክንያቱም send_message እስከ 4096 ቁምፊዎችን ያስተናግዳል።
+                else:
+                    # Caption too long — send photo clean, text below
+                    await bot.send_photo(
+                        chat_id=uid,
+                        photo=CAMPAIGN_IMAGE_FILE_ID,
+                        parse_mode="HTML"
+                    )
                     sent_msg = await bot.send_message(
                         chat_id=uid,
                         text=text,
                         reply_markup=kb,
                         parse_mode="HTML"
                     )
-                    # ─────────────────────────────────────────────────
+                # ─────────────────────────────────────────────────
+    
+                await db._pool.execute(
+                    "UPDATE users SET last_broadcast_msg_id = $1, matched_product_id = $2 WHERE telegram_id = $3",
+                    sent_msg.message_id, user['p_id'], uid
+                )
+    
+                stats["sent"] += 1
+                if price_key in stats:
+                    stats[price_key] += 1
+                logger.info(f"✅ Delivered: {uid} | Price: {price_key}")
+    
+            except Exception as e:
+                stats["failed"] += 1
+                err = str(e).lower()
+                logger.error(f"❌ Delivery Failed for {uid}: {err}")
+    
+                if any(x in err for x in ["blocked", "chat not found", "deactivated", "user_is_deactivated"]):
+                    try:
+                        await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
+                        stats["deleted"] += 1
+                        logger.info(f"🗑 Cleaned user {uid} from database.")
+                    except Exception as db_err:
+                        stats["skipped_cleanup"] += 1
+                        logger.warning(f"⚠️ Could not delete {uid} (Referenced in payments): {db_err}")
+    
+            await asyncio.sleep(0.05)
+
+    # async def send_to_user(user):
+    #         uid = user['telegram_id']
+    #         price_key = str(int(user['final_price']))
         
-                    # የላክነውን የፅሁፍ መልዕክት ID በዳታቤዝ ውስጥ ማስቀመጥ (ለክፍያ ማረጋገጫ ሂደት እንዲጠቅመን)
-                    await db._pool.execute(
-                        "UPDATE users SET last_broadcast_msg_id = $1, matched_product_id = $2 WHERE telegram_id = $3",
-                        sent_msg.message_id, user['p_id'], uid
-                    )
+    #         async with semaphore:
+    #             try:
+    #                 # የፅሁፍ መልዕክቱን እና በተንቀሳቃሽ ቁልፉን ማዘጋጀት
+    #                 text, kb = build_deal_message(
+    #                     lang=user['language'],
+    #                     product_id=user['p_id'],
+    #                     price=int(user['final_price'])
+    #                 )
         
-                    stats["sent"] += 1
-                    if price_key in stats:
-                        stats[price_key] += 1
-                    logger.info(f"✅ Delivered Voice + Msg: {uid} | Price: {price_key}")
+    #                 # ── 1. መጀመሪያ የድምፅ መልዕክቱን መላክ ──────────────────
+    #                 await bot.send_voice(
+    #                     chat_id=uid,
+    #                     voice=CAMPAIGN_VOICE_FILE_ID
+    #                 )
+                    
+    #                 # ── 2. በመቀጠል ሙሉ የፅሁፍ መረጃውን ከቁልፍ ጋር መላክ ───────
+    #                 # የፅሁፍ ገደብ (1024) ስጋት የለብንም ምክንያቱም send_message እስከ 4096 ቁምፊዎችን ያስተናግዳል።
+    #                 sent_msg = await bot.send_message(
+    #                     chat_id=uid,
+    #                     text=text,
+    #                     reply_markup=kb,
+    #                     parse_mode="HTML"
+    #                 )
+    #                 # ─────────────────────────────────────────────────
         
-                except Exception as e:
-                    stats["failed"] += 1
-                    err = str(e).lower()
-                    logger.error(f"❌ Delivery Failed for {uid}: {err}")
+    #                 # የላክነውን የፅሁፍ መልዕክት ID በዳታቤዝ ውስጥ ማስቀመጥ (ለክፍያ ማረጋገጫ ሂደት እንዲጠቅመን)
+    #                 await db._pool.execute(
+    #                     "UPDATE users SET last_broadcast_msg_id = $1, matched_product_id = $2 WHERE telegram_id = $3",
+    #                     sent_msg.message_id, user['p_id'], uid
+    #                 )
         
-                    if any(x in err for x in ["blocked", "chat not found", "deactivated", "user_is_deactivated"]):
-                        try:
-                            await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
-                            stats["deleted"] += 1
-                            logger.info(f"🗑 Cleaned user {uid} from database.")
-                        except Exception as db_err:
-                            stats["skipped_cleanup"] += 1
-                            logger.warning(f"⚠️ Could not delete {uid} (Referenced in payments): {db_err}")
+    #                 stats["sent"] += 1
+    #                 if price_key in stats:
+    #                     stats[price_key] += 1
+    #                 logger.info(f"✅ Delivered Voice + Msg: {uid} | Price: {price_key}")
         
-                await asyncio.sleep(0.05)
+    #             except Exception as e:
+    #                 stats["failed"] += 1
+    #                 err = str(e).lower()
+    #                 logger.error(f"❌ Delivery Failed for {uid}: {err}")
+        
+    #                 if any(x in err for x in ["blocked", "chat not found", "deactivated", "user_is_deactivated"]):
+    #                     try:
+    #                         await db._pool.execute("DELETE FROM users WHERE telegram_id = $1", uid)
+    #                         stats["deleted"] += 1
+    #                         logger.info(f"🗑 Cleaned user {uid} from database.")
+    #                     except Exception as db_err:
+    #                         stats["skipped_cleanup"] += 1
+    #                         logger.warning(f"⚠️ Could not delete {uid} (Referenced in payments): {db_err}")
+        
+    #             await asyncio.sleep(0.05)
     
 
     # 6. Parallel Non-Blocking Execution
