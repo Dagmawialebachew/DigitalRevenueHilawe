@@ -80,7 +80,7 @@ TESTIMONIALS = {
     "AM": [
         {
             "text": (
-                "እውነቱን ለመናገር — 399 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
+                "እውነቱን ለመናገር — 299 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
                 "ግን ውስጥ ያለውን ሲስተም ስከፍተው ደነገጥኩ! PDF መመሪያው እጅግ ግልጽ ነው፣ "
                 "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥነኝ የግል አሰልጣኝ ያለኝ ያህል ነው የሚሰማኝ። "
                 "በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው።"
@@ -107,7 +107,7 @@ TESTIMONIALS = {
     "EN": [
         {
             "text": (
-                "Honestly — when I saw 399 ETB I thought 'what could this possibly offer?' "
+                "Honestly — when I saw 299 ETB I thought 'what could this possibly offer?' "
                 "I was wrong. The PDF is detailed, the videos are premium, "
                 "and the structure actually makes sense. "
                 "There is zero excuse to scroll past this."
@@ -182,34 +182,31 @@ def get_rotating_content(lang: str):
         proof_list[idx % len(proof_list)],
         urgency_list[idx % len(urgency_list)],
     )
-
-def build_deal_message(lang: str, product_id: int, price: int = 399, original_price: int = 1000):
+def build_deal_message(lang: str, product_id: int, price: int = 299, original_price: int = 1000):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     testi, proof, urgency = get_rotating_content(lang)
     
-    # Dynamically calculate daily cost based on a standard 2-month/60-day cycle to hit that perfect anchor
+    # 299 ETB / 60 days standard cycle = ~5.0 ETB a day
     daily_cost = round(price / 60, 1)
 
     if lang == "AM":
         text = (
-            f"የጤና እና የጥንካሬ ጉዞዎን ዛሬ ይጀምሩ 🚀\n"
-            f"<b>Coach Hilawe Transformation System</b>\n\n"
-            f"ጤናዎን ለመጠበቅ እና የሚፈልጉትን ሰውነት ለመገንባት 8 ሳምንታት ይበቃል። ከብዙ ማብራሪያ ይልቅ ውጤት ላይ ያተኮረ እቅድ አዘጋጅተንልዎታል።\n\n"
-            f"💰 <b>ኢንቨስትመንትዎ፦</b>\n"
-            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ</b>\n"
-            f"(በቀን {daily_cost} ብር — ከአንድ ማኪያቶ ያነሰ ዋጋ)\n\n"
+            f"በ 299 ብር ጉዞዎን በታላቅ ቅናሽ ዛሬ ይጀምሩ 🚀\n"
+            f"ምንም ሰበብ ወይም ማብራሪያ አያስፈልግም። በ8 ሳምንት ውስጥ የሚፈልጉትን የሰውነት ለውጥ ማምጣት እንዲችሉ የዋጋ መሰናክሉን ሙሉ በሙሉ አንስተናል።\n\n"
+            f"💰 <b>የታላቅ የዋጋ ቅነሳ ኢንቨስትመንትዎ፦</b>\n"
+            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ!</b>\n"
+            f"(ለሙሉ 8 ሳምንት የሚሆን አንድ ጊዜ የሚከፈል፤ በቀን ሲሰላ {daily_cost:.0f} ብር ብቻ ማለት ነው!)\n\n"
             f"<b>ምን ያገኛሉ?</b>\n"
             f"✅ እያንዳንዱን እንቅስቃሴ የሚያሳዩ ግልፅ ቪዲዮዎች\n"
-            f"✅ በማንኛውም ሰአት ስልክዎ ላይ የሚከፈት የ8 ሳምንት ፕሮግራም\n"
-            f"✅ ለኢትዮጵያ ምግብ ተስማሚ የሆነ የአመጋገብ መመሪያ\n"
+            f"✅ በማንኛውም ሰአት ስልክዎ ላይ የሚከፈት የ8 ሳምንት ሙሉ ፕሮግራም\n"
+            f"✅ ለሀገራችን ምግብ ተስማሚ የሆነ ፈጣን የአመጋገብ መመሪያ\n"
             f"━━━━━━━━━━━━━━\n"
-            f"🌟 በየቀኑ አዳዲስ አባላት ውጤታቸውን እያጋሩን ይገኛሉ።\n"
-            f"✨ የቅናሽ ዋጋው ለጥቂት አዳዲስ አባላት ብቻ ክፍት ነው።\n"
+            f"✨ ይህ ልዩ የዋጋ ቅናሽ ያለምንም ማቅማማት አሁኑኑ ለውጥ መጀመር ለሚፈልጉ ብቻ የተዘጋጀ ነው።\n"
             f"━━━━━━━━━━━━━━\n\n"
             f"<b>የአባላቶቻችን አስተያየት፦</b>\n"
-            f"💬 <i>\"{testi.get('text', 'ከዚህ በፊት ብዙ ፕሮግራሞች ሞክሬ ነበር። ይሄ የተለየ ነው — ምግቡ፣ ልምምዱ፣ እቅዱ ሁሉም አንድ ላይ አለ። ሁለተኛ ወር ላይ ነኝ አቋሜ ተስተካክሏል፣ ጡንቻዬ ጠንክሯል።')}\"</i>\n"
-            f"— <b>{testi.get('name', 'ናትናኤል ግርማ')}</b> ✅ አባል\n\n"
-            f"ጉዞዎን ለመጀመር ከታች ያለውን ይንኩ። 👇"
+            f"💬 <i>\"{testi.get('text', 'በ 2 ሳምንት ውስጥ በራሴ ላይ ያየሁት ለውጥ አስገራሚ ነው!')}\"</i>\n"
+            f"— <b>{testi.get('name', 'ዳዊት ግ..')}</b> ✅ አባል\n\n"
+            f"ሳይዘገዩ አሁኑኑ ተመዝግበው ጉዞዎን ይጀምሩ፦ 👇"
         )
         btn_text = f"💪 በ{price} ብር አሁኑኑ እመዘገባለሁ"
 
@@ -217,22 +214,21 @@ def build_deal_message(lang: str, product_id: int, price: int = 399, original_pr
         text = (
             f"Start Your Health & Strength Journey Today 🚀\n"
             f"<b>Coach Hilawe Transformation System</b>\n\n"
-            f"8 weeks is all it takes to protect your health and build the body you want. Instead of endless explanations, we've designed a result-focused plan for you.\n\n"
-            f"💰 <b>Your Investment:</b>\n"
-            f"<s>{original_price} ETB</s> → <b>{price} ETB Only</b>\n"
-            f"(Just {daily_cost} ETB a day — less than the price of a macchiato)\n\n"
-            f"<b>What do you get?</b>\n"
+            f"No more excuses. 8 weeks is all it takes to completely transform your body. We have dropped the price to the absolute lowest to make sure nothing stands in your way.\n\n"
+            f"💰 <b>Massive Price Drop:</b>\n"
+            f"<s>{original_price} ETB</s> → <b>{price} ETB Only!</b>\n"
+            f"(One-time payment for the entire 8 weeks. That is just {daily_cost:.0f} ETB a day!)\n\n"
+            f"<b>What You Get:</b>\n"
             f"✅ Clear instructional videos showing every single movement\n"
             f"✅ An 8-week program accessible on your phone at any time\n"
-            f"✅ A scientific nutrition guide tailored perfectly to Ethiopian meals\n"
+            f"✅ A practical nutrition guide tailored perfectly to local meals\n"
             f"━━━━━━━━━━━━━━\n"
-            f"🌟 New members are sharing their incredible results every single day.\n"
-            f"✨ This exclusive discount is open for a limited number of new slots only.\n"
+            f"✨ This special adjustment is strictly limited to help you bypass hesitation and get started right now.\n"
             f"━━━━━━━━━━━━━━\n\n"
             f"<b>Member Testimonials:</b>\n"
             f"💬 <i>\"{testi.get('text', 'I have tried many programs before. This one is completely different — the food, the workouts, the plan, everything is all in one place. I am in my second month and my posture has improved while my muscles are getting stronger.')}\"</i>\n"
             f"— <b>{testi.get('name', 'Nathnael Girma')}</b> ✅ Member\n\n"
-            f"Click below to start your transformation journey today. 👇"
+            f"Click the button below to secure your entry instantly: 👇"
         )
         btn_text = f"💪 Register Now for {price} ETB"
 
@@ -344,7 +340,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     if target == "unpaid":
         # target_filter = "AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
         target_filter = """
-        AND u.created_at >= NOW() - INTERVAL '5 weeks'
+        AND u.created_at >= NOW() - INTERVAL '8 weeks'
         AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
         """
         
@@ -370,7 +366,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 299) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -446,7 +442,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -458,7 +454,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     if target == "unpaid":
         # base_query += " AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
         base_query += """
-        AND u.created_at >= NOW() - INTERVAL '5 weeks'
+        AND u.created_at >= NOW() - INTERVAL '8 weeks'
         AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
         """
     elif target == "paid":
@@ -492,7 +488,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     
