@@ -129,6 +129,13 @@ CREATE TABLE IF NOT EXISTS price_survey_results (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS club_survey_results (
+    user_id BIGINT PRIMARY KEY REFERENCES users(telegram_id),
+    will_join BOOLEAN NOT NULL,
+    reason_if_no TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Track every distribution made to Coach and Dagmawi
 CREATE TABLE IF NOT EXISTS payout_history (
     id SERIAL PRIMARY KEY,
