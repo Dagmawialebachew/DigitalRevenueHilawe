@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS club_survey_results (
     reason_if_no TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE club_survey_results ALTER COLUMN reason_if_no DROP NOT NULL;
 
 -- Track every distribution made to Coach and Dagmawi
 CREATE TABLE IF NOT EXISTS payout_history (
