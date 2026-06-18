@@ -39,13 +39,20 @@ dp.callback_query.middleware(LanguageMiddleware(db))
 
 # Include other routers (handlers)
 from handlers import all_routers
+from community import all_comm_routers
 from handlers.reminder_worker import reminder_worker  # This imports the FUNCTION
+
 dp.include_router(testimonial_router)
 dp.include_router(price_survey_router)
 dp.include_router(community_survey_router)
 dp.include_router(broadcast_router)
+
+for c in all_comm_routers:
+    dp.include_router(c)    
+
 for r in all_routers:
     dp.include_router(r)
+
 
 # Error handling router should be included last so it can override
 dp.include_router(error_router)

@@ -161,6 +161,34 @@ ALTER TABLE payout_history
 ADD COLUMN IF NOT EXISTS expense_note TEXT,
 ADD COLUMN IF NOT EXISTS entry_type TEXT DEFAULT 'payout';
 
+
+-- Table 1: Detailed ledger of club-specific billing transactions
+CREATE TABLE IF NOT EXISTS club_payments (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL DEFAULT 299.00,
+    proof_file_id TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+    processed_by TEXT,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table 2: The absolute state engine determining current community authorization
+CREATE TABLE IF NOT EXISTS club_subscriptions (
+    user_id BIGINT PRIMARY KEY,
+    is_active BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    auto_renew_reminded BOOLEAN DEFAULT FALSE,
+    last_payment_id INTEGER REFERENCES club_payments(id) ON DELETE SET NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Highly performant indexing for admin panels and background validation cron-jobs
+CREATE INDEX IF NOT EXISTS idx_club_payments_status ON club_payments (status);
+CREATE INDEX IF NOT EXISTS idx_club_subs_expiry ON club_subscriptions (expires_at) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_club_survey_vote ON club_survey(vote, voted_yes);
+
 """
 
 class Database:
