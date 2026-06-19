@@ -193,10 +193,10 @@ async def notify_admin_club_payment(bot: Bot, msg: types.Message, uid: int, name
         kb.adjust(1)
 
         # FIX: Try fetching from settings config first, fallback safely if missing
-        admin_channel_id = getattr(settings, "ADMIN_PAYMENT_LOG_ID", -5196014443)
+        # admin_channel_id = -5196014443
 
         admin_msg = await bot.send_photo(
-            chat_id=admin_channel_id,
+            chat_id=-5196014443,
             photo=proof_id,
             caption=caption,
             reply_markup=kb.as_markup(),
