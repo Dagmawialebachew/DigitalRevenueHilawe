@@ -335,7 +335,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     if target == "unpaid":
         # target_filter = "AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
         target_filter = """
-        AND u.created_at >= NOW() - INTERVAL '8 weeks'
+        AND u.created_at >= NOW() - INTERVAL '40 weeks'
         AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
         """
         
