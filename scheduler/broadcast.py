@@ -80,7 +80,7 @@ TESTIMONIALS = {
     "AM": [
         {
             "text": (
-                "እውነቱን ለመናገር — 299 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
+                "እውነቱን ለመናገር — 399 ብር ስሰማ 'ምን ሊረባ ነገር ይኖረዋል?' ብዬ በጣም ጠርጥሬ ነበር። "
                 "ግን ውስጥ ያለውን ሲስተም ስከፍተው ደነገጥኩ! PDF መመሪያው እጅግ ግልጽ ነው፣ "
                 "ቪዲዮዎቹ ልክ ከጎኔ ሆኖ የሚያሰለጥነኝ የግል አሰልጣኝ ያለኝ ያህል ነው የሚሰማኝ። "
                 "በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው።"
@@ -182,61 +182,56 @@ def get_rotating_content(lang: str):
         proof_list[idx % len(proof_list)],
         urgency_list[idx % len(urgency_list)],
     )
-def build_deal_message(lang: str, product_id: int, price: int = 299, original_price: int = 1000):
+def build_deal_message(lang: str, product_id: int, price: int = 399, original_price: int = 1100):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
-    testi, proof, urgency = get_rotating_content(lang)
     
-    # 299 ETB / 60 days standard cycle = ~5.0 ETB a day
+    # Standard calculations for reframing value
     daily_cost = round(price / 60, 1)
 
     if lang == "AM":
         text = (
-            f"በ 299 ብር ጉዞዎን በታላቅ ቅናሽ ዛሬ ይጀምሩ 🚀\n"
-            f"ምንም ሰበብ ወይም ማብራሪያ አያስፈልግም። በ8 ሳምንት ውስጥ የሚፈልጉትን የሰውነት ለውጥ ማምጣት እንዲችሉ የዋጋ መሰናክሉን ሙሉ በሙሉ አንስተናል።\n\n"
-            f"💰 <b>የታላቅ የዋጋ ቅነሳ ኢንቨስትመንትዎ፦</b>\n"
-            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ!</b>\n"
-            f"(ለሙሉ 8 ሳምንት የሚሆን አንድ ጊዜ የሚከፈል፤ በቀን ሲሰላ {daily_cost:.0f} ብር ብቻ ማለት ነው!)\n\n"
+            f"<b>ቦታ ከመሙላቱ በፊት ይክፈቱ! 🚨 8 ሳምንት ሙሉ ሰውነትዎን የሚቀይርበት የመጨረሻ ዕድል!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"ብዙዎቻችሁ <i>'በየወሩ የሚከፈል ነው?'</i> ወይም <i>'አሁን ላይ ብር የለኝም'</i> እያላችሁ እድሉ እያመለጠችሁ ነው። <b>ግልፅ እናድርገው፦ ክፍያው የነበረው 1,100 ብር ነበር። አሁን ግን ለአንድ ወር ሳይሆን ለሙሉ 2 ወር (8 ሳምንት) የምትከፍሉት {price} ብር ብቻ ነው!</b>\n\n"
+            f"ይህ ማለት በቀን <b>{daily_cost:.1f} ብር</b> ብቻ ማለት ነው! በአሁኑ ሰአት በአንድ ማኪያቶ ዋጋ ሙሉ ህይወትዎን የሚቀይር፣ ስብ የሚያቀልጥ እና ጡንቻ የሚገነባ ሲስተም በእጅዎ እያገኙ ነው። አሁንም ካመነቱ ጥፋቱ የእርስዎ ብቻ ነው።\n\n"
+            f"💰 <b>የአንድ ጊዜ ልዩ ኢንቨስትመንት (ለ 8 ሳምንት ሙሉ)፦</b>\n"
+            f"<s>{original_price} ብር</s> → <b>{price} ብር ብቻ! (የ65% ቅናሽ)</b>\n\n"
             f"<b>ምን ያገኛሉ?</b>\n"
-            f"✅ እያንዳንዱን እንቅስቃሴ የሚያሳዩ ግልፅ ቪዲዮዎች\n"
-            f"✅ በማንኛውም ሰአት ስልክዎ ላይ የሚከፈት የ8 ሳምንት ሙሉ ፕሮግራም\n"
-            f"✅ ለሀገራችን ምግብ ተስማሚ የሆነ ፈጣን የአመጋገብ መመሪያ\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"✨ ይህ ልዩ የዋጋ ቅናሽ ያለምንም ማቅማማት አሁኑኑ ለውጥ መጀመር ለሚፈልጉ ብቻ የተዘጋጀ ነው።\n"
-            f"━━━━━━━━━━━━━━\n\n"
-            f"<b>የአባላቶቻችን አስተያየት፦</b>\n"
-            f"💬 <i>\"{testi.get('text', 'በ 2 ሳምንት ውስጥ በራሴ ላይ ያየሁት ለውጥ አስገራሚ ነው!')}\"</i>\n"
-            f"— <b>{testi.get('name', 'ዳዊት ግ..')}</b> ✅ አባል\n\n"
-            f"ሳይዘገዩ አሁኑኑ ተመዝግበው ጉዞዎን ይጀምሩ፦ 👇"
+            f"🔥 <b>Fat Loss & Muscle Gain፦</b> ሆድና ጎን የሚያጠፋ፣ ጠንካራ ጡንቻ የሚገነባ የአካል ብቃት ማሰልጠኛ\n"
+            f"🎥 <b>ቀላል ቪዲዮዎች፦</b> እያንዳንዱን እንቅስቃሴ በስልክዎ እያዩ የሚሰሩት ግልፅ መመሪያ\n"
+            f"🍲 <b>የሀገራችን ምግብ፦</b> ውድ 'የላይት' ምግቦች ሳይገዙ፣ በቤትዎ ባለው የሀበሻ ምግብ የሚሰራ የላይፍ-ስታይል አመጋገብ\n\n"
+            f"⚡ <b>የአባላቶቻችን እውነተኛ ምስክርነት፦</b>\n"
+            f"💬 <i>\"ክፍያው በየወሩ መስሎኝ ፈርቼ ነበር። ለአንድ ጊዜ ብቻ {price} ብር መሆኑን ሳውቅ ወዲያው ነው የጀመርኩት። በአንድ ወር ውስጥ ቦርጭ ሙሉ በሙሉ ጠፍቶ ደረቴ እና ትከሻዬ መውጣት ጀምሯል!\"</i>\n"
+            f"— <b>ዮናስ ኪ.</b> ✅ (የ8 ሳምንት Transformation አባል)\n\n"
+            f"⚠️ <b>ማሳሰቢያ፦</b> ይህ የዋጋ ቅናሽ በቅርቡ ይዘጋል። አሁኑኑ ተመዝግበው ለውጥዎን ይጀምሩ፦ 👇"
         )
-        btn_text = f"💪 በ{price} ብር አሁኑኑ እመዘገባለሁ"
+        btn_text = f"🚀 የ 8 ሳምንት ፕሮግራሙን በ {price} ብር ክፈት"
 
     else:
         text = (
-            f"Start Your Health & Strength Journey Today 🚀\n"
-            f"<b>Coach Hilawe Transformation System</b>\n\n"
-            f"No more excuses. 8 weeks is all it takes to completely transform your body. We have dropped the price to the absolute lowest to make sure nothing stands in your way.\n\n"
-            f"💰 <b>Massive Price Drop:</b>\n"
-            f"<s>{original_price} ETB</s> → <b>{price} ETB Only!</b>\n"
-            f"(One-time payment for the entire 8 weeks. That is just {daily_cost:.0f} ETB a day!)\n\n"
-            f"<b>What You Get:</b>\n"
-            f"✅ Clear instructional videos showing every single movement\n"
-            f"✅ An 8-week program accessible on your phone at any time\n"
-            f"✅ A practical nutrition guide tailored perfectly to local meals\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"✨ This special adjustment is strictly limited to help you bypass hesitation and get started right now.\n"
-            f"━━━━━━━━━━━━━━\n\n"
-            f"<b>Member Testimonials:</b>\n"
-            f"💬 <i>\"{testi.get('text', 'I have tried many programs before. This one is completely different — the food, the workouts, the plan, everything is all in one place. I am in my second month and my posture has improved while my muscles are getting stronger.')}\"</i>\n"
-            f"— <b>{testi.get('name', 'Nathnael Girma')}</b> ✅ Member\n\n"
-            f"Click the button below to secure your entry instantly: 👇"
+            f"<b>⚠️ ACCESS GATEWAY OPEN: Transform Your Body in 8 Weeks!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"Let's clear the confusion: <b>This is NOT a monthly subscription, and it is NOT an ongoing bill.</b> This is a ONE-TIME payment of just {price} ETB for the entire 8-week transformation system.\n\n"
+            f"That breaks down to just <b>{daily_cost:.1f} ETB a day</b>—less than the price of a single macchiato. If you think you're 'out of cash,' you are prioritizing excuses over your health.\n\n"
+            f"💰 <b>One-Time Investment (Zero Hidden Fees):</b>\n"
+            f"<s>{original_price} ETB</s> → <b>{price} ETB Only! (Save 65%)</b>\n\n"
+            f"<b>The Blueprint Includes:</b>\n"
+            f"🔥 <b>Fat Loss & Muscle Gain:</b> Targeted routines built to strip stubborn fat and build clean muscle mass simultaneously.\n"
+            f"🎥 <b>Step-by-Step Videos:</b> High-definition instructional guides right on your phone.\n"
+            f"🍲 <b>100% Local Nutrition:</b> No expensive imported supplements. Achieve your goals using everyday local Ethiopian meals.\n\n"
+            f"⚡ <b>Real Member Proof:</b>\n"
+            f"💬 <i>\"I hesitated because I thought it was a monthly fee. When I realized {price} ETB covers the whole 8 weeks, I jumped in. Lost my belly fat and noticeably built up my chest and arms in just 4 weeks!\"</i>\n"
+            f"— <b>Yonas K.</b> ✅ (Active Member)\n\n"
+            f"👇 Click below to lock in your 8-week access before the price resets:"
         )
-        btn_text = f"💪 Register Now for {price} ETB"
+        btn_text = f"🚀 Unlock 8-Week Access for {price} ETB"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn_text, callback_data=f"pay_{product_id}")]
     ])
 
     return text, kb
+
 import os
 from datetime import datetime, timedelta
 
@@ -366,7 +361,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 299) as effective_price
+            COALESCE(s.selected_price, 399) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -438,11 +433,10 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
-    # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 299) as final_price
+            COALESCE(s.selected_price, 399) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -454,7 +448,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     if target == "unpaid":
         # base_query += " AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
         base_query += """
-        AND u.created_at >= NOW() - INTERVAL '8 weeks'
+        AND u.created_at >= NOW() - INTERVAL '40 weeks'
         AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
         """
     elif target == "paid":
@@ -488,7 +482,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAIh_WnGGIefUf7hs34XFRaF76RpJDhNAAKpDGsb4X4xUjhHBw0hRnJjAQADAgADeQADOgQ"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     
