@@ -10,11 +10,10 @@ from config import settings
 logger = logging.getLogger(__name__)
 router = Router(name="admin_club_promo")
 
-# --- 1. DYNAMIC PROMOTIONAL CARD BUILDER ---
 def get_promo_card(lang: str, has_bought: bool = False) -> tuple[str, types.InlineKeyboardMarkup]:
     """
-    Generates a high-converting, mobile-first direct response broadcast message.
-    Focuses entirely on psychological friction, isolation, and consistency.
+    Generates a ultra-short, high-converting direct response broadcast message.
+    Weaponizes extreme urgency, social proof, and massive value imbalance.
     """
     builder = InlineKeyboardBuilder()
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
@@ -23,62 +22,60 @@ def get_promo_card(lang: str, has_bought: bool = False) -> tuple[str, types.Inli
     if not has_bought:
         if lang == "AM":
             text = (
-                f"<b>ለምንድነው ሁልጊዜ በመጀመሪያው ሳምንት የምታቆመው? 🤔</b>\n\n"
-                f"እውነቱን እንነጋገር። መመሪያዎችን ትፈልጋለህ፣ ሰኞ ለመጀመር ትምላለህ። ከዚያ ስራ ይበዛብሃል፣ መነሳሳት ይፋለማል፣ በዝምታ ተስፋ ትቆርጣለህ። ማንም ሰው ስላላየህ ብቻ ማቆም ቀላል ይሆንልሃል።\n\n"
-                f"ችግርህ የመረጃ ማጣት አይደለም። ችግርህ ብቻህን መሆንህ ነው! ብቻህን ስትሆን መሰላቸትህ የማይቀር ነው።\n\n"
-                f"እንኳን ወደ <b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> በሰላም መጣህ። ይህ ዝምተኛ የቴሌግራም ቻናል አይደለም፤ ወጥነትን ግዴታ የሚያደርግ የቁርጠኞች ክበብ ነው!\n\n"
-                f"🔥 <b>እዚህ መደበቅ አይቻልም፦</b>\n"
-                f"• <b>የቀጥታ ስልጠና፦</b> ኮች ሂላዌ በየሳምንቱ በLive ቪዲዮ ስህተትህን እና ግስጋሴህን በግል ይገመግማል።\n"
-                f"• <b>የተግባር ክፍል፦</b> በየቀኑ አብረውህ ከሚለፉ፣ ካንተ የተሻለ ጉልበት ካላቸው ጠንካሮች ጋር ትውላለህ።\n\n"
-                f"በየወሩ በ299 ብር ብቻ፣ ሁልጊዜ ተስፋ መቁረጥን አቁመህ የምትኮራበትን አካል መገንባት ጀምር።\n\n"
-                f"⚡ <i>ማንነትህን ለመቀየር አሁኑኑ ተቀላቀል፦</i>"
+                f"<b>🚨 የመጀመሪያው ዙር ሊዘጋ 10 ቦታዎች ብቻ ቀሩ! 🚨</b>\n\n"
+                f"ብቻህን እየለፋህ በየሳምንቱ ማቆም ሰልችቶሃል? ችግርህ የመረጃ ማጣት ሳይሆን ብቻህን መሆንህ ነው!\n\n"
+                f"እጅግ ብዙ ሰዎች ማህበረሰቡን በፍጥነት እየተቀላቀሉ ነው። <b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> ወጥነትን ግዴታ የሚያደርግ የቁርጠኞች ክበብ ነው፦\n\n"
+                f"👥 <b>የጠንካሮች ማህበረሰብ፦</b> በየቀኑ አብረውህ የሚለፉ እና የሚገፋፉህ ሰዎች ስብስብ።\n"
+                f"💎 <b>ቀጥታ ከኮች ጋር (Live)፦</b> በየሳምንቱ ከኮች ሂላዌ ጋር በቀጥታ ቪዲዮ መገናኘት።\n\n"
+                f"ከምታገኘው እጅግ ግዙፍ የህይወት እና የአካል ለውጥ አንፃር ክፍያው ምንም ማለት አይደለም።\n\n"
+                f"💵 ዋጋ፦ <b>በወር 299 ብር ብቻ!</b> (በቀን ከ10 ብር በታች)\n\n"
+                f"⚠️ <i>የመጨረሻዎቹ 10 ቦታዎች ሳይሞሉ አሁኑኑ ተቀላቀል፦</i>"
             )
-            btn_text = "🎯 ወደ ተግባር ክበቡ ግባ (299 ብር)"
+            btn_text = "🎯 ከቀሩት 10 ቦታዎች አንዱን ያዝ (299 ብር)"
         else:
             text = (
-                f"<b>Why do you always quit by week two? 🤔</b>\n\n"
-                f"Be honest. You watch the videos. You promise yourself 'this Monday' is the one. Then life gets busy, motivation dies, and you quietly give up when nobody is watching.\n\n"
-                f"You don't need more information. You need an environment that stops you from slacking. \n\n"
-                f"Welcome to the <b>Hilawe Transformation Club</b>. This is not a silent Telegram group to mute; it is an active execution arena.\n\n"
-                f"🔥 **Where Consistency is Automatic:**\n"
-                f"• **Live Video Audits:** Coach Hilawe personally reviews your execution and stuck points live every single week.\n"
-                f"• **The 1% Room:** Surround yourself with driven peers executing daily. No more isolation.\n\n"
-                f"For 299 ETB/month, stop abandoning your goals and finally build the body that reflects your dedication.\n\n"
-                f"⚡ *Tap below to change your environment:*"
+                f"<b>🚨 COHORT 1 CLOSING: ONLY 10 SPOTS LEFT! 🚨</b>\n\n"
+                f"Stop training alone and quitting by week two. Information isn't your problem—isolation is.\n\n"
+                f"Hundreds have already locked in their seats. The <b>Hilawe Transformation Club</b> is the ultimate accountability room:\n\n"
+                f"👥 **The 1% Tribe:** A high-energy community running together daily. No slacking.\n"
+                f"💎 **Weekly Live Audits:** Direct face-to-face video troubleshooting with Coach Hilawe.\n\n"
+                f"You are getting millions in shifting value for the price of a single casual meal.\n\n"
+                f"💵 Investment: **299 ETB/month** (Less than 10 ETB a day).\n\n"
+                f"⚠️ *The gateway locks permanently once the final 10 seats fill:*"
             )
-            btn_text = "🎯 Enter The Execution Room (299 ETB)"
+            btn_text = "🎯 Claim 1 of the Last 10 Spots (299 ETB)"
 
     # --- STATE 2: EXISTING BUYERS (OWN A PROGRAM BUT LACK CONSISTENCY) ---
     else:
         if lang == "AM":
             text = (
-                f"<b>መመሪያውን ገዝተሃል። ታዲያ ለምን ውጤት አልመጣም? 🤷‍♂️</b>\n\n"
-                f"ምክንያቱም የስፖርት ሰነድ (PDF) ወይም ፋይል ስትሰንፍ፣ አልጋ ላይ መዋል ስትፈልግ ሊቀሰቅስህ አይችልም። ያለ ተግባራዊ ማህበረሰብ መረጃ ብቻውን ዋጋ የለውም።\n\n"
-                f"አንተ አስቀድሞ እቅዱ አለህ። አሁን ግን ያንን እቅድ ወደ እውነተኛ የሰውነት ለውጥ የሚቀይርልህ ወጥ የሆነ ድልድይ ያስፈልግሃል።\n\n"
-                f"የ<b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> መመሪያህን በየቀኑ እንድትተገብረው የሚያስገድድህ የቀጥታ መድረክ ነው።\n\n"
-                f"🔥 <b>የቪአይፒ ጎደሎ ቁራጭ፦</b>\n"
-                f"• <b>ሳምንታዊ የቪዲዮ ክትትል፦</b> ከኮች ሂላዌ ጋር በየሳምንቱ በLive ቪዲዮ በመገናኘት ያጋጠሙህን መሰናክሎች ትፈታለህ።\n"
-                f"• <b>የዕለት ተዕለት ተጠያቂነት፦</b> ልክ እንደ አንተ ተመሳሳይ መመሪያ የያዙ ሰዎችን ጥረት እያየህ የመስነፍ እድልህን ታጠፋለህ።\n\n"
-                f"የገዛኸው መመሪያ እንዲባክን አትፍቀድ። በ299 ብር ብቻ ወደ እውነተኛ ለውጥ ቀይረው።\n\n"
-                f"⚡ <i>ክፍተቱን ሙላ። ቦታህን አሁን ያዝ፦</i>"
+                f"<b>🚨 ለቪአይፒ አባላት የተደረገ አስቸኳይ ጥሪ፡ 10 ቦታዎች ብቻ! 🚨</b>\n\n"
+                f"መመሪያውን ገዝተሃል፤ ታዲያ ለምን ውጤት አልመጣም? ምክንያቱም አንድ የፒዲኤፍ (PDF) ሰነድ ስትሰንፍ አልጋ ላይ ሊቀሰቅስህ አይችልም!\n\n"
+                f"አብዛኞቹ የፕሮግራማችን ባለቤቶች መመሪያቸውን ወደ እውነተኛ ውጤት ለመቀየር ክለቡን ተቀላቅለዋል። ያንተ ሰነድ እንዲባክን አትፍቀድ፦\n\n"
+                f"🤝 <b>የቀጥታ የቡድን ተጠያቂነት፦</b> እንድትተገብር የሚገፋፋህ ከፍተኛ ጉልበት ያለው ማህበረሰብ።\n"
+                f"🔥 <b>ሳምንታዊ የቪዲዮ ክትትል፦</b> በቀጥታ ከኮች ሂላዌ ጋር ስህተቶችህን ማስተካከል።\n\n"
+                f"የምትከፍለው እጅግ አነስተኛ ዋጋ የምታገኘውን ታላቅ ለውጥ ጨርሶ አይመጥንም።\n\n"
+                f"💵 ዋጋ፦ <b>በወር 299 ብር ብቻ!</b> ፕሮግራምህን ወደ እውነተኛ ለውጥ ቀይረው።\n\n"
+                f"⚠️ <i>የመጨረሻዎቹ 10 የቪአይፒ ማሻሻያ ቦታዎች ሳይሞሉ አሁኑኑ ግባ፦</i>"
             )
-            btn_text = "🔥 የቪአይፒ ክለብ መግቢያ (299 ብር)"
+            btn_text = "🔥 የቪአይፒ ክለብ ቦታህን አሁን ያዝ (299 ብር)"
         else:
             text = (
-                f"<b>You bought the program. So why aren't you seeing results? 🤷‍♂️</b>\n\n"
-                f"Because a downloaded fitness file cannot keep you accountable when you want to skip your session. Information without real implementation is dead weight.\n\n"
-                f"You already own the roadmap. Now you need the bridge to daily action. \n\n"
-                f"The <b>Hilawe Transformation Club</b> is where your standalone program finally turns into real muscle and fat loss.\n\n"
-                f"🔥 **The VIP Missing Piece:**\n"
-                f"• **Weekly Live Overhauls:** Get face-to-face video access with Coach Hilawe to solve your exact form and mindset plateaus.\n"
-                f"• **Daily Team Execution:** Push and relate with real people running the exact same transformation track.\n\n"
-                f"Your program cost you money—don't let it sit unused. For 299 ETB/month, force your blueprint into reality.\n\n"
-                f"⚡ *Bridge the gap. Claim your inner circle seat:*"
+                f"<b>🚨 VIP UPGRADE NOTICE: ONLY 10 SEATS REMAINING 🚨</b>\n\n"
+                f"You bought the program. So why aren't you seeing results? Because a downloaded file cannot force you out of bed when you want to skip a session!\n\n"
+                f"Most program owners have already jumped inside to bridge the gap between information and execution. Don't let your blueprint gather digital dust:\n\n"
+                f"🤝 **Tribe Accountability:** The exact high-momentum community you need to stay active.\n"
+                f"🔥 **Live Overhauls:** Weekly face-to-face video access with Coach Hilawe.\n\n"
+                f"The financial commitment is symbolic; the payoff is an elite physical transformation.\n\n"
+                f"💵 Cost: **299 ETB/month** to activate your standalone program.\n\n"
+                f"⚠️ *Secure your upgrade before the last 10 seats vanish:*"
             )
             btn_text = "🔥 Upgrade to Live Club Tracking (299 ETB)"
 
     builder.button(text=btn_text, callback_data="initiate_club_subscription")
     return text, builder.as_markup()
+
+
 
 # --- 2. ADMIN CONTROL GATEWAY CONTROL ---
 @router.message(Command("club_broadcast"))
