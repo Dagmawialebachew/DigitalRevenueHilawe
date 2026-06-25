@@ -235,12 +235,39 @@ async def verify_external(reference: str, provider: str) -> dict:
     return {"success": False, "error": "Endpoints unverified"}
 
 def is_hilawe_receiver(raw: str, bank_data: dict) -> bool:
-    data = bank_data.get("data", {})
-    api_name = str(
-        data.get("receiver") or data.get("creditedPartyName") or data.get("credited_party_name") or ""
-    ).upper()
-    return "HILAWE" in raw.upper() or "HILAWE" in api_name
+    """
+    Bulletproof receiver validation checking both local OCR raw text 
+    and structure-agnostic API responses (root level & nested payload).
+    """
+    if not bank_data:
+        bank_data = {}
 
+    # 1. Check local OCR text first
+    if "HILAWE" in raw.upper():
+        return True
+
+    # 2. Extract values from the API root level
+    root_receiver = (
+        bank_data.get("receiver") or 
+        bank_data.get("creditedPartyName") or 
+        bank_data.get("credited_party_name") or 
+        ""
+    )
+
+    # 3. Extract values from the nested 'data' payload (safeguard for varied endpoints)
+    nested = bank_data.get("data") or {}
+    nested_receiver = (
+        nested.get("receiver") or 
+        nested.get("creditedPartyName") or 
+        nested.get("credited_party_name") or 
+        ""
+    )
+
+    # 4. Consolidate and evaluate
+    api_combined_names = f"{root_receiver} {nested_receiver}".upper()
+    
+    print(f"DEBUG [Receiver Audit]: Root='{root_receiver}' | Nested='{nested_receiver}'")
+    return "HILAWE" in api_combined_names
 # ─────────────────────────────────────────────
 #  TEST ROUTERS
 # ─────────────────────────────────────────────
@@ -302,6 +329,7 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
         print(f"Time parsing error: {e}")
 
     is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+    print('here is the name ', is_hilawe)
     if is_real and is_hilawe:
         report = (
             f"✅ <b>TRANSACTION VERIFIED</b>\n────────────────────\n"
