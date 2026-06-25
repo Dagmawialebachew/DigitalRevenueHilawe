@@ -19,7 +19,8 @@ def admin_main_menu() -> ReplyKeyboardMarkup:
     )
     builder.row(
         KeyboardButton(text="📢 Global Broadcast"),
-        KeyboardButton(text="🛠 Manage Products")
+        # KeyboardButton(text="🛠 Manage Products")
+        KeyboardButton(text="👥 Community")
     )
     builder.row(
          

@@ -567,7 +567,6 @@ async def final_execute_rejection(message: types.Message, state: FSMContext, db:
             await message.answer("⚠️ User blocked the bot, but DB updated.")
         
         await state.clear()
-
 PROD_PER_PAGE = 8
 
 @router.message(F.text == "🛠 Manage Products", F.from_user.id.in_(settings.ADMIN_IDS))
@@ -639,3 +638,68 @@ async def execute_delete(callback: types.CallbackQuery, db: Database):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
+# --- [ SECTION 5: HILAWE TRANSFORMATION CLUB COMMUNITY ] ---
+
+@router.message(F.text == "👥 Community", F.from_user.id.in_(settings.ADMIN_IDS))
+@router.callback_query(F.data == "refresh_club_stats")
+async def club_information_dashboard(event: types.Message | types.CallbackQuery, db: Database, state: FSMContext):
+    """
+    Displays the live community metrics, active tiers, and 
+    recurring financial performance of the HTransformation Club.
+    """
+    await state.clear()
+    
+    # Fetch aggregated community statistics from the database
+    # Note: Adjust table/column names if your schema uses a different naming convention
+    stats = await db._pool.fetchrow("""
+        SELECT 
+            COUNT(*) FILTER (WHERE status = 'active') as active_members,
+            COUNT(*) FILTER (WHERE status = 'pending') as pending_members,
+            COALESCE(SUM(amount) FILTER (WHERE status = 'approved' AND approved_at >= NOW() - INTERVAL '30 days'), 0) as mrr,
+            COUNT(DISTINCT user_id) as total_lifetime_athletes
+        FROM payments 
+        WHERE product_id IN (SELECT id FROM products WHERE title ILIKE '%Club%' OR title ILIKE '%Transformation%')
+    """)
+
+    # Fallback to zeros if the query returns empty rows
+    active = stats['active_members'] if stats else 0
+    pending = stats['pending_members'] if stats else 0
+    mrr = stats['mrr'] if stats else 0
+    total = stats['total_lifetime_athletes'] if stats else 0
+
+    club_text = (
+        "👥 *HILAWE TRANSFORMATION CLUB*\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "✨ *COMMUNITY ECOSYSTEM*\n"
+        f"▪️ *Active Members:* `{active} athletes`\n"
+        f"▪️ *Pending Onboarding:* `{pending} claims`\n"
+        f"▪️ *Total Network Pool:* `{total} joined`\n"
+        "————————————————————\n"
+        "📈 *FINANCIAL MOMENTUM (30D)*\n"
+        f"▪️ *MRR (Recurring):* `{mrr or 0} ETB`\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "⚙️ *System Action:* Review tier pricing updates or refresh below.\n"
+        f"⏱ _Last Synced: {datetime.now().strftime('%H:%M:%S')}_"
+    )
+
+    # Build the interactive dashboard controls
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔄 Sync Club Data", callback_data="refresh_club_stats")
+    builder.button(text="💎 Founders Command Center", callback_data="admin_home")
+    builder.adjust(1)
+    
+    inline_kb = builder.as_markup()
+
+    if isinstance(event, types.Message):
+        # Fresh interaction from Reply Keyboard
+        await event.answer(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+    else:
+        # Edit event from Inline Refresh Button
+        try:
+            await event.message.edit_text(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+            await event.answer("Ecosystem metrics updated! ⚡️")
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                await event.answer("Data is completely up to date.")
+            else:
+                raise e
