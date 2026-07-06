@@ -1,6 +1,9 @@
 """
-verify.py  —  Render-Optimized Edition (Character-Healed)
-Target: < 3 seconds per transaction
+verify.py — Accuracy-First Edition
+Fast path is still fast (~1 OCR pass on clean screenshots), but ambiguous
+characters are no longer guessed — every plausible reading is generated
+and checked against the real bank API, which is the only true source of
+truth for what the reference ID actually is.
 """
 
 import os
@@ -11,10 +14,11 @@ import platform
 import shutil
 import time
 from datetime import datetime, timezone
+from itertools import product
 
 import numpy as np
 import httpx
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageFilter
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -57,81 +61,137 @@ class PaymentStates(StatesGroup):
     waiting_for_screenshot = State()
 
 # ─────────────────────────────────────────────
-#  IN-MEMORY IMAGE PREPROCESSING
+#  IN-MEMORY IMAGE PREPROCESSING (two variants: normal + aggressive)
 # ─────────────────────────────────────────────
-def _preprocess_in_memory(img_stream: io.BytesIO) -> Image.Image:
-    """Processes image in RAM using PIL and numpy. Protects Render from OOM."""
-    img = Image.open(img_stream).convert("L")
-    w, h = img.size
+def _preprocess_variants(img_stream: io.BytesIO) -> list[Image.Image]:
+    """Produces a couple of differently-processed versions of the image.
+    Different receipts (screenshots, camera photos, low-contrast dark-mode
+    apps, etc.) respond better to different preprocessing, so instead of
+    betting everything on one fixed pipeline we keep two candidates ready
+    and only reach for the second one if the first doesn't yield a
+    confident read."""
+    img_stream.seek(0)
+    base = Image.open(img_stream).convert("L")
+    w, h = base.size
 
-    # Memory Guard
+    # Memory guard / upscaling for tiny screenshots
     if w > 1500:
         ratio = 1500 / w
-        img = img.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
+        base = base.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
     elif w < 800:
-        img = img.resize((w * 2, h * 2), Image.Resampling.BICUBIC)
+        base = base.resize((w * 2, h * 2), Image.Resampling.BICUBIC)
 
-    # Boost contrast before matrix conversion
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(2.5)  # Slightly bumped to sharpen text boundaries
+    sharpened = base.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=2))
 
-    # Vectorized fast thresholding
-    img_array = np.array(img)
-    threshold = np.mean(img_array) * 0.92
-    binary_matrix = np.where(img_array > threshold, 255, 0).astype(np.uint8)
-    
-    return Image.fromarray(binary_matrix)
+    variants = []
+    for contrast in (2.2, 3.2):
+        enhanced = ImageEnhance.Contrast(sharpened).enhance(contrast)
+        arr = np.array(enhanced)
+        threshold = np.mean(arr) * 0.92
+        binary = np.where(arr > threshold, 255, 0).astype(np.uint8)
+        variants.append(Image.fromarray(binary))
+
+    return variants
 
 # ─────────────────────────────────────────────
-#  SMART FAILOVER OCR WITH ENGINE WHITELISTING
+#  ESCALATING OCR (stop as soon as we get a confident structural match)
 # ─────────────────────────────────────────────
 def _run_tesseract(img: Image.Image, psm: int) -> str:
-    # Restrict character choices at runtime to completely block lowercase letters/garbage characters
     tess_config = f"--oem 3 --psm {psm} -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-/ "
     return pytesseract.image_to_string(img, config=tess_config)
 
-async def _ocr_smart(img: Image.Image) -> str:
+# A "confident" structural match: looks like a real CBE/Telebirr ID shape.
+_STRICT_ID_RE = re.compile(r"\bFT[A-Z0-9]{8,12}\b|\bD[A-Z0-9]{9}\b")
+
+async def _ocr_smart(images: list[Image.Image]) -> str:
+    """Runs OCR passes in increasing order of effort, stopping the moment
+    one of them yields a structurally-confident candidate. Clean
+    screenshots resolve in a single pass; messy ones get up to 4."""
     loop = asyncio.get_running_loop()
-    text = await loop.run_in_executor(None, _run_tesseract, img, 6)
-    
-    # Failover condition: Look for either a CBE ID or a 10-character Telebirr ID
-    if not re.search(r"[A-Z0-9]{8,}", text):
-        fallback_text = await loop.run_in_executor(None, _run_tesseract, img, 4)
-        text = f"{text}\n{fallback_text}"
-        
-    return text
+    collected: list[str] = []
+
+    passes = [
+        (images[0], 6),
+        (images[0], 4),
+        (images[1], 6),
+        (images[1], 11),
+    ]
+
+    for img, psm in passes:
+        text = await loop.run_in_executor(None, _run_tesseract, img, psm)
+        collected.append(text)
+        combined_upper = "\n".join(collected).upper()
+        if _STRICT_ID_RE.search(combined_upper):
+            break
+
+    return "\n".join(collected)
 
 # ─────────────────────────────────────────────
-#  ALGORITHMIC CHARACTER HEALING LAYER
+#  CANDIDATE GENERATION (replaces blind character "healing")
 # ─────────────────────────────────────────────
-def _heal_transaction_string(ref_id: str | None) -> str | None:
+# Characters tesseract commonly confuses with each other. Note this is
+# NOT a one-way mapping — a real ID can legitimately contain O, I, L, 0
+# or 1, so we must not assume any single "corrected" direction is right.
+_CONFUSABLE_GROUPS = {
+    'O': ['O', '0'],
+    '0': ['0', 'O'],
+    'I': ['I', '1', 'L'],
+    '1': ['1', 'I', 'L'],
+    'L': ['L', '1', 'I'],
+}
+
+def generate_id_variants(raw: str, max_variants: int = 40) -> list[str]:
     """
-    Corrects structural OCR degradation. Swaps alphabetic confusion traps
-    (O, I, L) into secure numeric values (0, 1) based on Ethiopian bank transaction structures.
+    Returns an ordered list of plausible readings of an extracted ID.
+    Instead of guessing which O/0/I/1/L is "correct", every plausible
+    combination is generated (bounded, to avoid combinatorial blow-up) so
+    the real bank API can confirm which one actually exists. The literal
+    OCR reading is always tried first since it's most often correct.
     """
-    if not ref_id:
-        return None
-    
-    ref_id = ref_id.strip().upper()
-    
-    # Vector 1: Telebirr ID Healing (Format: D followed by 9 alphanumeric characters)
-    if ref_id.startswith("D") and len(ref_id) == 10:
-        body = ref_id[1:]
-        body = body.replace("O", "0").replace("I", "1").replace("L", "1")
-        return "D" + body
-        
-    # Vector 2: CBE ID Healing (Format: FT followed by alphanumeric sequence)
-    if ref_id.startswith("FT"):
-        body = ref_id[2:]
-        body = body.replace("O", "0").replace("I", "1").replace("L", "1")
-        return "FT" + body
+    raw = (raw or "").strip().upper()
+    if not raw:
+        return []
 
-    # Vector 3: Global fallback replacement for other providers
-    # Safely swap inner elements while retaining potential alphabetic tracking markers
-    return ref_id.replace("O", "0").replace("I", "1").replace("L", "1")
+    ambiguous_positions = [i for i, c in enumerate(raw) if c in _CONFUSABLE_GROUPS]
+
+    if not ambiguous_positions:
+        return [raw]
+
+    if len(ambiguous_positions) > 5:
+        # Too many ambiguous characters to safely brute-force (would mean
+        # dozens/hundreds of API calls). Fall back to the three most
+        # sensible global readings instead of one blind guess.
+        as_read = raw
+        numerals_first = list(raw)
+        letters_first = list(raw)
+        for i in ambiguous_positions:
+            c = raw[i]
+            if c in ('O', '0'):
+                numerals_first[i] = '0'
+                letters_first[i] = 'O'
+            else:  # I, 1, L
+                numerals_first[i] = '1'
+                letters_first[i] = 'I' if c != 'L' else 'L'
+        candidates = [as_read, "".join(numerals_first), "".join(letters_first)]
+    else:
+        options_per_pos = [_CONFUSABLE_GROUPS[raw[i]] for i in ambiguous_positions]
+        candidates = []
+        for combo in product(*options_per_pos):
+            chars = list(raw)
+            for pos, val in zip(ambiguous_positions, combo):
+                chars[pos] = val
+            candidates.append("".join(chars))
+        # Literal OCR reading first (most likely correct), rest after
+        candidates.sort(key=lambda v: v != raw)
+
+    seen = []
+    for c in candidates:
+        if c not in seen:
+            seen.append(c)
+    return seen[:max_variants]
 
 # ─────────────────────────────────────────────
-#  EXTRACTION LOGIC
+#  EXTRACTION LOGIC (returns candidate lists, no guessing baked in)
 # ─────────────────────────────────────────────
 def _detect_provider(up: str) -> str:
     if any(k in up for k in ("ABYSSINIA", "BOA")):
@@ -144,29 +204,48 @@ def _detect_provider(up: str) -> str:
         return "Awash"
     return "Unknown"
 
-def _extract_cbe(up: str) -> str | None:
+def _extract_cbe(up: str) -> list[str]:
+    candidates = []
     m = re.search(r"F\s*T\s*([A-Z0-9]{8,12})", up)
-    if m: return _heal_transaction_string(("FT" + m.group(1)).replace(" ", ""))
+    if m:
+        candidates.append(("FT" + m.group(1)).replace(" ", ""))
     m = re.search(r"(?:ID|TRANSACTION\s*ID)[:\s]+([A-Z0-9]{10,14})", up)
-    if m: return _heal_transaction_string(m.group(1))
-    m = re.search(r"\b(FT[A-Z0-9]{8,12})\b", up)
-    return _heal_transaction_string(m.group(1)) if m else None
+    if m:
+        candidates.append(m.group(1))
+    for m in re.finditer(r"\b(FT[A-Z0-9]{8,12})\b", up):
+        candidates.append(m.group(1))
+    seen = []
+    for c in candidates:
+        if c not in seen:
+            seen.append(c)
+    return seen
 
-def _extract_telebirr(up: str, raw: str) -> str | None:
+def _extract_telebirr(up: str, raw: str) -> list[str]:
+    candidates = []
     for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO", "INVOICE NUMBER", "REF NO", "REFERENCE NO", "NUMBER"):
         m = re.search(rf"{label}[:\s#]+([A-Z0-9]{{8,14}})", up)
-        if m: return _heal_transaction_string(m.group(1))
+        if m:
+            candidates.append(m.group(1))
     m = re.search(r"የግብይት\s*ቁጥር[:\s]+([A-Z0-9a-z]{8,14})", raw, re.UNICODE)
-    if m: return _heal_transaction_string(m.group(1))
-    
-    # Strong fallback: Telebirr IDs follow the 10-character D-prefix format
-    m = re.search(r"\b(D[A-Z0-9]{9})\b", up)
-    if m: return _heal_transaction_string(m.group(1))
-    return None
+    if m:
+        candidates.append(m.group(1).upper())
+    for m in re.finditer(r"\b(D[A-Z0-9]{9})\b", up):
+        candidates.append(m.group(1))
+    seen = []
+    for c in candidates:
+        if c not in seen:
+            seen.append(c)
+    return seen
 
 def _extract_amount_fallback(raw: str) -> str | None:
     amounts = re.findall(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", raw)
     return max(amounts, key=lambda x: len(x.replace(",", ""))) if amounts else None
+
+def _safe_amount(x) -> float:
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return 0.0
 
 # ─────────────────────────────────────────────
 #  PUBLIC EXPOSED HOOKS
@@ -174,30 +253,54 @@ def _extract_amount_fallback(raw: str) -> str | None:
 async def extract_local_data(img_stream: io.BytesIO) -> dict:
     loop = asyncio.get_running_loop()
 
-    processed_img = await loop.run_in_executor(None, _preprocess_in_memory, img_stream)
-    raw = await _ocr_smart(processed_img)
+    images = await loop.run_in_executor(None, _preprocess_variants, img_stream)
+    raw = await _ocr_smart(images)
 
     up = re.sub(r'[^A-Z0-9\n\s:\-]', ' ', raw.upper())
     provider = _detect_provider(up)
-    ref = None
 
+    raw_candidates: list[str] = []
     if provider in ("CBE", "Abyssinia"):
-        ref = _extract_cbe(up)
+        raw_candidates = _extract_cbe(up)
     elif provider in ("Telebirr", "Unknown"):
-        ref = _extract_telebirr(up, raw)
-        if ref: provider = "Telebirr"
+        tb = _extract_telebirr(up, raw)
+        if tb:
+            provider = "Telebirr"
+            raw_candidates = tb
+        elif provider == "Unknown":
+            # last-resort attempt in case it's actually a CBE receipt that
+            # didn't contain any of the provider keywords
+            fallback = _extract_cbe(up)
+            if fallback:
+                provider = "CBE"
+                raw_candidates = fallback
+
+    # Expand each raw candidate into every plausible reading, and let the
+    # bank API (in verify_external) decide which one is real.
+    ref_candidates: list[str] = []
+    for base in raw_candidates:
+        for v in generate_id_variants(base):
+            if v not in ref_candidates:
+                ref_candidates.append(v)
+    ref_candidates = ref_candidates[:60]  # hard cap on API calls per receipt
 
     amount_fallback = _extract_amount_fallback(raw)
-    return {"provider": provider, "ref": ref, "amount_fallback": amount_fallback, "raw_text": raw}
+    return {
+        "provider": provider,
+        "ref": ref_candidates[0] if ref_candidates else None,
+        "ref_candidates": ref_candidates,
+        "amount_fallback": amount_fallback,
+        "raw_text": raw,
+    }
 
-async def verify_external(reference: str, provider: str) -> dict:
-    client  = get_http_client()
-    payload = {"reference": reference.strip()}
-    
-    if provider == "CBE": 
-        payload["suffix"] = CBE_SUFFIX
-    elif provider == "Abyssinia":
-        payload["suffix"] = ABYSSINIA_SUFFIX
+async def verify_external(candidates: list[str], provider: str) -> dict:
+    """Tries every plausible reading of the reference ID against the real
+    bank API and returns the first one that the bank actually confirms.
+    This is what makes the system self-correcting against OCR ambiguity:
+    we don't have to be sure which reading is right, the bank tells us."""
+    client = get_http_client()
+    if not candidates:
+        return {"success": False, "error": "No candidate reference extracted"}
 
     endpoints = [API_URL]
     if provider == "Telebirr":
@@ -205,18 +308,16 @@ async def verify_external(reference: str, provider: str) -> dict:
     elif provider == "Abyssinia":
         endpoints.append("https://verifyapi.leulzenebe.pro/verify-abyssinia")
 
-    # Double-check array initialization for fuzzy variation retry
-    variants = [reference.strip()]
-    
-    # If structural cleaning missed an option, prepare a soft variant list to run across hot pools
-    inverted = reference.strip()
-    if "0" in inverted or "1" in inverted:
-        # Create a reverse mutation lookup just in case the API ledger contains anomalous data
-        pass
+    last_result = {"success": False, "error": "No matching transaction found"}
 
-    for url in endpoints:
-        for ref_variant in variants:
-            payload["reference"] = ref_variant
+    for ref_variant in candidates:
+        payload = {"reference": ref_variant}
+        if provider == "CBE":
+            payload["suffix"] = CBE_SUFFIX
+        elif provider == "Abyssinia":
+            payload["suffix"] = ABYSSINIA_SUFFIX
+
+        for url in endpoints:
             try:
                 resp = await client.post(url, json=payload)
                 if resp.status_code == 200:
@@ -225,49 +326,70 @@ async def verify_external(reference: str, provider: str) -> dict:
                     print(f"🔥 [API RAW RESPONSE | {provider}] 🔥")
                     print(f"REF: {ref_variant}")
                     print(f"URL: {url}")
-                    print(data)
+                    print(f"MATCH: {bool(data.get('success'))}")
                     print("═"*50 + "\n")
-                    return data
+                    if data.get("success"):
+                        data["_matched_reference"] = ref_variant
+                        return data
+                    last_result = data
             except Exception as e:
                 print(f"⚠️ Network error hitting {url} with ref {ref_variant}: {e}")
                 continue
 
-    return {"success": False, "error": "Endpoints unverified"}
+    return last_result
 
 def is_hilawe_receiver(raw: str, bank_data: dict) -> bool:
     """
-    Bulletproof receiver validation checking both local OCR raw text 
+    Bulletproof receiver validation checking both local OCR raw text
     and structure-agnostic API responses (root level & nested payload).
     """
     if not bank_data:
         bank_data = {}
 
-    # 1. Check local OCR text first
     if "HILAWE" in raw.upper():
         return True
 
-    # 2. Extract values from the API root level
     root_receiver = (
-        bank_data.get("receiver") or 
-        bank_data.get("creditedPartyName") or 
-        bank_data.get("credited_party_name") or 
+        bank_data.get("receiver") or
+        bank_data.get("creditedPartyName") or
+        bank_data.get("credited_party_name") or
         ""
     )
 
-    # 3. Extract values from the nested 'data' payload (safeguard for varied endpoints)
     nested = bank_data.get("data") or {}
     nested_receiver = (
-        nested.get("receiver") or 
-        nested.get("creditedPartyName") or 
-        nested.get("credited_party_name") or 
+        nested.get("receiver") or
+        nested.get("creditedPartyName") or
+        nested.get("credited_party_name") or
         ""
     )
 
-    # 4. Consolidate and evaluate
     api_combined_names = f"{root_receiver} {nested_receiver}".upper()
-    
+
     print(f"DEBUG [Receiver Audit]: Root='{root_receiver}' | Nested='{nested_receiver}'")
     return "HILAWE" in api_combined_names
+
+def _time_ago_display(bank_data: dict) -> str:
+    try:
+        payment_time_str = bank_data.get("date")
+        if not payment_time_str:
+            return "(Time unknown)"
+        pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
+        total_seconds = int((datetime.now(timezone.utc) - pay_dt).total_seconds())
+        if total_seconds <= 0:
+            return "(Time unknown)"
+        days, rem = divmod(total_seconds, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, _ = divmod(rem, 60)
+        if days > 0:
+            return f"({days}d {hours}h ago)"
+        if hours > 0:
+            return f"({hours}h {minutes}m ago)"
+        return f"({minutes}m ago)"
+    except Exception as e:
+        print(f"Time parsing error: {e}")
+        return "(Time unknown)"
+
 # ─────────────────────────────────────────────
 #  TEST ROUTERS
 # ─────────────────────────────────────────────
@@ -286,57 +408,48 @@ async def start_upload_test(callback: types.CallbackQuery, state: FSMContext):
 async def handle_screenshot_test(message: types.Message, state: FSMContext, bot: Bot):
     start_time = time.perf_counter()
     status_msg = await message.answer("🔄 <b>Analyzing receipt...</b>", parse_mode="HTML")
-    
+
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
     img_stream = io.BytesIO()
     await bot.download_file(file.file_path, destination=img_stream)
     img_stream.seek(0)
-    
+
     local = await extract_local_data(img_stream)
-    
-    if not local["ref"] or len(str(local["ref"])) < 8:
+
+    if not local["ref_candidates"]:
         await status_msg.edit_text(
-            f"🤖 <b>AUDIT FAILED</b>\n⚠️ Could not extract valid ID.\n⏱️ <b>Process latency:</b> {time.perf_counter() - start_time:.2f}s",
+            f"🤖 <b>AUDIT FAILED</b>\n⚠️ Could not extract a valid ID from the screenshot.\n⏱️ <b>Process latency:</b> {time.perf_counter() - start_time:.2f}s",
             parse_mode="HTML"
         )
         await state.clear()
         return
 
-    await status_msg.edit_text(f"📡 <b>Querying:</b> <code>{local['ref']}</code>...", parse_mode="HTML")
-    bank_data = await verify_external(local["ref"], local["provider"])
+    await status_msg.edit_text(
+        f"📡 <b>Querying:</b> <code>{local['ref']}</code>"
+        + (f" (+{len(local['ref_candidates']) - 1} alt readings)" if len(local["ref_candidates"]) > 1 else "")
+        + "...",
+        parse_mode="HTML",
+    )
+    bank_data = await verify_external(local["ref_candidates"], local["provider"])
     is_real = bank_data.get("success", False)
     total_elapsed = time.perf_counter() - start_time
-    
+
+    matched_ref = bank_data.get("_matched_reference") or local["ref"] or "N/A"
     payer = bank_data.get("payer", "Unknown")
     receiver = bank_data.get("receiver", "N/A")
-    amount = bank_data.get("amount", 0)
-    
-    time_display = "(Time unknown)"
-    try:
-        payment_time_str = bank_data.get("date")
-        if payment_time_str:
-            pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
-            total_seconds = int((datetime.now(timezone.utc) - pay_dt).total_seconds())
-            if total_seconds > 0:
-                days, rem = divmod(total_seconds, 86400)
-                hours, rem = divmod(rem, 3600)
-                minutes, _ = divmod(rem, 60)
-                if days > 0: time_display = f"({days}d {hours}h ago)"
-                elif hours > 0: time_display = f"({hours}h {minutes}m ago)"
-                else: time_display = f"({minutes}m ago)"
-    except Exception as e:
-        print(f"Time parsing error: {e}")
+    amount = _safe_amount(bank_data.get("amount", 0))
+    time_display = _time_ago_display(bank_data)
 
     is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
-    print('here is the name ', is_hilawe)
+
     if is_real and is_hilawe:
         report = (
             f"✅ <b>TRANSACTION VERIFIED</b>\n────────────────────\n"
             f"👤 <b>Payer:</b> <code>{payer}</code>\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
             f"🏦 <b>Bank:</b> {local['provider']} {time_display}\n"
-            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n"
+            f"🆔 <b>Ref ID:</b> <code>{matched_ref}</code>\n"
             f"🎯 <b>Receiver:</b> {receiver}\n\n"
             f"🟢 <b>Outcome:</b> Approved.\n⏱️ <b>Audit:</b> {total_elapsed:.2f}s"
         )
@@ -347,7 +460,7 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
             f"❌ <b>Result:</b> {fail_reason}\n"
             f"👤 <b>Payer:</b> {payer} {time_display}\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
-            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n\n"
+            f"🆔 <b>Ref ID tried:</b> <code>{matched_ref}</code>\n\n"
             f"⚠️ <b>Protocol:</b> Do not release.\n⏱️ <b>Audit:</b> {total_elapsed:.2f}s"
         )
 
@@ -355,27 +468,11 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
     await state.clear()
 
 def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
+    matched_ref = bank_data.get("_matched_reference") or local.get("ref") or "N/A"
     payer = bank_data.get("payer", "Unknown")
     receiver = bank_data.get("receiver", "N/A")
-    amount = bank_data.get("amount", 0)
-    
-    time_display = "(Time unknown)"
-    try:
-        payment_time_str = bank_data.get("date")
-        if payment_time_str:
-            pay_dt = datetime.fromisoformat(payment_time_str.replace("Z", "+00:00"))
-            total_minutes = int((datetime.now(timezone.utc) - pay_dt).total_seconds() / 60)
-            if total_minutes < 60:
-                time_display = f"({total_minutes}m ago)"
-            elif total_minutes < 1440:
-                hours = total_minutes // 60
-                mins = total_minutes % 60
-                time_display = f"({hours}h {mins}m ago)"
-            else:
-                days = total_minutes // 1440
-                time_display = f"({days}d ago)"
-    except Exception as e:
-        print(f"Time parsing error: {e}")
+    amount = _safe_amount(bank_data.get("amount", 0))
+    time_display = _time_ago_display(bank_data)
 
     if is_real and is_hilawe:
         return (
@@ -383,7 +480,7 @@ def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
             f"👤 <b>Payer:</b> <code>{payer}</code>\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
             f"🏦 <b>Bank:</b> {local['provider']} {time_display}\n"
-            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n"
+            f"🆔 <b>Ref ID:</b> <code>{matched_ref}</code>\n"
             f"🎯 <b>Receiver:</b> {receiver}\n\n"
             f"🟢 <b>Outcome:</b> Approved.\n⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
         )
@@ -394,7 +491,7 @@ def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
             f"❌ <b>Result:</b> {fail_reason}\n"
             f"👤 <b>Payer:</b> {payer} {time_display}\n"
             f"💰 <b>Amount:</b> {amount:,.2f} ETB\n"
-            f"🆔 <b>Ref ID:</b> <code>{local['ref']}</code>\n\n"
+            f"🆔 <b>Ref ID tried:</b> <code>{matched_ref}</code>\n\n"
             f"⚠️ <b>Protocol:</b> Do not release products.\n⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
         )
 
@@ -402,7 +499,7 @@ def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
 async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
     status_msg = await callback.message.answer("🔍 <b>Auditing recent payments...</b>", parse_mode="HTML")
     recent = await db.get_recent_payment_proofs(5)
-    
+
     if not recent:
         return await status_msg.edit_text("❌ No recent payments found.")
 
@@ -418,27 +515,28 @@ async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
             bank_data = {}
             is_real = False
 
-            if local["ref"]:
-                bank_data = await verify_external(local["ref"], local["provider"])
+            if local["ref_candidates"]:
+                bank_data = await verify_external(local["ref_candidates"], local["provider"])
                 is_real = bank_data.get("success", False)
 
             is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
-            api_amount = bank_data.get("data", {}).get("amount")
-            display_amount = f"{float(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "?")
+            matched_ref = bank_data.get("_matched_reference") or local["ref"] or "N/A"
+            api_amount = bank_data.get("data", {}).get("amount") if isinstance(bank_data.get("data"), dict) else None
+            display_amount = f"{_safe_amount(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "?")
             elapsed = time.perf_counter() - start_time
 
             if is_real and is_hilawe:
                 caption = (
                     f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n────────────────────\n"
                     f"🟢 <b>Audit #{rec['id']}</b> • 100% authentic ledger match.\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref']}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amount} ETB</b>\n"
                     f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
                 )
             else:
                 caption = (
                     f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n────────────────────\n"
                     f"🔴 <b>Audit #{rec['id']}</b> • Fraud guard triggered. No bank match.\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref'] or 'N/A'}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amount} ETB</b>\n"
                     f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
                 )
 
