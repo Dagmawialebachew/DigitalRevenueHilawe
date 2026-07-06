@@ -73,43 +73,40 @@ async def get_admin_stats(request: web.Request) -> web.Response:
 async def get_revenue_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/stats/revenue?days=7
-    Returns dual-stream time-series data for Revenue and User Growth.
+    Returns structured streams splitting Product Sales vs Club Subscriptions.
     """
     db = request.app["db"]
     try:
-        # Support for 7, 14, 30, 60, 90
         days = int(request.query.get("days", 7))
     except ValueError:
         days = 7
 
     try:
+        # Assumes db.get_revenue_history returns date, revenue_products, revenue_club, and new_users
         rows = await db.get_revenue_history(days=days)
         
-        # We transform the records into a structured object for the frontend
-        # This makes it easier to handle 'Revenue' and 'Users' as separate arrays
         data = {
-            "labels": [r["date"] for r in rows],
-            "revenue": [float(r["revenue"]) for r in rows],
+            "labels": [str(r["date"]) for r in rows],
+            "revenue_products": [float(r.get("revenue_products", 0)) for r in rows],
+            "revenue_club": [float(r.get("revenue_club", 0)) for r in rows],
             "users": [int(r["new_users"]) for r in rows],
             "days_limit": days
         }
-        
         return web.json_response(data)
     except Exception:
         LOG.exception("get_revenue_stats failed")
-        # Return empty structure on failure to prevent frontend crash
         return web.json_response({
-            "labels": [], "revenue": [], "users": [], "days_limit": days
+            "labels": [], "revenue_products": [], "revenue_club": [], "users": [], "days_limit": days
         }, status=500)
+
 
 async def get_distribution_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/stats/distribution
-    Returns counts for the donut chart.
+    Returns counts for the status configuration donut chart.
     """
     db = request.app["db"]
     try:
-        # Expected from DB: record with 'pending', 'approved', 'rejected'
         record = await db.get_payment_distribution()
         return web.json_response(record_to_dict(record))
     except Exception:
@@ -182,22 +179,6 @@ async def get_products(request: web.Request) -> web.Response:
         return web.json_response({"error": "internal_error"}, status=500)
 
 
-async def create_product(request: web.Request) -> web.Response:
-    """POST /api/admin/products/create"""
-    db = request.app["db"]
-    try:
-        p = await request.json()
-        product_id = await db.create_product(
-            title=p["title"], language=p["language"], gender=p["gender"],
-            level=p["level"], frequency=int(p["frequency"]),
-            price=float(p["price"]), file_id=p["file_id"]
-        )
-        return web.json_response({"status": "deployed", "id": product_id})
-    except Exception:
-        LOG.exception("create_product failed")
-        return web.json_response({"error": "internal_server_error"}, status=500)
-
-
 # --- Route registration ----------------------------------------------------
 def setup_admin_routes(app: web.Application):
     # --- Dashboard & Stats ---
@@ -212,7 +193,6 @@ def setup_admin_routes(app: web.Application):
 
     # --- Products (Core) ---
     app.router.add_get("/api/admin/products", get_products)
-    app.router.add_post("/api/admin/products/create", create_product)
     
     # --- Products (Analysis) ---
     app.router.add_get("/api/admin/products/top_sellers", get_top_sellers)
@@ -223,25 +203,22 @@ def setup_admin_routes(app: web.Application):
     # --- User Demographics ---
     app.router.add_get('/api/admin/stats/node-intelligence', get_node_intelligence)
 
-    # --- CRUD Helper (For the specific Mint Modal actions) ---
-    # We use explicit methods instead of a wildcard to avoid 404/500 confusion
+    # --- CRUD Helper ---
     app.router.add_post("/api/products", handle_products_crud)
     app.router.add_patch("/api/products", handle_products_crud)
     app.router.add_delete("/api/products", handle_products_crud)
     
-    #Testimonial
+    # --- Testimonials ---
     app.router.add_get("/api/admin/testimonials", get_user_testimonials)
     app.router.add_get("/api/admin/testimonials/stats", get_testimonial_kpis)
     
-    #Transaction History
-    app.router.add_get('/api/admin/payouts/pending', get_pending_payout_stats )
+    # --- Transaction & Payout Management ---
+    app.router.add_get('/api/admin/payouts/pending', get_pending_payout_stats)
     app.router.add_get('/api/admin/payouts/history', get_payout_history)
-    app.router.add_post("/api/admin/payouts/confirm", confirm_payout )
+    app.router.add_post("/api/admin/payouts/confirm", confirm_payout)
 
 
-    
-    
-# New API
+# --- Analysis & Secondary APIs ---------------------------------------------
 
 async def get_revenue_by_products(request: web.Request) -> web.Response:
     """GET /api/admin/revenue/products"""
@@ -265,6 +242,7 @@ async def get_top_sellers(request: web.Request) -> web.Response:
         LOG.exception("get_top_sellers failed")
         return web.json_response({"error": "internal_error"}, status=500)
 
+
 async def get_price_distribution(request: web.Request) -> web.Response:
     """GET /api/admin/products/price_distribution"""
     db = request.app["db"]
@@ -275,21 +253,15 @@ async def get_price_distribution(request: web.Request) -> web.Response:
         LOG.exception("get_price_distribution failed")
         return web.json_response({"error": "internal_error"}, status=500)
 
+
 async def get_node_intelligence(request: web.Request) -> web.Response:
-    """
-    Returns the complete User Intelligence Matrix (Lang, Gender, Level, Freq)
-    in a single high-performance scan.
-    """
+    """Returns the complete User Intelligence Matrix in a single high-performance scan."""
     db = request.app["db"]
     try:
-        # Call the single-scan DB method we just created
         record = await db.get_node_intelligence_matrix()
-        
-        # Convert the asyncpg Record to a dictionary and send
         return web.json_response(dict(record))
     except Exception:
         LOG.exception("get_node_intelligence matrix fetch failed")
-        # Return a safe fallback so the frontend doesn't crash
         return web.json_response({
             "lang_en": 0, "lang_am": 0,
             "gen_male": 0, "gen_female": 0,
@@ -298,58 +270,26 @@ async def get_node_intelligence(request: web.Request) -> web.Response:
         })
 
 
-
 async def get_payment_kpis(request: web.Request) -> web.Response:
-    """GET /api/admin/payments/kpis"""
+    """GET /api/admin/payments/kpis - Now itemizing revenue channels"""
     db = request.app["db"]
     try:
+        # Update your core DB method to return distinct gross tracking parameters
         record = await db.get_payment_kpis()
         return web.json_response(record_to_dict(record))
     except Exception:
         LOG.exception("get_payment_kpis failed")
-        return web.json_response({"total_revenue": 0, "pending_count": 0, "avg_approval_time_minutes": 0, "rejection_rate": 0})
+        return web.json_response({
+            "products_revenue": 0, 
+            "club_revenue": 0, 
+            "total_revenue": 0, 
+            "pending_count": 0, 
+            "avg_approval_time_minutes": 0, 
+            "rejection_rate": 0
+        })
 
 
-
-# --- PRODUCT CRUD HANDLERS ---
-
-async def create_product(request: web.Request) -> web.Response:
-    """POST /api/admin/products"""
-    db = request.app["db"]
-    data = await request.json()
-    try:
-        # data: {title, language, gender, level, frequency, price, telegram_file_id}
-        new_id = await db.create_product(data)
-        return web.json_response({"status": "created", "id": new_id}, status=201)
-    except Exception:
-        LOG.exception("create_product failed")
-        return web.json_response({"error": "creation_failed"}, status=500)
-
-async def update_product(request: web.Request) -> web.Response:
-    """PATCH /api/admin/products/{id}"""
-    db = request.app["db"]
-    prod_id = int(request.match_info['id'])
-    data = await request.json()
-    try:
-        await db.update_product(prod_id, data)
-        return web.json_response({"status": "updated"})
-    except Exception:
-        LOG.exception("update_product failed")
-        return web.json_response({"error": "update_failed"}, status=500)
-
-async def delete_product(request: web.Request) -> web.Response:
-    """DELETE /api/admin/products/{id}"""
-    db = request.app["db"]
-    prod_id = int(request.match_info['id'])
-    try:
-        # We perform a soft delete by setting is_active = FALSE
-        await db.soft_delete_product(prod_id)
-        return web.json_response({"status": "deactivated"})
-    except Exception:
-        LOG.exception("delete_product failed")
-        return web.json_response({"error": "delete_failed"}, status=500)
-    
- 
+# --- Product Lifecycle & Aggregations ---------------------------------------
 
 async def get_product_lifecycle(request):
     db = request.app["db"]
@@ -360,7 +300,7 @@ async def get_product_lifecycle(request):
         
         prod_id = int(prod_id_raw)
 
-        # 1. Fetch Product Metadata + Aggregates
+        # 1. Fetch Product Metadata + Aggregates (Strictly targeting explicit guides via product_id match)
         product_query = """
             SELECT 
                 p.id as product_id, p.title, p.price, p.language, 
@@ -397,14 +337,11 @@ async def get_product_lifecycle(request):
         """
         chart_rows = await db.fetch(chart_query, prod_id)
         
-        # 3. Data Sanitization (Fixing the Decimal Error)
-        # We convert the record to a dict and cast Decimals to floats/ints
         product_data = dict(product_row)
         for key, value in product_data.items():
             if isinstance(value, Decimal):
                 product_data[key] = float(value)
 
-        # 4. Final Fusion
         return web.json_response({
             "product": product_data,
             "dates": [str(r['sales_date']) for r in chart_rows],
@@ -414,9 +351,9 @@ async def get_product_lifecycle(request):
     except ValueError:
         return web.json_response({"error": "invalid_product_id_format"}, status=400)
     except Exception as e:
-        # LOG is assumed to be your logger instance
-        print(f"CRITICAL_SYSTEM_ERROR: {str(e)}") 
+        LOG.error(f"CRITICAL_SYSTEM_ERROR: {str(e)}") 
         return web.json_response({"error": "internal_uplink_failure"}, status=500)
+
 
 async def handle_products_crud(request):
     db = request.app["db"]
@@ -425,7 +362,6 @@ async def handle_products_crud(request):
     try:
         if method == "POST":
             data = await request.json()
-            # Expects: title, price, language, gender, frequency, telegram_file_id
             query = """
                 INSERT INTO products (title, price, language, gender, frequency, telegram_file_id, is_active)
                 VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id
@@ -449,14 +385,14 @@ async def handle_products_crud(request):
 
         elif method == "DELETE":
             prod_id = int(request.query.get('id'))
-            # SOFT DELETE: Keep data for revenue stats but hide from store
             await db.execute("UPDATE products SET is_active = FALSE WHERE id = $1", prod_id)
             return web.json_response({"status": "deactivated"})
 
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
-    
-    
+
+
+# --- Testimonials & Feedback -----------------------------------------------
 
 async def get_testimonial_kpis(request: web.Request) -> web.Response:
     db = request.app["db"]
@@ -471,7 +407,6 @@ async def get_testimonial_kpis(request: web.Request) -> web.Response:
         record = await db.fetchrow(query)
         
         unique_users = record['unique_users'] or 0
-        # Using 600 as the baseline for your paid user count
         participation_rate = round((unique_users / 600) * 100, 1) if unique_users > 0 else 0
 
         payload = {
@@ -488,13 +423,10 @@ async def get_testimonial_kpis(request: web.Request) -> web.Response:
     
     
 async def get_user_testimonials(request: web.Request) -> web.Response:
-    """
-    GET /api/admin/testimonials
-    """
+    """GET /api/admin/testimonials"""
     db = request.app["db"]
-    bot = request.app["bot"] # Assuming bot is in app state
+    bot = request.app["bot"] 
     try:
-        # Changed u.first_name -> u.full_name to match your schema
         query = """
             SELECT 
                 u.telegram_id,
@@ -518,71 +450,76 @@ async def get_user_testimonials(request: web.Request) -> web.Response:
         rows = await db.fetch(query)
         results = records_to_list(rows)
 
-        # OPTIONAL: Enhance with Live Telegram Names
-        # To avoid hitting Telegram limits, we only do this for the users in the list
         for user in results:
             try:
-                # We try to get the live chat info
                 chat = await bot.get_chat(user['telegram_id'])
                 user['live_name'] = chat.first_name or user['full_name']
             except Exception:
-                user['live_name'] = user['full_name'] # Fallback to DB name
+                user['live_name'] = user['full_name']
 
         return web.json_response(results)
     except Exception:
         LOG.exception("get_user_testimonials failed")
         return web.json_response({"error": "internal_error"}, status=500)
- 
+
+
+# --- Payouts & Separate Stream Financial Core -------------------------------
+
 async def get_pending_payout_stats(request: web.Request) -> web.Response:
+    """
+    GET /api/admin/payouts/pending
+    Calculates operational trends while distinguishing between product collections and recurring club runs.
+    """
     db = request.app["db"]
     try:
-        # 1. Get the last payout anchor
+        # 1. Fetch payout reference checkpoint
         last_payout_ts = await db.fetchval(
             "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
         )
         last_payout_ts = last_payout_ts or datetime.min
 
-        # 2. Calculate REAL Pending Revenue (All approved payments since last payout)
+        # 2. Extract itemized Pending Balances (Product vs Club streams)
+        # Assumes standard pattern: `product_id IS NOT NULL` tracks product guides; `product_id IS NULL` maps to the Club.
         pending_row = await db.fetchrow("""
-            SELECT COALESCE(SUM(amount), 0) as total 
+            SELECT 
+                COALESCE(SUM(amount) FILTER (WHERE product_id IS NOT NULL), 0) as products_total,
+                COALESCE(SUM(amount) FILTER (WHERE product_id IS NULL), 0) as club_total
             FROM payments 
             WHERE status = 'approved' AND approved_at > $1
         """, last_payout_ts)
         
-        pending_revenue = Decimal(str(pending_row['total']))
+        pending_products = Decimal(str(pending_row['products_total']))
+        pending_club = Decimal(str(pending_row['club_total']))
+        pending_revenue_total = pending_products + pending_club
 
-        # 3. Calculate REAL Lifetime KPIs
-        # Gross = Every approved payment ever
-        # Burn = Every operational deduction in history
-        # Paid = Every share already given to Coach/Dag
+        # 3. Calculate Itemized Lifetime KPIs
         stats = await db.fetchrow("""
             SELECT 
-                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_gross,
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND product_id IS NOT NULL) as lt_products_gross,
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND product_id IS NULL) as lt_club_gross,
                 (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
                 (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
         """)
         
-        lt_gross = Decimal(str(stats['lt_gross']))
+        lt_products_gross = Decimal(str(stats['lt_products_gross']))
+        lt_club_gross = Decimal(str(stats['lt_club_gross']))
+        lt_gross_total = lt_products_gross + lt_club_gross
         lt_burn = Decimal(str(stats['lt_burn']))
         lt_paid = Decimal(str(stats['lt_paid']))
 
-        # Net Profit To Date is the "War Chest"
-        # Everything that came in, minus everything spent, minus everything already paid out
-        net_profit_to_date = lt_gross - lt_burn - lt_paid
+        # Compute accurate remaining cash reserves
+        net_profit_to_date = lt_gross_total - lt_burn - lt_paid
 
-        # 4. Tier Logic (Using LT_GROSS or LT_NET based on your preference)
-        # Usually, Tiers are based on Gross Revenue or Cumulative Net before payouts.
-        # Let's use Cumulative Net (Gross - Burn) to reward efficiency.
-        cumulative_efficiency_net = lt_gross - lt_burn
+        # 4. Tier System Verification (Based on combined cumulative efficiency volume)
+        cumulative_efficiency_net = lt_gross_total - lt_burn
         tier_goal = Decimal('500000')
         current_tier = 2 if cumulative_efficiency_net >= tier_goal else 1
         tier_progress = min(Decimal('100'), (cumulative_efficiency_net / tier_goal * 100)) if cumulative_efficiency_net > 0 else Decimal('0')
 
-        # 5. Profit Efficiency %
-        # How much of our gross actually turns into profit?
-        efficiency = (cumulative_efficiency_net / lt_gross * 100) if lt_gross > 0 else 0
+        # 5. Profit Performance Efficiency
+        efficiency = (cumulative_efficiency_net / lt_gross_total * 100) if lt_gross_total > 0 else 0
 
-        # 6. Fetch Trend Data
+        # 6. Gather Historical Data Coordinates
         history_points = await db.fetch("""
             SELECT net_profit, payout_date 
             FROM payout_history 
@@ -590,9 +527,13 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         """)
 
         return web.json_response({
-            "pending_revenue": float(pending_revenue),
-            "cumulative_profit": float(net_profit_to_date), # This is your "Net Profit to Date"
-            "lifetime_gross": float(lt_gross),
+            "pending_revenue": float(pending_revenue_total),
+            "pending_products_revenue": float(pending_products),
+            "pending_club_revenue": float(pending_club),
+            "cumulative_profit": float(net_profit_to_date), 
+            "lifetime_gross": float(lt_gross_total),
+            "lifetime_products_gross": float(lt_products_gross),
+            "lifetime_club_gross": float(lt_club_gross),
             "lifetime_burn": float(lt_burn),
             "efficiency": float(round(efficiency, 1)),
             "current_tier": current_tier,
@@ -603,19 +544,34 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
     except Exception:
         LOG.exception("KPI Stats Logic Failure")
         return web.json_response({"error": "sync_error"}, status=500)
-    
+
+
 async def confirm_payout(request: web.Request) -> web.Response:
+    """
+    POST /api/admin/payouts/confirm
+    Processes distributions while distinctly auditing product vs club cashflow properties.
+    """
     db = request.app["db"]
     try:
         data = await request.json()
-        print('here is the data i get in confirm_payout', data)
         entry_type = data.get('entry_type', 'payout')
-        raw_amount = Decimal(str(data.get('amount', 0))) 
         note = data.get('note', 'N/A')
 
-        # 1. FETCH LATEST RECORD & TOTAL VOLUME
-        # We need the last net_profit to calculate the NEW one.
-        # We need Lifetime Gross only to determine the Tier.
+        # Accept isolated incoming values or fallback safely to uniform values
+        req_products = data.get('products_amount')
+        req_club = data.get('club_amount')
+        
+        if req_products is not None or req_club is not None:
+            products_amount = Decimal(str(req_products or 0))
+            club_amount = Decimal(str(req_club or 0))
+            total_gross_input = products_amount + club_amount
+        else:
+            total_gross_input = Decimal(str(data.get('amount', 0)))
+            # If uniform amount came through, treat it as general distribution
+            products_amount = total_gross_input 
+            club_amount = Decimal('0')
+
+        # 1. Access latest balancing context
         stats = await db.fetchrow("""
             SELECT 
                 (SELECT net_profit FROM payout_history ORDER BY payout_date DESC, id DESC LIMIT 1) as last_balance,
@@ -625,40 +581,41 @@ async def confirm_payout(request: web.Request) -> web.Response:
         current_balance = Decimal(str(stats['last_balance'] or 0))
         lifetime_gross = Decimal(str(stats['lifetime_gross'] or 0))
 
-        # 2. TIER LOGIC
+        # 2. Dynamic Profit Distribution Ratios
         tier = 2 if lifetime_gross >= 500000 else 1
         coach_ratio = Decimal('0.70') if tier == 2 else Decimal('0.60')
         dag_ratio = Decimal('0.30') if tier == 2 else Decimal('0.40')
 
         if entry_type == 'payout':
-            # PAYOUT: Distributing money
             deductions_val = data.get('deductions') or 0
             deductions = Decimal(str(deductions_val))
-            gross_revenue = raw_amount
+            
+            gross_revenue = total_gross_input
             operational_deductions = deductions
             
-            # Money available to split
+            # Divide net distributable amounts via calculated tier weights
             distributable = gross_revenue - operational_deductions
             coach_share = max(Decimal('0'), distributable * coach_ratio)
             dag_share = max(Decimal('0'), distributable * dag_ratio)
             
-            # IMPACT: The War Chest loses the full revenue amount
-            # (Because shares go to wallets and deductions go to bills)
             transaction_impact = -gross_revenue
         else:
-            # EXPENSE: Pure Burn
+            # Operational Expense
             gross_revenue = Decimal('0')
-            operational_deductions = raw_amount
+            products_amount = Decimal('0')
+            club_amount = Decimal('0')
+            operational_deductions = Decimal(str(data.get('amount', 0)))
             coach_share = Decimal('0')
             dag_share = Decimal('0')
             
-            # IMPACT: Just the expense
             transaction_impact = -operational_deductions
 
-        # 3. CALCULATE NEW RUNNING BALANCE
+        # 3. Calculate target ledger change
         new_running_balance = current_balance + transaction_impact
 
-        # 4. EXECUTE TRANSACTION
+        # 4. Write verified state changes to storage
+        # Note: If your payout_history table contains products_revenue and club_revenue columns, 
+        # append them directly to your insert instruction below.
         async with db._pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute("""
@@ -667,7 +624,7 @@ async def confirm_payout(request: web.Request) -> web.Response:
                      coach_share, dagmawi_share, tier_applied, expense_note, entry_type)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 """, gross_revenue, operational_deductions, new_running_balance, 
-                     coach_share, dag_share, tier, note, entry_type)
+                    coach_share, dag_share, tier, note, entry_type)
                 
                 if entry_type == 'payout':
                     await conn.execute("""
@@ -686,8 +643,9 @@ async def confirm_payout(request: web.Request) -> web.Response:
         LOG.exception("CRITICAL_FINANCIAL_SYNC_ERROR")
         return web.json_response({"error": "logic_gate_failure"}, status=500)
 
+
 async def get_payout_history(request: web.Request) -> web.Response:
-    """GET /api/admin/payouts/history - For the Archive table"""
+    """GET /api/admin/payouts/history"""
     db = request.app["db"]
     try:
         rows = await db.fetch("SELECT * FROM payout_history ORDER BY payout_date DESC LIMIT 50")

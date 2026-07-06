@@ -275,14 +275,16 @@ class Database:
         """
         return await self._pool.fetchval(query, user_id, product_id, proof_id, amount)
 
-    async def get_admin_stats_bot(self):
-        """Fetches elite-level business intelligence including pending tasks."""
+    async def get_admin_stats_bot(self) -> asyncpg.Record:
+        """Fetches elite-level business intelligence including club subscription revenue."""
         query = """
             SELECT 
                 (SELECT count(*) FROM users) as users,
                 (SELECT count(*) FROM payments WHERE status = 'approved') as sales,
-                (SELECT sum(amount) FROM payments WHERE status = 'approved') as revenue,
-                (SELECT count(*) FROM payments WHERE status = 'pending') as pending_count
+                (SELECT COALESCE(sum(amount), 0) FROM payments WHERE status = 'approved') as revenue,
+                (SELECT COALESCE(sum(amount), 0) FROM club_payments WHERE status = 'approved') as club_revenue,
+                ((SELECT count(*) FROM payments WHERE status = 'pending') + 
+                 (SELECT count(*) FROM club_payments WHERE status = 'pending')) as pending_count
         """
         return await self._pool.fetchrow(query)
     
@@ -347,6 +349,25 @@ class Database:
             AND reminded = FALSE
         """
         return await self._pool.fetch(query)
+    
+    async def get_club_financial_stats(self) -> Dict[str, float]:
+        """
+        Computes dedicated gross revenue, transaction counts, and historical 
+        financial performance for the Hilawe Transformation Club engine.
+        """
+        query = """
+            SELECT 
+                COUNT(*) FILTER (WHERE status = 'approved') as successful_billings,
+                COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0) as gross_club_profit,
+                COALESCE(SUM(amount) FILTER (WHERE status = 'approved' AND processed_at >= NOW() - INTERVAL '30 days'), 0) as rolling_30d_profit
+            FROM club_payments
+        """
+        row = await self._pool.fetchrow(query)
+        return {
+            "total_transactions": row["successful_billings"] if row else 0,
+            "club_profit": float(row["gross_club_profit"]) if row else 0.0,
+            "mrr": float(row["rolling_30d_profit"]) if row else 0.0
+        }
 
     
     async def get_pending_payments(self, limit: int = 5, offset: int = 0):
@@ -502,13 +523,17 @@ class Database:
                 -- TOTAL NODES
                 (SELECT count(*) FROM users) as active_users,
                 
-                -- PENDING SYNC
-                (SELECT count(*) FROM payments WHERE status = 'pending') as pending_payments,
+                -- PENDING SYNC (Combined standard guides + club claims)
+                ((SELECT count(*) FROM payments WHERE status = 'pending') + 
+                 (SELECT count(*) FROM club_payments WHERE status = 'pending')) as pending_payments,
                 
-                -- TOTAL PROFIT
+                -- PRODUCT REVENUE
                 (SELECT COALESCE(sum(amount), 0) FROM payments WHERE status = 'approved') as total_revenue,
                 
-                -- THE "PURITY" CONVERSION RATE (Users who bought / Total Users)
+                -- CLUB REVENUE / PROFIT LAYER
+                (SELECT COALESCE(sum(amount), 0) FROM club_payments WHERE status = 'approved') as club_revenue,
+                
+                -- THE "PURITY" CONVERSION RATE (Users who bought a standard product / Total Users)
                 (SELECT 
                     CASE 
                         WHEN (SELECT count(*) FROM users) = 0 THEN 0 
@@ -520,7 +545,6 @@ class Database:
                 FROM payments WHERE status = 'approved') as conversion_rate
         """
         return await self._pool.fetchrow(query)
-
 
     #New api for revenue targeting
     async def get_revenue_by_products(self) -> List[asyncpg.Record]:

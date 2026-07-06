@@ -33,8 +33,8 @@ class AdminStates(StatesGroup):
     confirm_rejection = State() # Add this
 
 
-# --- [ SECTION 1: MAIN DASHBOARD & NAVIGATION ] ---
 from aiogram.exceptions import TelegramBadRequest
+
 
 @router.message(Command("admin"), F.from_user.id.in_(settings.ADMIN_IDS))
 @router.message(F.text == "📊 Business Stats", F.from_user.id.in_(settings.ADMIN_IDS))
@@ -42,51 +42,64 @@ from aiogram.exceptions import TelegramBadRequest
 @router.callback_query(F.data == "refresh_admin_stats")
 async def admin_dashboard(event: types.Message | types.CallbackQuery, db: Database, state: FSMContext):
     await state.clear()
-    await event.answer("📋 Admin Menu", reply_markup=akb.admin_main_menu())
+    
+    # 1. Safely handle the main menu reply keyboard layout depending on the event type
+    if isinstance(event, types.Message):
+        await event.answer("📋 Admin Menu", reply_markup=akb.admin_main_menu())
+    else:
+        # CallbackQuery context requires message reference to send reply markups properly
+        await event.message.answer("📋 Admin Menu", reply_markup=akb.admin_main_menu())
+        
     stats = await db.get_admin_stats_bot()
     
-    # 1. Prepare Data
+    # 2. Extract Data & Calculate Revenue Split
     pending_val = stats['pending_count']
-    status_emoji = "🚨" if pending_val > 0 else "✅"
-    status_text = "ACTION REQUIRED" if pending_val > 0 else "Operational"
+    status_emoji = "✅" if pending_val == 0 else "🚨"
+    status_text = "Operational" if pending_val == 0 else "ACTION REQUIRED"
 
+    product_rev = stats['revenue'] or 0
+    club_rev = stats['club_revenue'] or 0
+    gross_rev = product_rev + club_rev
+
+    # 3. Assemble Dashboard Context (Distinct Financial Breakdown)
     dashboard_text = (
         "👑 *FOUNDERS COMMAND CENTER*\n"
         "————————————————————\n"
         f"👥 *Total Users:* `{stats['users']}`\n"
         f"💳 *Successful Sales:* `{stats['sales']}`\n"
-        f"💰 *Total Revenue:* `{stats['revenue'] or 0} ETB`\n"
+        "————————————————————\n"
+        f"🛍 *Product Sales:* `{product_rev} ETB`\n"
+        f"💫 *Club Revenue:* `{club_rev} ETB`\n"
+        f"💰 *Gross Revenue:* `{gross_rev} ETB`\n"
         "————————————————————\n"
         f"🕒 *Pending Approvals:* `{pending_val}`\n"
         "————————————————————\n"
         f"Status: {status_emoji} *{status_text}*\n"
-        f"⏱ _Last Update: {datetime.now().strftime('%H:%M:%S')}_" # Forces content change
+        f"⏱ _Last Update: {datetime.now().strftime('%H:%M:%S')}_"
     )
 
-    # 2. Build Inline Buttons (Always attached)
+    # 4. Build Inline Components
     builder = InlineKeyboardBuilder()
     builder.button(text="🔄 Refresh Stats", callback_data="refresh_admin_stats")
     builder.adjust(1)
-    
     inline_kb = builder.as_markup()
 
-    # 3. Handle Update (Try-Except prevents the "Message Not Modified" crash)
+    # 5. UI Delivery & Anti-Crash Routing
     if isinstance(event, types.Message):
-        # Fresh message (Triggered by text button or command)
-        await event.answer(dashboard_text, reply_markup=inline_kb)
+        # Fresh command/button invocation
+        await event.answer(dashboard_text, reply_markup=inline_kb, parse_mode="Markdown")
     else:
-        # Edit existing message (Triggered by Refresh inline button)
+        # Inline callback refresh processing
         try:
-            await event.message.edit_text(dashboard_text, reply_markup=inline_kb)
+            await event.message.edit_text(dashboard_text, reply_markup=inline_kb, parse_mode="Markdown")
             await event.answer("Stats Updated! ⚡️")
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
-                # Simply ignore the error or show a "No new data" alert
                 await event.answer("Dashboard is already up to date!")
             else:
-                raise e # Re-raise if it's a different Bad Request error
-# --- [ SECTION 2: STEP-BY-STEP PRODUCT CREATION ] ---
-
+                raise e
+            
+            
 @router.message(F.text == "📦 Add New Product", F.from_user.id.in_(settings.ADMIN_IDS))
 async def prod_step_1(message: types.Message, state: FSMContext):
     """Starts the sequential creation flow."""
