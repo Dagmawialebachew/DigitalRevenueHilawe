@@ -460,12 +460,12 @@ class Database:
                                          level, frequency, price, file_id)
         
     
-    # --- ANALYTICS HELPERS ---
-
+        # --- ANALYTICS HELPERS ---
     async def get_revenue_history(self, days: int = 7) -> List[asyncpg.Record]:
         """
-        Aggregates daily revenue and new user counts for multi-axis charts.
-        Fixes UndefinedColumnError by using telegram_id.
+        Aggregates daily revenue (split into products and club) and new user counts.
+        Fixes UndefinedColumnError: uses product_id presence + club_payments table
+        instead of the non-existent payment_type column.
         """
         query = """
             WITH date_series AS (
@@ -475,33 +475,47 @@ class Database:
                     '1 day'::interval
                 )::date AS day
             ),
-            daily_revenue AS (
-                SELECT 
-                    created_at::date as day,
-                    SUM(amount) as total_rev
-                FROM payments 
+            daily_product_revenue AS (
+                SELECT
+                    created_at::date AS day,
+                    SUM(amount) AS rev_products
+                FROM payments
+                WHERE status = 'approved'
+                AND product_id IS NOT NULL
+                AND created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
+                GROUP BY 1
+            ),
+            daily_club_revenue AS (
+                SELECT
+                    created_at::date AS day,
+                    SUM(amount) AS rev_club
+                FROM club_payments
                 WHERE status = 'approved'
                 AND created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
                 GROUP BY 1
             ),
             daily_users AS (
-                SELECT 
-                    created_at::date as day,
-                    COUNT(telegram_id) as user_count  -- FIXED: Changed 'id' to 'telegram_id'
+                SELECT
+                    created_at::date AS day,
+                    COUNT(telegram_id) AS user_count
                 FROM users
                 WHERE created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
                 GROUP BY 1
             )
-            SELECT 
-                to_char(ds.day, 'MM/DD') as date,
-                COALESCE(r.total_rev, 0)::float as revenue,
-                COALESCE(u.user_count, 0)::int as new_users
+            SELECT
+                to_char(ds.day, 'MM/DD') AS date,
+                COALESCE(p.rev_products, 0)::float AS revenue_products,
+                COALESCE(c.rev_club, 0)::float    AS revenue_club,
+                COALESCE(u.user_count, 0)::int    AS new_users
             FROM date_series ds
-            LEFT JOIN daily_revenue r ON ds.day = r.day
-            LEFT JOIN daily_users u ON ds.day = u.day
+            LEFT JOIN daily_product_revenue p ON ds.day = p.day
+            LEFT JOIN daily_club_revenue    c ON ds.day = c.day
+            LEFT JOIN daily_users           u ON ds.day = u.day
             ORDER BY ds.day ASC;
         """
         return await self._pool.fetch(query, days)
+
+
     async def get_payment_distribution(self) -> asyncpg.Record:
         """
         Counts payments by status for the donut chart.

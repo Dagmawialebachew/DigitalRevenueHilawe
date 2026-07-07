@@ -479,14 +479,17 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         last_payout_ts = last_payout_ts or datetime.min
 
         # 2. Extract itemized Pending Balances (Product vs Club streams)
-        # Assumes standard pattern: `product_id IS NOT NULL` tracks product guides; `product_id IS NULL` maps to the Club.
         pending_row = await db.fetchrow("""
-            SELECT 
-                COALESCE(SUM(amount) FILTER (WHERE product_id IS NOT NULL), 0) as products_total,
-                COALESCE(SUM(amount) FILTER (WHERE product_id IS NULL), 0) as club_total
-            FROM payments 
+    SELECT 
+        COALESCE((
+            SELECT SUM(amount) FROM payments 
             WHERE status = 'approved' AND approved_at > $1
-        """, last_payout_ts)
+        ), 0) as products_total,
+        COALESCE((
+            SELECT SUM(amount) FROM club_payments 
+            WHERE status = 'approved' AND processed_at > $1
+        ), 0) as club_total
+""", last_payout_ts)
         
         pending_products = Decimal(str(pending_row['products_total']))
         pending_club = Decimal(str(pending_row['club_total']))
@@ -494,12 +497,12 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
 
         # 3. Calculate Itemized Lifetime KPIs
         stats = await db.fetchrow("""
-            SELECT 
-                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND product_id IS NOT NULL) as lt_products_gross,
-                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved' AND product_id IS NULL) as lt_club_gross,
-                (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
-                (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
-        """)
+    SELECT 
+        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_products_gross,
+        (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') as lt_club_gross,
+        (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
+        (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
+""")
         
         lt_products_gross = Decimal(str(stats['lt_products_gross']))
         lt_club_gross = Decimal(str(stats['lt_club_gross']))
