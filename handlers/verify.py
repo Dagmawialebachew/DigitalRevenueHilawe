@@ -1,9 +1,13 @@
 """
 verify.py — Accuracy-First Edition
-Fast path is still fast (~1 OCR pass on clean screenshots), but ambiguous
-characters are no longer guessed — every plausible reading is generated
-and checked against the real bank API, which is the only true source of
-truth for what the reference ID actually is.
+Rebuilt OCR pipeline specifically tuned for CBE mobile app receipts.
+Key fixes:
+  - Tighter ID boundary detection (stops at period/space/newline after ID)
+  - 4↔A added to confusable groups (major source of CBE ID corruption)
+  - Multi-region cropping: extracts text from the message block only,
+    avoiding QR code noise bleeding into OCR output
+  - Anchor-based extraction: finds "transaction ID:" label then grabs
+    exactly what follows, instead of scanning the whole page
 """
 
 import os
@@ -14,7 +18,7 @@ import platform
 import shutil
 import time
 from datetime import datetime, timezone
-from itertools import product
+from itertools import product as itertools_product
 
 import numpy as np
 import httpx
@@ -33,11 +37,11 @@ else:
     pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "/usr/bin/tesseract"
 
 # ─────────────────────────────────────────────
-#  CONFIG & PERSISTENT CLIENT
+#  CONFIG
 # ─────────────────────────────────────────────
-API_KEY    = settings.VERIFY_API_KEY
-API_URL    = "https://verifyapi.leulzenebe.pro/verify"
-CBE_SUFFIX = "99533641"
+API_KEY          = settings.VERIFY_API_KEY
+API_URL          = "https://verifyapi.leulzenebe.pro/verify"
+CBE_SUFFIX       = "99533641"
 ABYSSINIA_SUFFIX = "53299555"
 
 router = Router(name="verify")
@@ -60,95 +64,207 @@ def get_http_client() -> httpx.AsyncClient:
 class PaymentStates(StatesGroup):
     waiting_for_screenshot = State()
 
+
 # ─────────────────────────────────────────────
-#  IN-MEMORY IMAGE PREPROCESSING (two variants: normal + aggressive)
+#  IMAGE PREPROCESSING
 # ─────────────────────────────────────────────
 def _preprocess_variants(img_stream: io.BytesIO) -> list[Image.Image]:
-    """Produces a couple of differently-processed versions of the image.
-    Different receipts (screenshots, camera photos, low-contrast dark-mode
-    apps, etc.) respond better to different preprocessing, so instead of
-    betting everything on one fixed pipeline we keep two candidates ready
-    and only reach for the second one if the first doesn't yield a
-    confident read."""
+    """
+    Returns multiple preprocessed variants of the image.
+    CBE receipts are white-background text on a light gray card — 
+    high contrast binarization works well. We also produce a gentler
+    variant for receipts that have already-high contrast text.
+    """
     img_stream.seek(0)
     base = Image.open(img_stream).convert("L")
     w, h = base.size
 
-    # Memory guard / upscaling for tiny screenshots
-    if w > 1500:
-        ratio = 1500 / w
+    # Upscale small images, downscale huge ones
+    if w > 1800:
+        ratio = 1800 / w
         base = base.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
-    elif w < 800:
+    elif w < 900:
         base = base.resize((w * 2, h * 2), Image.Resampling.BICUBIC)
 
-    sharpened = base.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=2))
+    # Sharpen before thresholding
+    sharpened = base.filter(ImageFilter.UnsharpMask(radius=1.5, percent=180, threshold=2))
 
     variants = []
-    for contrast in (2.2, 3.2):
-        enhanced = ImageEnhance.Contrast(sharpened).enhance(contrast)
-        arr = np.array(enhanced)
-        threshold = np.mean(arr) * 0.92
-        binary = np.where(arr > threshold, 255, 0).astype(np.uint8)
-        variants.append(Image.fromarray(binary))
+
+    # Variant 1: Standard contrast — works for clean CBE app screenshots
+    v1 = ImageEnhance.Contrast(sharpened).enhance(2.0)
+    arr1 = np.array(v1)
+    thresh1 = np.percentile(arr1, 55)  # adaptive threshold
+    bin1 = np.where(arr1 > thresh1, 255, 0).astype(np.uint8)
+    variants.append(Image.fromarray(bin1))
+
+    # Variant 2: Aggressive contrast — for camera photos or dark-mode
+    v2 = ImageEnhance.Contrast(sharpened).enhance(3.5)
+    arr2 = np.array(v2)
+    thresh2 = np.percentile(arr2, 45)
+    bin2 = np.where(arr2 > thresh2, 255, 0).astype(np.uint8)
+    variants.append(Image.fromarray(bin2))
+
+    # Variant 3: Inverted aggressive — handles dark-background receipts
+    inv = Image.fromarray(255 - bin2)
+    variants.append(inv)
 
     return variants
 
-# ─────────────────────────────────────────────
-#  ESCALATING OCR (stop as soon as we get a confident structural match)
-# ─────────────────────────────────────────────
-def _run_tesseract(img: Image.Image, psm: int) -> str:
-    tess_config = f"--oem 3 --psm {psm} -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-/ "
-    return pytesseract.image_to_string(img, config=tess_config)
 
-# A "confident" structural match: looks like a real CBE/Telebirr ID shape.
+def _crop_text_region(img_stream: io.BytesIO) -> Image.Image | None:
+    """
+    CBE receipts have a consistent layout: the transaction text block
+    sits in the upper ~60% of the image. Cropping out the QR code at
+    the bottom removes noise that can corrupt the ID extraction.
+    """
+    try:
+        img_stream.seek(0)
+        img = Image.open(img_stream).convert("L")
+        w, h = img.size
+        # Keep top 65% — this captures the full message text and excludes
+        # the QR code which Tesseract sometimes misreads as alphanumerics
+        cropped = img.crop((0, 0, w, int(h * 0.65)))
+        return cropped
+    except Exception:
+        return None
+
+
+# ─────────────────────────────────────────────
+#  OCR ENGINE
+# ─────────────────────────────────────────────
+_TESS_CONFIG_TIGHT = "--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:- "
+_TESS_CONFIG_BLOCK = "--oem 3 --psm 4 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:- "
+_TESS_CONFIG_SPARSE = "--oem 3 --psm 11 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.:- "
+
+# Structural match — real CBE ID immediately after "transaction ID:" label
 _STRICT_ID_RE = re.compile(r"\bFT[A-Z0-9]{8,12}\b|\bD[A-Z0-9]{9}\b")
 
-async def _ocr_smart(images: list[Image.Image]) -> str:
-    """Runs OCR passes in increasing order of effort, stopping the moment
-    one of them yields a structurally-confident candidate. Clean
-    screenshots resolve in a single pass; messy ones get up to 4."""
+
+def _run_tesseract(img: Image.Image, config: str) -> str:
+    return pytesseract.image_to_string(img, config=config)
+
+
+async def _ocr_smart(images: list[Image.Image], cropped: Image.Image | None) -> str:
+    """
+    Runs OCR in escalating passes. Prioritizes the cropped text region
+    (no QR noise) before falling back to the full image variants.
+    Stops as soon as a structurally-confident CBE/Telebirr ID is found.
+    """
     loop = asyncio.get_running_loop()
     collected: list[str] = []
 
-    passes = [
-        (images[0], 6),
-        (images[0], 4),
-        (images[1], 6),
-        (images[1], 11),
-    ]
+    passes = []
 
-    for img, psm in passes:
-        text = await loop.run_in_executor(None, _run_tesseract, img, psm)
+    # Highest priority: cropped text region (no QR code noise)
+    if cropped is not None:
+        # Preprocess the crop the same way
+        arr = np.array(cropped)
+        thresh = np.percentile(arr, 55)
+        binary_crop = Image.fromarray(np.where(arr > thresh, 255, 0).astype(np.uint8))
+        passes.append((binary_crop, _TESS_CONFIG_TIGHT))
+        passes.append((binary_crop, _TESS_CONFIG_BLOCK))
+
+    # Full image fallbacks
+    passes.append((images[0], _TESS_CONFIG_TIGHT))
+    passes.append((images[0], _TESS_CONFIG_BLOCK))
+    passes.append((images[1], _TESS_CONFIG_TIGHT))
+    passes.append((images[2], _TESS_CONFIG_TIGHT))
+    passes.append((images[1], _TESS_CONFIG_SPARSE))
+
+    for img, config in passes:
+        text = await loop.run_in_executor(None, _run_tesseract, img, config)
         collected.append(text)
-        combined_upper = "\n".join(collected).upper()
-        if _STRICT_ID_RE.search(combined_upper):
+        combined = "\n".join(collected).upper()
+        if _STRICT_ID_RE.search(combined):
             break
 
     return "\n".join(collected)
 
+
 # ─────────────────────────────────────────────
-#  CANDIDATE GENERATION (replaces blind character "healing")
+#  CBE ID EXTRACTION — ANCHOR-BASED
 # ─────────────────────────────────────────────
-# Characters tesseract commonly confuses with each other. Note this is
-# NOT a one-way mapping — a real ID can legitimately contain O, I, L, 0
-# or 1, so we must not assume any single "corrected" direction is right.
-_CONFUSABLE_GROUPS = {
+# CBE transaction IDs always appear after "transaction ID:" in the receipt.
+# By anchoring to that label we avoid accidentally grabbing other alphanumeric
+# strings on the page (account numbers, amounts, etc.)
+#
+# The ID itself is always FT followed by exactly 10 alphanumeric characters.
+# The ID is always terminated by a period, space, newline, or end of string.
+# This tight boundary is what prevents phantom characters being appended.
+
+_CBE_ANCHOR_RE = re.compile(
+    r"TRANSACTION\s*ID\s*[:\s]+([A-Z0-9]{10,16}?)(?=[.\s\n]|$)",
+    re.IGNORECASE
+)
+
+# Also match bare FT patterns as fallback, but with tight right boundary
+_CBE_BARE_RE = re.compile(
+    r"\b(FT[A-Z0-9]{8,12})(?=[.\s\n,;]|$)"
+)
+
+def _extract_cbe(up: str) -> list[str]:
+    """
+    Anchor-first extraction: look for 'transaction ID:' label then grab
+    what immediately follows. Falls back to bare FT pattern scan only if
+    anchor method finds nothing.
+    """
+    candidates = []
+
+    # Method 1: Anchor on label (most reliable for CBE app receipts)
+    for m in _CBE_ANCHOR_RE.finditer(up):
+        val = m.group(1).strip().rstrip(".")
+        # Ensure it starts with FT (sometimes the label match starts mid-ID)
+        if val.startswith("FT") and len(val) >= 10:
+            candidates.append(val)
+        elif "FT" in val:
+            # Extract from FT onwards
+            idx = val.index("FT")
+            candidates.append(val[idx:])
+
+    # Method 2: Bare FT scan with tight boundary
+    for m in _CBE_BARE_RE.finditer(up):
+        val = m.group(1).strip().rstrip(".")
+        if val not in candidates:
+            candidates.append(val)
+
+    # Deduplicate preserving order
+    seen = []
+    for c in candidates:
+        c = c.rstrip(".")  # strip trailing period one more time
+        if c and c not in seen:
+            seen.append(c)
+    return seen
+
+
+# ─────────────────────────────────────────────
+#  CANDIDATE GENERATION WITH CORRECT CONFUSABLES
+# ─────────────────────────────────────────────
+# Fixed: added 4↔A which is the primary failure mode in these CBE receipts.
+# (Tesseract reads '4' as 'A' in certain fonts and contrast levels)
+_CONFUSABLE_GROUPS: dict[str, list[str]] = {
     'O': ['O', '0'],
     '0': ['0', 'O'],
     'I': ['I', '1', 'L'],
     '1': ['1', 'I', 'L'],
     'L': ['L', '1', 'I'],
+    'A': ['A', '4'],   # ← KEY FIX: Tesseract reads '4' as 'A' in CBE font
+    '4': ['4', 'A'],   # ← KEY FIX: and vice versa
+    'S': ['S', '5'],   # '5' sometimes read as 'S'
+    '5': ['5', 'S'],
+    'B': ['B', '8'],   # '8' sometimes read as 'B'
+    '8': ['8', 'B'],
+    'G': ['G', '6'],
+    '6': ['6', 'G'],
 }
 
-def generate_id_variants(raw: str, max_variants: int = 40) -> list[str]:
+def generate_id_variants(raw: str, max_variants: int = 64) -> list[str]:
     """
-    Returns an ordered list of plausible readings of an extracted ID.
-    Instead of guessing which O/0/I/1/L is "correct", every plausible
-    combination is generated (bounded, to avoid combinatorial blow-up) so
-    the real bank API can confirm which one actually exists. The literal
-    OCR reading is always tried first since it's most often correct.
+    Generates every plausible reading of an extracted ID by substituting
+    visually confusable characters. The literal OCR reading is always
+    tried first. The bank API is the only arbiter of which is correct.
     """
-    raw = (raw or "").strip().upper()
+    raw = (raw or "").strip().upper().rstrip(".")
     if not raw:
         return []
 
@@ -157,46 +273,51 @@ def generate_id_variants(raw: str, max_variants: int = 40) -> list[str]:
     if not ambiguous_positions:
         return [raw]
 
-    if len(ambiguous_positions) > 5:
-        # Too many ambiguous characters to safely brute-force (would mean
-        # dozens/hundreds of API calls). Fall back to the three most
-        # sensible global readings instead of one blind guess.
+    if len(ambiguous_positions) > 6:
+        # Too many to brute-force — produce 3 sensible readings
         as_read = raw
-        numerals_first = list(raw)
-        letters_first = list(raw)
+        numerals = list(raw)
+        letters = list(raw)
         for i in ambiguous_positions:
             c = raw[i]
             if c in ('O', '0'):
-                numerals_first[i] = '0'
-                letters_first[i] = 'O'
+                numerals[i] = '0'; letters[i] = 'O'
+            elif c in ('A', '4'):
+                numerals[i] = '4'; letters[i] = 'A'
+            elif c in ('S', '5'):
+                numerals[i] = '5'; letters[i] = 'S'
+            elif c in ('B', '8'):
+                numerals[i] = '8'; letters[i] = 'B'
+            elif c in ('G', '6'):
+                numerals[i] = '6'; letters[i] = 'G'
             else:  # I, 1, L
-                numerals_first[i] = '1'
-                letters_first[i] = 'I' if c != 'L' else 'L'
-        candidates = [as_read, "".join(numerals_first), "".join(letters_first)]
+                numerals[i] = '1'; letters[i] = 'I'
+        candidates = [as_read, "".join(numerals), "".join(letters)]
     else:
-        options_per_pos = [_CONFUSABLE_GROUPS[raw[i]] for i in ambiguous_positions]
+        options = [_CONFUSABLE_GROUPS[raw[i]] for i in ambiguous_positions]
         candidates = []
-        for combo in product(*options_per_pos):
+        for combo in itertools_product(*options):
             chars = list(raw)
             for pos, val in zip(ambiguous_positions, combo):
                 chars[pos] = val
             candidates.append("".join(chars))
-        # Literal OCR reading first (most likely correct), rest after
+        # Literal reading first
         candidates.sort(key=lambda v: v != raw)
 
-    seen = []
+    seen: list[str] = []
     for c in candidates:
         if c not in seen:
             seen.append(c)
     return seen[:max_variants]
 
+
 # ─────────────────────────────────────────────
-#  EXTRACTION LOGIC (returns candidate lists, no guessing baked in)
+#  PROVIDER DETECTION
 # ─────────────────────────────────────────────
 def _detect_provider(up: str) -> str:
     if any(k in up for k in ("ABYSSINIA", "BOA")):
         return "Abyssinia"
-    if any(k in up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT", "FT2")):
+    if any(k in up for k in ("COMMERCIAL BANK", "CBE", "BRECIEPT")) or re.search(r"\bFT[A-Z0-9]{8,12}\b", up):
         return "CBE"
     if any(k in up for k in ("TELEBIRR", "ETHIO TELECOM", "TELE BIRR")) or re.search(r"\b(D[A-Z0-9]{9})\b", up):
         return "Telebirr"
@@ -204,42 +325,38 @@ def _detect_provider(up: str) -> str:
         return "Awash"
     return "Unknown"
 
-def _extract_cbe(up: str) -> list[str]:
-    candidates = []
-    m = re.search(r"F\s*T\s*([A-Z0-9]{8,12})", up)
-    if m:
-        candidates.append(("FT" + m.group(1)).replace(" ", ""))
-    m = re.search(r"(?:ID|TRANSACTION\s*ID)[:\s]+([A-Z0-9]{10,14})", up)
-    if m:
-        candidates.append(m.group(1))
-    for m in re.finditer(r"\b(FT[A-Z0-9]{8,12})\b", up):
-        candidates.append(m.group(1))
-    seen = []
-    for c in candidates:
-        if c not in seen:
-            seen.append(c)
-    return seen
 
+# ─────────────────────────────────────────────
+#  TELEBIRR EXTRACTION
+# ─────────────────────────────────────────────
 def _extract_telebirr(up: str, raw: str) -> list[str]:
     candidates = []
-    for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO", "INVOICE NUMBER", "REF NO", "REFERENCE NO", "NUMBER"):
-        m = re.search(rf"{label}[:\s#]+([A-Z0-9]{{8,14}})", up)
+    for label in ("TRANSACTION NUMBER", "TRANSACTION NO", "INVOICE NO",
+                  "INVOICE NUMBER", "REF NO", "REFERENCE NO", "NUMBER"):
+        m = re.search(rf"{label}[:\s#]+([A-Z0-9]{{8,14}})(?=[.\s\n]|$)", up)
         if m:
-            candidates.append(m.group(1))
+            candidates.append(m.group(1).rstrip("."))
     m = re.search(r"የግብይት\s*ቁጥር[:\s]+([A-Z0-9a-z]{8,14})", raw, re.UNICODE)
     if m:
-        candidates.append(m.group(1).upper())
-    for m in re.finditer(r"\b(D[A-Z0-9]{9})\b", up):
-        candidates.append(m.group(1))
+        candidates.append(m.group(1).upper().rstrip("."))
+    for m in re.finditer(r"\b(D[A-Z0-9]{9})(?=[.\s\n]|$)", up):
+        val = m.group(1).rstrip(".")
+        if val not in candidates:
+            candidates.append(val)
     seen = []
     for c in candidates:
         if c not in seen:
             seen.append(c)
     return seen
 
+
+# ─────────────────────────────────────────────
+#  AMOUNT FALLBACK
+# ─────────────────────────────────────────────
 def _extract_amount_fallback(raw: str) -> str | None:
     amounts = re.findall(r"(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", raw)
     return max(amounts, key=lambda x: len(x.replace(",", ""))) if amounts else None
+
 
 def _safe_amount(x) -> float:
     try:
@@ -247,57 +364,64 @@ def _safe_amount(x) -> float:
     except (TypeError, ValueError):
         return 0.0
 
+
 # ─────────────────────────────────────────────
-#  PUBLIC EXPOSED HOOKS
+#  PUBLIC API
 # ─────────────────────────────────────────────
 async def extract_local_data(img_stream: io.BytesIO) -> dict:
     loop = asyncio.get_running_loop()
 
-    images = await loop.run_in_executor(None, _preprocess_variants, img_stream)
-    raw = await _ocr_smart(images)
+    # Run preprocessing and crop in parallel
+    images, cropped = await asyncio.gather(
+        loop.run_in_executor(None, _preprocess_variants, img_stream),
+        loop.run_in_executor(None, _crop_text_region, img_stream),
+    )
 
-    up = re.sub(r'[^A-Z0-9\n\s:\-]', ' ', raw.upper())
+    raw = await _ocr_smart(images, cropped)
+
+    # Clean to uppercase alphanumeric + punctuation for matching
+    up = re.sub(r'[^A-Z0-9\n\s:.\-]', ' ', raw.upper())
     provider = _detect_provider(up)
 
     raw_candidates: list[str] = []
-    if provider in ("CBE", "Abyssinia"):
+    if provider in ("CBE", "Abyssinia", "Unknown"):
         raw_candidates = _extract_cbe(up)
-    elif provider in ("Telebirr", "Unknown"):
-        tb = _extract_telebirr(up, raw)
-        if tb:
-            provider = "Telebirr"
-            raw_candidates = tb
+        if raw_candidates:
+            provider = "CBE"
         elif provider == "Unknown":
-            # last-resort attempt in case it's actually a CBE receipt that
-            # didn't contain any of the provider keywords
-            fallback = _extract_cbe(up)
-            if fallback:
-                provider = "CBE"
-                raw_candidates = fallback
+            tb = _extract_telebirr(up, raw)
+            if tb:
+                provider = "Telebirr"
+                raw_candidates = tb
+    elif provider == "Telebirr":
+        raw_candidates = _extract_telebirr(up, raw)
 
-    # Expand each raw candidate into every plausible reading, and let the
-    # bank API (in verify_external) decide which one is real.
+    # Expand each candidate into all plausible readings
     ref_candidates: list[str] = []
     for base in raw_candidates:
         for v in generate_id_variants(base):
             if v not in ref_candidates:
                 ref_candidates.append(v)
-    ref_candidates = ref_candidates[:60]  # hard cap on API calls per receipt
+    ref_candidates = ref_candidates[:80]
 
-    amount_fallback = _extract_amount_fallback(raw)
+    print(f"[OCR] Provider: {provider}")
+    print(f"[OCR] Raw candidates: {raw_candidates}")
+    print(f"[OCR] All variants ({len(ref_candidates)}): {ref_candidates[:10]}...")
+
     return {
         "provider": provider,
         "ref": ref_candidates[0] if ref_candidates else None,
         "ref_candidates": ref_candidates,
-        "amount_fallback": amount_fallback,
+        "amount_fallback": _extract_amount_fallback(raw),
         "raw_text": raw,
     }
 
+
 async def verify_external(candidates: list[str], provider: str) -> dict:
-    """Tries every plausible reading of the reference ID against the real
-    bank API and returns the first one that the bank actually confirms.
-    This is what makes the system self-correcting against OCR ambiguity:
-    we don't have to be sure which reading is right, the bank tells us."""
+    """
+    Tries every plausible reading against the real bank API.
+    Returns the first confirmed match. The bank is the source of truth.
+    """
     client = get_http_client()
     if not candidates:
         return {"success": False, "error": "No candidate reference extracted"}
@@ -312,62 +436,46 @@ async def verify_external(candidates: list[str], provider: str) -> dict:
 
     for ref_variant in candidates:
         payload = {"reference": ref_variant}
-        if provider == "CBE":
-            payload["suffix"] = CBE_SUFFIX
-        elif provider == "Abyssinia":
-            payload["suffix"] = ABYSSINIA_SUFFIX
+        if provider in ("CBE", "Abyssinia"):
+            payload["suffix"] = CBE_SUFFIX if provider == "CBE" else ABYSSINIA_SUFFIX
 
         for url in endpoints:
             try:
                 resp = await client.post(url, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
-                    print("\n" + "═"*50)
-                    print(f"🔥 [API RAW RESPONSE | {provider}] 🔥")
-                    print(f"REF: {ref_variant}")
-                    print(f"URL: {url}")
-                    print(f"MATCH: {bool(data.get('success'))}")
-                    print("═"*50 + "\n")
+                    print(f"[API] ref={ref_variant} matched={bool(data.get('success'))}")
                     if data.get("success"):
                         data["_matched_reference"] = ref_variant
                         return data
                     last_result = data
             except Exception as e:
-                print(f"⚠️ Network error hitting {url} with ref {ref_variant}: {e}")
+                print(f"[API] Network error for ref={ref_variant}: {e}")
                 continue
 
     return last_result
 
+
 def is_hilawe_receiver(raw: str, bank_data: dict) -> bool:
-    """
-    Bulletproof receiver validation checking both local OCR raw text
-    and structure-agnostic API responses (root level & nested payload).
-    """
     if not bank_data:
         bank_data = {}
-
     if "HILAWE" in raw.upper():
         return True
-
     root_receiver = (
         bank_data.get("receiver") or
         bank_data.get("creditedPartyName") or
-        bank_data.get("credited_party_name") or
-        ""
+        bank_data.get("credited_party_name") or ""
     )
-
     nested = bank_data.get("data") or {}
     nested_receiver = (
         nested.get("receiver") or
         nested.get("creditedPartyName") or
-        nested.get("credited_party_name") or
-        ""
+        nested.get("credited_party_name") or ""
     )
+    api_combined = f"{root_receiver} {nested_receiver}".upper()
+    print(f"[Receiver] Root='{root_receiver}' Nested='{nested_receiver}'")
+    return "HILAWE" in api_combined
 
-    api_combined_names = f"{root_receiver} {nested_receiver}".upper()
-
-    print(f"DEBUG [Receiver Audit]: Root='{root_receiver}' | Nested='{nested_receiver}'")
-    return "HILAWE" in api_combined_names
 
 def _time_ago_display(bank_data: dict) -> str:
     try:
@@ -387,11 +495,12 @@ def _time_ago_display(bank_data: dict) -> str:
             return f"({hours}h {minutes}m ago)"
         return f"({minutes}m ago)"
     except Exception as e:
-        print(f"Time parsing error: {e}")
+        print(f"[Time] parse error: {e}")
         return "(Time unknown)"
 
+
 # ─────────────────────────────────────────────
-#  TEST ROUTERS
+#  TELEGRAM HANDLERS
 # ─────────────────────────────────────────────
 def get_verifier_menu():
     builder = InlineKeyboardBuilder()
@@ -399,10 +508,12 @@ def get_verifier_menu():
     builder.row(types.InlineKeyboardButton(text="📋 Test Batch (DB)", callback_data="test_db_random"))
     return builder.as_markup()
 
+
 @router.callback_query(F.data == "test_upload")
 async def start_upload_test(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("📝 <b>Ready.</b> Please send the receipt screenshot.", parse_mode="HTML")
     await state.set_state(PaymentStates.waiting_for_screenshot)
+
 
 @router.message(PaymentStates.waiting_for_screenshot, F.photo)
 async def handle_screenshot_test(message: types.Message, state: FSMContext, bot: Bot):
@@ -419,29 +530,33 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
 
     if not local["ref_candidates"]:
         await status_msg.edit_text(
-            f"🤖 <b>AUDIT FAILED</b>\n⚠️ Could not extract a valid ID from the screenshot.\n⏱️ <b>Process latency:</b> {time.perf_counter() - start_time:.2f}s",
+            f"🤖 <b>AUDIT FAILED</b>\n"
+            f"⚠️ Could not extract a valid transaction ID.\n"
+            f"Raw OCR preview: <code>{local['raw_text'][:200]}</code>\n"
+            f"⏱️ {time.perf_counter() - start_time:.2f}s",
             parse_mode="HTML"
         )
         await state.clear()
         return
 
+    alt_count = len(local["ref_candidates"]) - 1
     await status_msg.edit_text(
         f"📡 <b>Querying:</b> <code>{local['ref']}</code>"
-        + (f" (+{len(local['ref_candidates']) - 1} alt readings)" if len(local["ref_candidates"]) > 1 else "")
-        + "...",
+        + (f" (+{alt_count} alt readings)" if alt_count > 0 else "")
+        + f"\n<b>Provider:</b> {local['provider']}",
         parse_mode="HTML",
     )
+
     bank_data = await verify_external(local["ref_candidates"], local["provider"])
     is_real = bank_data.get("success", False)
     total_elapsed = time.perf_counter() - start_time
 
-    matched_ref = bank_data.get("_matched_reference") or local["ref"] or "N/A"
-    payer = bank_data.get("payer", "Unknown")
-    receiver = bank_data.get("receiver", "N/A")
-    amount = _safe_amount(bank_data.get("amount", 0))
+    matched_ref  = bank_data.get("_matched_reference") or local["ref"] or "N/A"
+    payer        = bank_data.get("payer", "Unknown")
+    receiver     = bank_data.get("receiver", "N/A")
+    amount       = _safe_amount(bank_data.get("amount", 0))
     time_display = _time_ago_display(bank_data)
-
-    is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+    is_hilawe    = is_hilawe_receiver(local["raw_text"], bank_data)
 
     if is_real and is_hilawe:
         report = (
@@ -467,11 +582,12 @@ async def handle_screenshot_test(message: types.Message, state: FSMContext, bot:
     await status_msg.edit_text(report, parse_mode="HTML")
     await state.clear()
 
+
 def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
-    matched_ref = bank_data.get("_matched_reference") or local.get("ref") or "N/A"
-    payer = bank_data.get("payer", "Unknown")
-    receiver = bank_data.get("receiver", "N/A")
-    amount = _safe_amount(bank_data.get("amount", 0))
+    matched_ref  = bank_data.get("_matched_reference") or local.get("ref") or "N/A"
+    payer        = bank_data.get("payer", "Unknown")
+    receiver     = bank_data.get("receiver", "N/A")
+    amount       = _safe_amount(bank_data.get("amount", 0))
     time_display = _time_ago_display(bank_data)
 
     if is_real and is_hilawe:
@@ -495,6 +611,7 @@ def format_audit_report(local, bank_data, elapsed, is_real, is_hilawe):
             f"⚠️ <b>Protocol:</b> Do not release products.\n⏱️ <b>Audit duration:</b> {elapsed:.2f}s"
         )
 
+
 @router.callback_query(F.data == "test_db_random")
 async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
     status_msg = await callback.message.answer("🔍 <b>Auditing recent payments...</b>", parse_mode="HTML")
@@ -511,32 +628,32 @@ async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
             await bot.download_file(file.file_path, destination=img_stream)
             img_stream.seek(0)
 
-            local = await extract_local_data(img_stream)
+            local     = await extract_local_data(img_stream)
             bank_data = {}
-            is_real = False
+            is_real   = False
 
             if local["ref_candidates"]:
                 bank_data = await verify_external(local["ref_candidates"], local["provider"])
-                is_real = bank_data.get("success", False)
+                is_real   = bank_data.get("success", False)
 
-            is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+            is_hilawe   = is_hilawe_receiver(local["raw_text"], bank_data)
             matched_ref = bank_data.get("_matched_reference") or local["ref"] or "N/A"
-            api_amount = bank_data.get("data", {}).get("amount") if isinstance(bank_data.get("data"), dict) else None
-            display_amount = f"{_safe_amount(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "?")
-            elapsed = time.perf_counter() - start_time
+            api_amount  = bank_data.get("data", {}).get("amount") if isinstance(bank_data.get("data"), dict) else None
+            display_amt = f"{_safe_amount(api_amount):,.2f}" if api_amount else (local["amount_fallback"] or "?")
+            elapsed     = time.perf_counter() - start_time
 
             if is_real and is_hilawe:
                 caption = (
                     f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n────────────────────\n"
-                    f"🟢 <b>Audit #{rec['id']}</b> • 100% authentic ledger match.\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"🟢 <b>Audit #{rec['id']}</b> • Authentic ledger match.\n\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amt} ETB</b>\n"
                     f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
                 )
             else:
                 caption = (
-                    f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n────────────────────\n"
-                    f"🔴 <b>Audit #{rec['id']}</b> • Fraud guard triggered. No bank match.\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amount} ETB</b>\n"
+                    f"🤖 <b>API MATCH: REJECTED 🚨</b>\n────────────────────\n"
+                    f"🔴 <b>Audit #{rec['id']}</b> • No bank match.\n\n"
+                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{matched_ref}</code> • 💰 <b>{display_amt} ETB</b>\n"
                     f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
                 )
 
@@ -547,7 +664,9 @@ async def test_batch_from_db(callback: types.CallbackQuery, bot: Bot, db):
                 parse_mode="HTML",
             )
         except Exception as e:
-            await callback.message.answer(f"⚠️ <b>Error on #{rec['id']}:</b> <code>{e}</code>", parse_mode="HTML")
+            await callback.message.answer(
+                f"⚠️ <b>Error on #{rec['id']}:</b> <code>{e}</code>", parse_mode="HTML"
+            )
 
     await asyncio.gather(*[process_one(r) for r in recent])
     await status_msg.delete()
