@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS club_subscriptions (
 -- Highly performant indexing for admin panels and background validation cron-jobs
 CREATE INDEX IF NOT EXISTS idx_club_payments_status ON club_payments (status);
 CREATE INDEX IF NOT EXISTS idx_club_subs_expiry ON club_subscriptions (expires_at) WHERE is_active = TRUE;
-CREATE INDEX IF NOT EXISTS idx_club_survey_vote ON club_survey(vote, voted_yes);
+-- CREATE INDEX IF NOT EXISTS idx_club_survey_vote ON club_survey(vote, voted_yes);
 
 """
 

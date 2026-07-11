@@ -9,7 +9,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
+from aiogram.exceptions import TelegramBadRequest
 from database.db import Database
 from config import settings
 
@@ -406,8 +406,285 @@ async def reject_club_member(callback: types.CallbackQuery, db: Database, bot: B
         await bot.send_message(chat_id=uid, text=reject_text, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Failed to send rejection notice to user {uid}: {e}")
+   
+   
+
+
+# --- [ SECTION 5: HILAWE TRANSFORMATION CLUB COMMUNITY ] ---
+
+@router.message(F.text == "👥 Community", F.from_user.id.in_(settings.ADMIN_IDS))
+@router.callback_query(F.data == "refresh_club_stats")
+async def club_information_dashboard(event: types.Message | types.CallbackQuery, db: Database, state: FSMContext):
+    """
+    Displays live community stats, processing overhead, and specific 
+    recurring financial metrics pulled strictly from your isolated club engine.
+    """
+    await state.clear()
+    
+    # Executing precise structural aggregates targeting your dedicated club schemas
+    stats = await db._pool.fetchrow("""
+        SELECT 
+            (SELECT COUNT(*)::INT FROM club_subscriptions WHERE is_active = TRUE) as active_members,
+            (SELECT COUNT(*)::INT FROM club_payments WHERE status = 'pending') as pending_members,
+            (SELECT COALESCE(SUM(amount), 0)::NUMERIC FROM club_payments WHERE status = 'approved' AND processed_at >= NOW() - INTERVAL '30 days') as mrr,
+            (SELECT COUNT(*)::INT FROM club_subscriptions) as total_lifetime_athletes
+    """)
+
+    active = stats['active_members'] if stats else 0
+    pending = stats['pending_members'] if stats else 0
+    mrr = stats['mrr'] if stats else 0
+    total = stats['total_lifetime_athletes'] if stats else 0
+
+    club_text = (
+        "👥 *HILAWE TRANSFORMATION CLUB*\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "✨ *COMMUNITY ECOSYSTEM*\n"
+        f"▪️ *Active Members:* `{active} athletes`\n"
+        f"▪️ *Pending Onboarding:* `{pending} claims`\n"
+        f"▪️ *Total Network Pool:* `{total} initialized`\n"
+        "————————————————————\n"
+        "📈 *FINANCIAL MOMENTUM (30D)*\n"
+        f"▪️ *Club MRR:* `{mrr:.2f} ETB`\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "⚙️ *System Action:* Access operational logs or refresh metrics below.\n"
+        f"⏱ _Last Synced: {datetime.now().strftime('%H:%M:%S')}_"
+    )
+
+    # Re-attaching isolated structural management mechanics
+    builder = InlineKeyboardBuilder()
+    # Add this button to the builder in club_information_dashboard
+    builder.button(text="🚀 Kickoff: Send Club Links", callback_data="club_kickoff_dispatch")
+    builder.adjust(1)
+    builder.button(text="🔄 Sync Club Data", callback_data="refresh_club_stats")
+    builder.button(text="💎 Founders Command Center", callback_data="admin_home")
+    builder.adjust(1)
+    
+    inline_kb = builder.as_markup()
+
+    if isinstance(event, types.Message):
+        await event.answer(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+    else:
+        try:
+            await event.message.edit_text(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+            await event.answer("Club dashboard synchronized! ⚡️")
         
-        
+
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                await event.answer("Data is completely up to date.")
+            else:
+                raise e
+
+
+@router.callback_query(F.data == "club_kickoff_dispatch")
+async def club_kickoff_preview(callback: types.CallbackQuery, db: Database):
+    """Preview how many members will receive links before confirming."""
+    if callback.from_user.id not in settings.ADMIN_IDS:
+        return await callback.answer("⚠️ Access Denied.", show_alert=True)
+
+    targets = await db._pool.fetch("""
+        SELECT cs.user_id, COALESCE(u.language, 'EN') as language, u.full_name
+        FROM club_subscriptions cs
+        JOIN users u ON u.telegram_id = cs.user_id
+        WHERE cs.is_active = TRUE AND cs.expires_at IS NULL
+    """)
+
+    count = len(targets)
+    if count == 0:
+        return await callback.message.edit_text(
+            "✅ <b>All active members already have their links.</b>\nNo pending dispatches.",
+            parse_mode="HTML"
+        )
+
+    preview_html = (
+        f"🚀 <b>CLUB KICKOFF DISPATCH PREVIEW</b>\n"
+        f"──────────────────────────────\n"
+        f"👥 <b>Pending Members:</b> <code>{count} athletes</code>\n"
+        f"🔗 <b>Action:</b> Send group + channel invite links\n"
+        f"⏱️ <b>Clock starts:</b> At moment of successful delivery\n"
+        f"❌ <b>On failure:</b> Member skipped, remains retryable\n"
+        f"──────────────────────────────\n"
+        f"⚠️ <b>Confirm to dispatch all {count} invite links now?</b>"
+    )
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text=f"🔥 Send to All {count} Members", callback_data="club_kickoff_confirmed")
+    kb.button(text="❌ Cancel", callback_data="refresh_club_stats")
+    kb.adjust(1)
+
+    await callback.message.edit_text(preview_html, reply_markup=kb.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+import logging
+logger = logging.getLogger(__name__)
+
+@router.callback_query(F.data == "club_kickoff_confirmed")
+async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot: Bot):
+    if callback.from_user.id not in settings.ADMIN_IDS:
+        return await callback.answer("⚠️ Access Denied.", show_alert=True)
+
+    targets = await db._pool.fetch("""
+        SELECT cs.user_id, COALESCE(u.language, 'EN') as language, u.full_name
+        FROM club_subscriptions cs
+        JOIN users u ON u.telegram_id = cs.user_id
+        WHERE cs.is_active = TRUE AND cs.expires_at IS NULL
+    """)
+
+    total = len(targets)
+    if not targets:
+        return await callback.message.edit_text("✅ No pending members found.", parse_mode="HTML")
+
+    await callback.message.edit_text(
+        f"📡 <b>Dispatching to {total} members...</b>",
+        parse_mode="HTML"
+    )
+
+    success, failed, skipped = 0, 0, 0
+
+    for record in targets:
+        uid = record['user_id']
+        lang = record['language'] or 'EN'
+        name = record['full_name'] or 'Member'
+
+        # Generate fresh single-use invite links per member
+        try:
+            grp_link = await bot.create_chat_invite_link(
+                chat_id=getattr(settings, "CLUB_GROUP_ID", None),
+                name=f"Kickoff: {name}",
+                member_limit=1
+            )
+            chn_link = await bot.create_chat_invite_link(
+                chat_id=getattr(settings, "CLUB_CHANNEL_ID", None),
+                name=f"Kickoff: {name}",
+                member_limit=1
+            )
+            group_url = grp_link.invite_link
+            channel_url = chn_link.invite_link
+        except Exception as link_err:
+            logger.error(f"Failed to generate invite links for {uid}: {link_err}")
+            skipped += 1
+            continue
+
+        # Build localized message
+        if lang == "AM":
+            msg = (
+                f"🎉 <b>ክለቡ ተጀምሯል! {html.escape(name.upper())}!</b>\n\n"
+                f"ለትዕግስትዎ እናመሰግናለን። ክለቡ አሁን ይፋዊ ሆኗል!\n\n"
+                f"📌 <b>የእርስዎ የ30 ቀን መግቢያ ሊንኮች፦</b>\n\n"
+                f"1️⃣ <b>ክለብ ሃብ (ግሩፑ)፦</b>\n{group_url}\n\n"
+                f"2️⃣ <b>ቫውልት (ቻናሉ)፦</b>\n{channel_url}\n\n"
+                f"<i>⚠️ እነዚህ ሊንኮች አንድ ጊዜ ብቻ ናቸው። ለሌላ ሰው አያጋሩ።</i>"
+            )
+            btn_grp, btn_chn = "💪 ወደ ግሩፑ ግባ", "📢 ቻናሉን ክፈት"
+        else:
+            msg = (
+                f"🎉 <b>WE'RE LIVE, {html.escape(name.upper())}!</b>\n\n"
+                f"Thank you for your patience. The Hilawe Transformation Club is officially kicking off!\n\n"
+                f"📌 <b>Your 30-Day Access Links:</b>\n\n"
+                f"1️⃣ <b>The Hub (Group):</b>\n{group_url}\n\n"
+                f"2️⃣ <b>The Vault (Channel):</b>\n{channel_url}\n\n"
+                f"<i>⚠️ These are single-use links. Do not forward them.</i>"
+            )
+            btn_grp, btn_chn = "💪 Enter the Hub", "📢 Open the Vault"
+
+        builder = InlineKeyboardBuilder()
+        builder.row(types.InlineKeyboardButton(text=btn_grp, url=group_url))
+        builder.row(types.InlineKeyboardButton(text=btn_chn, url=channel_url))
+
+        try:
+            await bot.send_message(
+                chat_id=uid,
+                text=msg,
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML"
+            )
+            # Clock starts NOW — only on confirmed delivery
+            await db._pool.execute("""
+                UPDATE club_subscriptions
+                SET expires_at = NOW() + INTERVAL '30 days', updated_at = NOW()
+                WHERE user_id = $1
+            """, uid)
+            success += 1
+
+        except Exception as send_err:
+            logger.warning(f"Delivery failed for {uid}, skipping expiry update: {send_err}")
+            failed += 1
+
+        # Gentle rate limiting — 50 users is fine but keeping it clean
+        await asyncio.sleep(0.05)
+
+    summary = (
+        f"🏁 <b>KICKOFF DISPATCH COMPLETE</b>\n"
+        f"──────────────────────────────\n"
+        f"✅ <b>Links Sent + Clock Started:</b> <code>{success}</code>\n"
+        f"⚠️ <b>Link Generation Failed:</b> <code>{skipped}</code>\n"
+        f"❌ <b>Delivery Failed (retryable):</b> <code>{failed}</code>\n"
+        f"──────────────────────────────\n"
+        f"<i>Members with failed delivery still have expires_at = NULL and will appear next time you run kickoff.</i>"
+    )
+
+    await callback.message.edit_text(summary, parse_mode="HTML")     
+  
+
+
+@router.message(F.new_chat_members)
+async def handle_new_club_member(message: types.Message, bot: Bot, db: Database):
+    for member in message.new_chat_members:
+        if member.is_bot:
+            continue
+
+        uid = member.telegram_id if hasattr(member, 'telegram_id') else member.id
+
+        # Silently delete the Telegram "X joined the group" system message immediately
+        asyncio.create_task(_delete_after(bot, message.chat.id, message.message_id, 0))
+
+        # Check club_subscriptions — is_active = TRUE is the only thing that matters
+        sub = await db._pool.fetchrow("""
+            SELECT is_active FROM club_subscriptions
+            WHERE user_id = $1 AND is_active = TRUE
+        """, uid)
+
+        if not sub:
+            # Not a paying member — kick silently, no message, no noise
+            try:
+                await bot.ban_chat_member(
+                    chat_id=settings.CLUB_GROUP_ID,
+                    user_id=uid
+                )
+                # Immediately unban so they can rejoin later once they pay
+                await bot.unban_chat_member(
+                    chat_id=settings.CLUB_GROUP_ID,
+                    user_id=uid
+                )
+            except Exception as e:
+                logger.error(f"Failed to kick non-paying member {uid}: {e}")
+            continue
+
+        # Paying member — send welcome, then delete after 60 seconds
+        name = member.first_name
+        welcome_text = (
+        f"እንኳን ደህና መጡ {html.escape(name)}! 🔥\n\n"
+        f"ኮች ሂላዌ እና ሙሉው ክለብ እዚህ በጉጉት ይጠብቁዎት ነበር።\n\n"
+        f"ማድረግ የሚጠበቅብዎት አንድ ነገር ብቻ ነው —\n"
+        f"👉 ወደ 💬 ክፍት መድረክ በመሄድ፣ ስምዎን እና\n"
+        f"ለምን እዚህ እንደመጡ በአንድ ዓረፍተ ነገር ብቻ ይጻፉ።\n\n"
+        f"ጉዞው ከዛሬ ይጀምራል። ብቻዎን አይደሉም። 💪"
+    )
+
+        try:
+            sent = await message.answer(welcome_text, parse_mode="HTML")
+            asyncio.create_task(_delete_after(bot, sent.chat.id, sent.message_id, 60))
+        except Exception as e:
+            logger.error(f"Welcome message failed for {uid}: {e}")
+
+
+async def _delete_after(bot: Bot, chat_id: int, message_id: int, delay: int):
+    if delay > 0:
+        await asyncio.sleep(delay)
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception:
+        pass      
     
     
     

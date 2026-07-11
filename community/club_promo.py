@@ -21,49 +21,49 @@ def get_promo_card(lang: str, has_bought: bool = False) -> tuple[str, types.Inli
     if not has_bought:
         if lang == "AM":
             text = (
-                f"<b>🚨 የመጀመሪያው ዙር ሊዘጋ 2 ቦታዎች ብቻ ቀሩ! 🚨</b>\n\n"
+                f"<b>🚨 የመጀመሪያው ዙር ሊዘጋ 4 ቦታዎች ብቻ ቀሩ! 🚨</b>\n\n"
                 f"ይህ ተራ የስፖርት መመሪያ ወይም የፒዲኤፍ (PDF) ፋይል አይደለም። <b>ይህ የልምምድ ፕሮግራም አይደለም!</b>\n\n"
                 f"<b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> በቀጥታ ከኮች ሂላዌ ጋር የሚደረጉ የቪዲዮ ስብሰባዎች እና በየቀኑ አብረውህ የሚለፉ የቁርጠኞች ማህበረሰብ (Community) ነው፦\n\n"
                 f"👥 <b>የጠንካሮች ማህበረሰብ፦</b> በየቀኑ አብረውህ የሚሮጡ እና እንድታቆም የማይፈቅዱልህ ሰዎች ስብስብ።\n"
                 f"💎 <b>የቀጥታ የቪዲዮ ቆይታ፦</b> በየሳምንቱ ከኮች ሂላዌ ጋር ፊት ለፊት በመገናኘት እቅድህን የምታስተካክልበት።\n\n"
                 f"ክፍያው <b>በወር 299 ብር ብቻ</b> ነው—ከምታገኘው እውነተኛ የአካልና የህይወት ለውጥ አንፃር ይህ ገንዘብ ምንም ማለት አይደለም።\n\n"
-                f"⏳ <b>ሁሉም ነገር ረቡዕ ይጀምራል!</b> የቀሩት 2 ቦታዎች ከመሙላታቸው በፊት አሁኑኑ ተቀላቀል፦"
+                f"⏳ <b>ሁሉም ነገር ሰኞ ይጀምራል!</b> የቀሩት 4 ቦታዎች ከመሙላታቸው በፊት አሁኑኑ ተቀላቀል፦"
             )
-            btn_text = "🎯 ከቀሩት 2 ቦታዎች አንዱን ያዝ (299 ብር)"
+            btn_text = "🎯 ከቀሩት 4 ቦታዎች አንዱን ያዝ (299 ብር)"
         else:
             text = (
-                f"<b>🚨 FIRST ROUND CLOSING: ONLY 2 SPOTS LEFT! 🚨</b>\n\n"
+                f"<b>🚨 FIRST ROUND CLOSING: ONLY 4 SPOTS LEFT! 🚨</b>\n\n"
                 f"Stop looking for another workout routine. <b>This is NOT a workout program.</b>\n\n"
                 f"The <b>Hilawe Transformation Club</b> is a live interactive ecosystem driven by community and direct video sessions with Coach Hilawe:\n\n"
                 f"👥 <b>The 1% Tribe:</b> A high-energy private room running together daily. No slacking.\n"
                 f"💎 <b>Live Video Sessions:</b> Direct face-to-face video troubleshooting and deep dives with Coach Hilawe.\n\n"
                 f"An investment of <b>299 ETB/month</b> is absolutely nothing compared to the massive value and identity shift you will receive.\n\n"
-                f"⏳ <b>We officially kick off this Wednesday.</b> Secure your access before the last 2 seats fill permanently:"
+                f"⏳ <b>We officially kick off this Monday.</b> Secure your access before the last 4 seats fill permanently:"
             )
-            btn_text = "🎯 Claim 1 of the Last 2 Spots (299 ETB)"
+            btn_text = "🎯 Claim 1 of the Last 4 Spots (299 ETB)"
 
     # --- STATE 2: EXISTING BUYERS (OWN A PROGRAM BUT LACK EXECUTION) ---
     else:
         if lang == "AM":
             text = (
-                f"<b>🚨 ለቪአይፒ አባላት የተደረገ ጥሪ፡ 2 ቦታዎች ብቻ! 🚨</b>\n\n"
+                f"<b>🚨 ለቪአይፒ አባላት የተደረገ ጥሪ፡ 4 ቦታዎች ብቻ! 🚨</b>\n\n"
                 f"መመሪያውን ገዝተሃል፤ ታዲያ ለምን ውጤት አልመጣም? ምክንያቱም የፒዲኤፍ (PDF) ሰነድ ብቻውን ስትሰንፍ አልጋ ላይ ሊቀሰቅስህ አይችልም። <b>ይህ አዲስ የስፖርት መመሪያ አይደለም!</b>\n\n"
                 f"ይህ ያንተን ፋይል ወደ እውነተኛ ውጤት የምትቀይርበት <b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> ነው፦\n\n"
                 f"🤝 <b>የማህበረሰብ ጉልበት፦</b> በየቀኑ እንድትተገብር የሚገፋፋህ ከፍተኛ ኃይል ያለው ስብስብ።\n"
                 f"🔥 <b>የቀጥታ የቪዲዮ ክትትል፦</b> በየሳምንቱ ከኮች ሂላዌ ጋር በቀጥታ ቪዲዮ በመገናኘት ስህተቶችህን ማስተካከል።\n\n"
                 f"ክፍያው <b>በወር 299 ብር ብቻ</b> ነው—የገዛኸውን ፕሮግራም ወደ እውነተኛ ለውጥ ለመቀየር ይህ ዋጋ ምንም ማለት አይደለም።\n\n"
-                f"⏳ <b>የመጀመሪያው ዙር ረቡዕ ይጀምራል!</b> የቀሩት 2 የቪአይፒ ማሻሻያ ቦታዎች ሳይሞሉ አሁኑኑ ግባ፦"
+                f"⏳ <b>የመጀመሪያው ዙር ሰኞ ይጀምራል!</b> የቀሩት 4 የቪአይፒ ማሻሻያ ቦታዎች ሳይሞሉ አሁኑኑ ግባ፦"
             )
             btn_text = "🔥 የቪአይፒ ክለብ ቦታህን አሁን ያዝ (299 ብር)"
         else:
             text = (
-                f"<b>🚨 VIP UPGRADE NOTICE: ONLY 2 SEATS REMAINING 🚨</b>\n\n"
+                f"<b>🚨 VIP UPGRADE NOTICE: ONLY 4 SEATS REMAINING 🚨</b>\n\n"
                 f"You already bought the program, but a downloaded file cannot force you out of bed. <b>This is NOT another workout routine.</b>\n\n"
                 f"This is your live execution room—the <b>Hilawe Transformation Club</b>. Move past static guides into live interactive coaching:\n\n"
                 f"🤝 <b>Tribe Accountability:</b> The exact daily environment you need to stay consistent.\n"
                 f"🔥 <b>Live Group Audits:</b> Weekly face-to-face video access with Coach Hilawe to guarantee execution.\n\n"
                 f"Spending <b>299 ETB/month</b> to save your blueprint from going to waste is symbolic. The payoff is elite physics.\n\n"
-                f"⏳ <b>Live onboarding starts this Wednesday.</b> Grab your upgrade before the last 2 seats vanish permanently:"
+                f"⏳ <b>Live onboarding starts this Monday.</b> Grab your upgrade before the last 4 seats vanish permanently:"
             )
             btn_text = "🔥 Upgrade to Live Club Tracking (299 ETB)"
 
