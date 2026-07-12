@@ -634,43 +634,40 @@ async def handle_new_club_member(message: types.Message, bot: Bot, db: Database)
 
         # Check club_subscriptions — is_active = TRUE is the only thing that matters
         sub = await db._pool.fetchrow("""
-            SELECT is_active FROM club_subscriptions
-            WHERE user_id = $1 AND is_active = TRUE
-        """, uid)
+    SELECT is_active, expires_at FROM club_subscriptions
+    WHERE user_id = $1 AND is_active = TRUE
+""", uid)
 
         if not sub:
-            # Not a paying member — kick silently, no message, no noise
+            # Not a paying member — kick silently
             try:
-                await bot.ban_chat_member(
-                    chat_id=settings.CLUB_GROUP_ID,
-                    user_id=uid
-                )
-                # Immediately unban so they can rejoin later once they pay
-                await bot.unban_chat_member(
-                    chat_id=settings.CLUB_GROUP_ID,
-                    user_id=uid
-                )
+                await bot.ban_chat_member(chat_id=settings.CLUB_GROUP_ID, user_id=uid)
+                await bot.unban_chat_member(chat_id=settings.CLUB_GROUP_ID, user_id=uid)
             except Exception as e:
                 logger.error(f"Failed to kick non-paying member {uid}: {e}")
             continue
 
-        # Paying member — send welcome, then delete after 60 seconds
-        name = member.first_name
+        # expires_at IS NOT NULL means they were already welcomed before (kickoff was sent)
+        # skip welcome silently — they're just rejoining after the incident
+        if sub['expires_at'] is not None:
+            continue
+
+        # Only brand new members (expires_at IS NULL) get the welcome
+        name = member.first_name or "አትሌት"
         welcome_text = (
-        f"እንኳን ደህና መጡ {html.escape(name)}! 🔥\n\n"
-        f"ኮች ሂላዌ እና ሙሉው ክለብ እዚህ በጉጉት ይጠብቁዎት ነበር።\n\n"
-        f"ማድረግ የሚጠበቅብዎት አንድ ነገር ብቻ ነው —\n"
-        f"👉 ወደ 🗣️ ዋና መወያያ መድረክ በመሄድ፣ ስምዎን እና\n"
-        f"ለምን እዚህ እንደመጡ በአንድ ዓረፍተ ነገር ብቻ ይጻፉ።\n\n"
-        f"ጉዞው ዛሬ ይጀምራል። ብቻዎን አይደሉም። 💪"
-    )
+            f"እንኳን ደህና መጡ {html.escape(name)}! 🔥\n\n"
+            f"ኮች ሂላዌ እና ሙሉው ክለብ እዚህ በጉጉት ይጠብቁዎት ነበር።\n\n"
+            f"ማድረግ የሚጠበቅብዎት አንድ ነገር ብቻ ነው —\n"
+            f"👉 ወደ 🗣️ ዋና መወያያ መድረክ በመሄድ፣ ስምዎን እና\n"
+            f"ለምን እዚህ እንደመጡ በአንድ ዓረፍተ ነገር ብቻ ይጻፉ።\n\n"
+            f"ጉዞው ዛሬ ይጀምራል። ብቻዎን አይደሉም። 💪"
+        )
 
         try:
             sent = await message.answer(welcome_text, parse_mode="HTML")
             asyncio.create_task(_delete_after(bot, sent.chat.id, sent.message_id, 60))
         except Exception as e:
             logger.error(f"Welcome message failed for {uid}: {e}")
-
 
 async def _delete_after(bot: Bot, chat_id: int, message_id: int, delay: int):
     if delay > 0:
@@ -680,7 +677,118 @@ async def _delete_after(bot: Bot, chat_id: int, message_id: int, delay: int):
     except Exception:
         pass      
     
-    
+@router.message(Command("apologize"), F.from_user.id.in_(settings.ADMIN_IDS))
+async def apologize_and_resend(message: types.Message, bot: Bot, db: Database):
+    targets = await db._pool.fetch("""
+        SELECT cs.user_id, COALESCE(u.language, 'EN') as language, u.full_name
+        FROM club_subscriptions cs
+        JOIN users u ON u.telegram_id = cs.user_id
+        WHERE cs.is_active = TRUE AND cs.expires_at IS NOT NULL
+    """)
+
+    total = len(targets)
+    if not targets:
+        return await message.reply("❌ No members with active subscriptions found.")
+
+    status_msg = await message.reply(f"📡 <b>Sending apology to {total} members...</b>", parse_mode="HTML")
+
+    success, failed, skipped, already_in = 0, 0, 0, 0
+
+    for record in targets:
+        uid = record['user_id']
+        lang = record['language'] or 'EN'
+        name = record['full_name'] or 'አትሌት'
+
+        # Check if already in the group — skip link generation if so
+        try:
+            member_status = await bot.get_chat_member(
+                chat_id=settings.CLUB_GROUP_ID,
+                user_id=uid
+            )
+            is_in_group = member_status.status in ("member", "administrator", "creator")
+        except Exception:
+            is_in_group = False
+
+        if is_in_group:
+            # Still send apology but no link needed
+            apology_only = (
+                f"ውድ {html.escape(name)} 🙏\n\n"
+                f"ዛሬ በሲስተም ስህተት ምክንያት ከክለቡ ግሩፕ ውስጥ አባላት ሳይታሰብ ሊወጡ ችለዋል።\n\n"
+                f"እርስዎ አሁንም ግሩፑ ውስጥ እንደሚገኙ አረጋግጠናል — ምንም ችግር የለም። "
+                f"ነገር ግን ለደረሰው ሁኔታ ልባዊ ይቅርታ እንጠይቃለን። 🙏\n\n"
+                f"ክለቡ ቀጥሏል። ምንም ነገር አልተቋረጠም። 🔥"
+            )
+            try:
+                await bot.send_message(chat_id=uid, text=apology_only, parse_mode="HTML")
+                already_in += 1
+            except Exception as e:
+                logger.warning(f"Apology-only DM failed for {uid}: {e}")
+                failed += 1
+            await asyncio.sleep(0.05)
+            continue
+
+        # Not in group — generate fresh invite link
+        try:
+            grp_link = await bot.create_chat_invite_link(
+                chat_id=settings.CLUB_GROUP_ID,
+                name=f"Reentry: {name}",
+                member_limit=1
+            )
+            group_url = grp_link.invite_link
+        except Exception as link_err:
+            logger.error(f"Failed to generate reentry link for {uid}: {link_err}")
+            failed += 1
+            await asyncio.sleep(0.05)
+            continue
+
+        apology_text = (
+            f"ውድ {html.escape(name)} 🙏\n\n"
+            f"ዛሬ በሲስተሙ ውስጥ በተፈጠረ ቴክኒካዊ ስህተት ምክንያት ከክለቡ ግሩፕ ሳይታሰብ ወጥተዋል።\n\n"
+            f"ይህ ሙሉ በሙሉ የኛ ጥፋት ነው። ለዚህ ሁኔታ ከልብ ይቅርታ እንጠይቃለን። "
+            f"አባልነትዎ ሙሉ በሙሉ ጸንቷል — ምንም ቀን አልጠፋም።\n\n"
+            f"📌 <b>ወደ ክለቡ ለመመለስ ይህን ሊንክ ይጠቀሙ፦</b>\n\n"
+            f"{group_url}\n\n"
+            f"<i>⚠️ ይህ ሊንክ አንድ ጊዜ ብቻ ነው። ለሌላ ሰው አያጋሩ።</i>\n\n"
+            f"እንደገና ወደ ቤተሰቡ እንኳን ደህና መጡ። 🔥💪"
+        )
+
+        builder = InlineKeyboardBuilder()
+        builder.row(types.InlineKeyboardButton(
+            text="💪 ወደ ክለቡ ተመለስ",
+            url=group_url
+        ))
+
+        try:
+            await bot.send_message(
+                chat_id=uid,
+                text=apology_text,
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML"
+            )
+            success += 1
+        except Exception as send_err:
+            logger.warning(f"Apology delivery failed for {uid}: {send_err}")
+            failed += 1
+
+        await asyncio.sleep(0.05)
+
+    summary = (
+        f"🏁 <b>APOLOGY BLAST COMPLETE</b>\n"
+        f"──────────────────────────────\n"
+        f"✅ <b>Reentry Links Sent:</b> <code>{success}</code>\n"
+        f"✉️ <b>Already In Group (apology only):</b> <code>{already_in}</code>\n"
+        f"❌ <b>Failed:</b> <code>{failed}</code>\n"
+        f"──────────────────────────────\n"
+        f"<i>Failed members can be retried by running /apologize again.</i>"
+    )
+
+    try:
+        await status_msg.edit_text(summary, parse_mode="HTML")
+    except Exception:
+        await message.reply(summary, parse_mode="HTML")
+        
+        
+        
 # @router.message(Command("getid"))
 # async def get_chat_id(message: types.Message):
 #     await message.reply(f"<code>{message.chat.id}</code>", parse_mode="HTML")   
