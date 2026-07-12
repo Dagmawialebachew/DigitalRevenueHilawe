@@ -676,9 +676,18 @@ async def _delete_after(bot: Bot, chat_id: int, message_id: int, delay: int):
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception:
         pass      
-    
+
+# Import the explicit rate-limiting exception from aiogram
+from aiogram.exceptions import TelegramRetryAfter
+
+# In- temporary registry to track successfully messaged users across reruns
+# This lives in RAM and resets when the bot process restarts, avoiding database alterations.
+PROCESSED_USERS = set()
+
 @router.message(Command("apologize"), F.from_user.id.in_(settings.ADMIN_IDS))
 async def apologize_and_resend(message: types.Message, bot: Bot, db: Database):
+    global PROCESSED_USERS
+    
     targets = await db._pool.fetch("""
         SELECT cs.user_id, COALESCE(u.language, 'EN') as language, u.full_name
         FROM club_subscriptions cs
@@ -696,21 +705,32 @@ async def apologize_and_resend(message: types.Message, bot: Bot, db: Database):
 
     for record in targets:
         uid = record['user_id']
-        lang = record['language'] or 'EN'
         name = record['full_name'] or 'አትሌት'
 
-        # Check if already in the group — skip link generation if so
-        try:
-            member_status = await bot.get_chat_member(
-                chat_id=settings.CLUB_GROUP_ID,
-                user_id=uid
-            )
-            is_in_group = member_status.status in ("member", "administrator", "creator")
-        except Exception:
-            is_in_group = False
+        # 1. Skip if already messaged successfully in a previous run of this command execution
+        if uid in PROCESSED_USERS:
+            skipped += 1
+            continue
+
+        # 2. Check group membership status securely with Rate-Limiting handling
+        is_in_group = False
+        while True:
+            try:
+                member_status = await bot.get_chat_member(
+                    chat_id=settings.CLUB_GROUP_ID,
+                    user_id=uid
+                )
+                is_in_group = member_status.status in ("member", "administrator", "creator")
+                break
+            except TelegramRetryAfter as e:
+                logger.warning(f"Flood hit checking membership for {uid}. Waiting {e.retry_after}s")
+                await asyncio.sleep(e.retry_after)
+            except Exception as e:
+                logger.warning(f"Could not verify group status for {uid}: {e}")
+                is_in_group = False
+                break
 
         if is_in_group:
-            # Still send apology but no link needed
             apology_only = (
                 f"ውድ {html.escape(name)} 🙏\n\n"
                 f"ዛሬ በሲስተም ስህተት ምክንያት ከክለቡ ግሩፕ ውስጥ አባላት ሳይታሰብ ሊወጡ ችለዋል።\n\n"
@@ -718,29 +738,50 @@ async def apologize_and_resend(message: types.Message, bot: Bot, db: Database):
                 f"ነገር ግን ለደረሰው ሁኔታ ልባዊ ይቅርታ እንጠይቃለን። 🙏\n\n"
                 f"ክለቡ ቀጥሏል። ምንም ነገር አልተቋረጠም። 🔥"
             )
+            
+            # Send standard message securely with rate-limiting retry logic
+            while True:
+                try:
+                    await bot.send_message(chat_id=uid, text=apology_only, parse_mode="HTML")
+                    already_in += 1
+                    PROCESSED_USERS.add(uid)  # Remember they received it
+                    break
+                except TelegramRetryAfter as e:
+                    logger.warning(f"Flood hit on apology-only DM for {uid}. Waiting {e.retry_after}s")
+                    await asyncio.sleep(e.retry_after)
+                except Exception as e:
+                    logger.warning(f"Apology-only DM failed for {uid}: {e}")
+                    failed += 1
+                    break
+            
+            await asyncio.sleep(0.2)
+            continue
+
+        # 3. Not in group — generate unique invite link with heavy Flood Control handling
+        group_url = None
+        while True:
             try:
-                await bot.send_message(chat_id=uid, text=apology_only, parse_mode="HTML")
-                already_in += 1
-            except Exception as e:
-                logger.warning(f"Apology-only DM failed for {uid}: {e}")
+                grp_link = await bot.create_chat_invite_link(
+                    chat_id=settings.CLUB_GROUP_ID,
+                    name=f"Reentry: {name}",
+                    member_limit=1
+                )
+                group_url = grp_link.invite_link
+                break
+            except TelegramRetryAfter as e:
+                logger.warning(f"Flood control triggered on CreateChatInviteLink. Sleeping for {e.retry_after} seconds...")
+                # Automatically wait whatever exact number of seconds Telegram requires
+                await asyncio.sleep(e.retry_after)
+            except Exception as link_err:
+                logger.error(f"Permanent failure generating reentry link for {uid}: {link_err}")
                 failed += 1
-            await asyncio.sleep(0.05)
+                break
+
+        if not group_url:
+            await asyncio.sleep(0.2)
             continue
 
-        # Not in group — generate fresh invite link
-        try:
-            grp_link = await bot.create_chat_invite_link(
-                chat_id=settings.CLUB_GROUP_ID,
-                name=f"Reentry: {name}",
-                member_limit=1
-            )
-            group_url = grp_link.invite_link
-        except Exception as link_err:
-            logger.error(f"Failed to generate reentry link for {uid}: {link_err}")
-            failed += 1
-            await asyncio.sleep(0.05)
-            continue
-
+        # 4. Construct apology body and custom interface keyboard
         apology_text = (
             f"ውድ {html.escape(name)} 🙏\n\n"
             f"ዛሬ በሲስተሙ ውስጥ በተፈጠረ ቴክኒካዊ ስህተት ምክንያት ከክለቡ ግሩፕ ሳይታሰብ ወጥተዋል።\n\n"
@@ -758,36 +799,44 @@ async def apologize_and_resend(message: types.Message, bot: Bot, db: Database):
             url=group_url
         ))
 
-        try:
-            await bot.send_message(
-                chat_id=uid,
-                text=apology_text,
-                reply_markup=builder.as_markup(),
-                parse_mode="HTML"
-            )
-            success += 1
-        except Exception as send_err:
-            logger.warning(f"Apology delivery failed for {uid}: {send_err}")
-            failed += 1
+        # Send full text alongside invitation link action buttons
+        while True:
+            try:
+                await bot.send_message(
+                    chat_id=uid,
+                    text=apology_text,
+                    reply_markup=builder.as_markup(),
+                    parse_mode="HTML"
+                )
+                success += 1
+                PROCESSED_USERS.add(uid)  # Mark user completed safely
+                break
+            except TelegramRetryAfter as e:
+                logger.warning(f"Flood hit on DM with link for {uid}. Waiting {e.retry_after}s")
+                await asyncio.sleep(e.retry_after)
+            except Exception as send_err:
+                logger.warning(f"Apology delivery failed for {uid}: {send_err}")
+                failed += 1
+                break
 
-        await asyncio.sleep(0.05)
+        # Proactive spacing gap between invites to stay clean of aggressive Telegram filters
+        await asyncio.sleep(1.5)
 
     summary = (
         f"🏁 <b>APOLOGY BLAST COMPLETE</b>\n"
         f"──────────────────────────────\n"
         f"✅ <b>Reentry Links Sent:</b> <code>{success}</code>\n"
         f"✉️ <b>Already In Group (apology only):</b> <code>{already_in}</code>\n"
+        f"⏭️ <b>Skipped (Already Received):</b> <code>{skipped}</code>\n"
         f"❌ <b>Failed:</b> <code>{failed}</code>\n"
         f"──────────────────────────────\n"
-        f"<i>Failed members can be retried by running /apologize again.</i>"
+        f"<i>You can safely retry anytime by running /apologize again.</i>"
     )
 
     try:
         await status_msg.edit_text(summary, parse_mode="HTML")
     except Exception:
         await message.reply(summary, parse_mode="HTML")
-        
-        
         
 # @router.message(Command("getid"))
 # async def get_chat_id(message: types.Message):
