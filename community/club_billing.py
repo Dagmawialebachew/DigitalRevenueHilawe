@@ -150,7 +150,7 @@ async def process_club_receipt(message: types.Message, state: FSMContext, db: Da
         done_text = (
             "✅ <b>CLUB INVOICE SUBMITTED</b>\n\n"
             "Your transaction is safely recorded. The system is scanning the transfer details.\n"
-            "You will automatically unlock the group and channel access lines upon confirmation. 🔥"
+            "You will automatically unlock the group access lines upon confirmation. 🔥"
         )
     else:
         done_text = (
@@ -193,7 +193,6 @@ async def notify_admin_club_payment(bot: Bot, msg: types.Message, uid: int, name
         kb.adjust(1)
 
         # FIX: Try fetching from settings config first, fallback safely if missing
-        # admin_channel_id = -5196014443
 
         admin_msg = await bot.send_photo(
             chat_id=-5196014443,
@@ -308,7 +307,7 @@ async def approve_club_member(callback: types.CallbackQuery, db: Database, bot: 
             f"Your payment has been successfully verified and your spot in the Coach Hilawe Transformation Club is secured.\n\n"
             f"⏳ <b>What's Next?</b>\n"
             f"The club will start soon! You don't need to do anything right now. "
-            f"As soon as we officially begin, we will send a message right here with your direct group and channel access links. Stay tuned! 🔥"
+            f"As soon as we officially begin, we will send a message right here with your direct group access links. Stay tuned! 🔥"
         )
     else:
         alert_html = (
@@ -500,11 +499,11 @@ async def club_kickoff_preview(callback: types.CallbackQuery, db: Database):
         f"🚀 <b>CLUB KICKOFF DISPATCH PREVIEW</b>\n"
         f"──────────────────────────────\n"
         f"👥 <b>Pending Members:</b> <code>{count} athletes</code>\n"
-        f"🔗 <b>Action:</b> Send group + channel invite links\n"
+        f"🔗 <b>Action:</b> Send group invite link\n"
         f"⏱️ <b>Clock starts:</b> At moment of successful delivery\n"
         f"❌ <b>On failure:</b> Member skipped, remains retryable\n"
         f"──────────────────────────────\n"
-        f"⚠️ <b>Confirm to dispatch all {count} invite links now?</b>"
+        f"⚠️ <b>Confirm to dispatch all {count} invite link now?</b>"
     )
 
     kb = InlineKeyboardBuilder()
@@ -517,6 +516,7 @@ async def club_kickoff_preview(callback: types.CallbackQuery, db: Database):
 
 import logging
 logger = logging.getLogger(__name__)
+
 
 @router.callback_query(F.data == "club_kickoff_confirmed")
 async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot: Bot):
@@ -553,13 +553,8 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
                 name=f"Kickoff: {name}",
                 member_limit=1
             )
-            chn_link = await bot.create_chat_invite_link(
-                chat_id=getattr(settings, "CLUB_CHANNEL_ID", None),
-                name=f"Kickoff: {name}",
-                member_limit=1
-            )
+            
             group_url = grp_link.invite_link
-            channel_url = chn_link.invite_link
         except Exception as link_err:
             logger.error(f"Failed to generate invite links for {uid}: {link_err}")
             skipped += 1
@@ -572,24 +567,21 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
                 f"ለትዕግስትዎ እናመሰግናለን። ክለቡ አሁን ይፋዊ ሆኗል!\n\n"
                 f"📌 <b>የእርስዎ የ30 ቀን መግቢያ ሊንኮች፦</b>\n\n"
                 f"1️⃣ <b>ክለብ ሃብ (ግሩፑ)፦</b>\n{group_url}\n\n"
-                f"2️⃣ <b>ቫውልት (ቻናሉ)፦</b>\n{channel_url}\n\n"
                 f"<i>⚠️ እነዚህ ሊንኮች አንድ ጊዜ ብቻ ናቸው። ለሌላ ሰው አያጋሩ።</i>"
             )
-            btn_grp, btn_chn = "💪 ወደ ግሩፑ ግባ", "📢 ቻናሉን ክፈት"
+            btn_grp= "💪 ወደ ግሩፑ ግባ"
         else:
             msg = (
                 f"🎉 <b>WE'RE LIVE, {html.escape(name.upper())}!</b>\n\n"
                 f"Thank you for your patience. The Hilawe Transformation Club is officially kicking off!\n\n"
                 f"📌 <b>Your 30-Day Access Links:</b>\n\n"
                 f"1️⃣ <b>The Hub (Group):</b>\n{group_url}\n\n"
-                f"2️⃣ <b>The Vault (Channel):</b>\n{channel_url}\n\n"
                 f"<i>⚠️ These are single-use links. Do not forward them.</i>"
             )
-            btn_grp, btn_chn = "💪 Enter the Hub", "📢 Open the Vault"
+            btn_grp= "💪 Enter the Hub"
 
         builder = InlineKeyboardBuilder()
         builder.row(types.InlineKeyboardButton(text=btn_grp, url=group_url))
-        builder.row(types.InlineKeyboardButton(text=btn_chn, url=channel_url))
 
         try:
             await bot.send_message(
@@ -625,6 +617,8 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
 
     await callback.message.edit_text(summary, parse_mode="HTML")     
   
+
+
 
 
 @router.message(F.new_chat_members)
@@ -666,9 +660,9 @@ async def handle_new_club_member(message: types.Message, bot: Bot, db: Database)
         f"እንኳን ደህና መጡ {html.escape(name)}! 🔥\n\n"
         f"ኮች ሂላዌ እና ሙሉው ክለብ እዚህ በጉጉት ይጠብቁዎት ነበር።\n\n"
         f"ማድረግ የሚጠበቅብዎት አንድ ነገር ብቻ ነው —\n"
-        f"👉 ወደ 💬 ክፍት መድረክ በመሄድ፣ ስምዎን እና\n"
+        f"👉 ወደ 🗣️ ዋና መወያያ መድረክ በመሄድ፣ ስምዎን እና\n"
         f"ለምን እዚህ እንደመጡ በአንድ ዓረፍተ ነገር ብቻ ይጻፉ።\n\n"
-        f"ጉዞው ከዛሬ ይጀምራል። ብቻዎን አይደሉም። 💪"
+        f"ጉዞው ዛሬ ይጀምራል። ብቻዎን አይደሉም። 💪"
     )
 
         try:
@@ -687,7 +681,9 @@ async def _delete_after(bot: Bot, chat_id: int, message_id: int, delay: int):
         pass      
     
     
-    
+# @router.message(Command("getid"))
+# async def get_chat_id(message: types.Message):
+#     await message.reply(f"<code>{message.chat.id}</code>", parse_mode="HTML")   
 
 
 

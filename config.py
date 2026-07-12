@@ -46,7 +46,7 @@ class Settings:
     REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "900"))
     DESIGN_PHOTO_ID: str = os.getenv("DESIGN_PHOTO_ID", "AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ")
     VERIFY_API_KEY: str = os.getenv("VERIFY_API", "sk_live_703d1fcdb5ed42916cd619be3c251062e4656eb7ddfcb268")
-    CLUB_GROUP_ID: int = int(os.getenv("CLUB_GROUP_ID", "-5397256535"))
+    CLUB_GROUP_ID: int = int(os.getenv("CLUB_GROUP_ID", "-1004486063628"))
 
 
 settings = Settings()
