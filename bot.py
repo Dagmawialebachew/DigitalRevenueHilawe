@@ -23,6 +23,8 @@ from scheduler.broadcast import router as broadcast_router
 from testimonial.testimonial_questions import router as testimonial_router, testimonial_scheduler
 from Survey.price_results import router as price_survey_router
 from Survey.community_survey import router as community_survey_router
+from community.daily_missions import router as missions_router, daily_mission_loop
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +48,8 @@ dp.include_router(testimonial_router)
 dp.include_router(price_survey_router)
 dp.include_router(community_survey_router)
 dp.include_router(broadcast_router)
+dp.include_router(missions_router)
+
 
 for c in all_comm_routers:
     dp.include_router(c)    
@@ -193,6 +197,7 @@ async def create_app() -> web.Application:
     async def startup_wrapper(_):
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
+        asyncio.create_task(daily_mission_loop(bot, db))
         # asyncio.create_task(reminder_worker(bot, db))
         # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
        

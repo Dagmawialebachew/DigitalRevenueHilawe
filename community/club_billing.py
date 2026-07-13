@@ -406,10 +406,13 @@ async def reject_club_member(callback: types.CallbackQuery, db: Database, bot: B
     except Exception as e:
         logger.error(f"Failed to send rejection notice to user {uid}: {e}")
    
-   
 
+from zoneinfo import ZoneInfo
+ADDIS_TZ = ZoneInfo("Africa/Addis_Ababa")
 
-# --- [ SECTION 5: HILAWE TRANSFORMATION CLUB COMMUNITY ] ---
+# ─────────────────────────────────────────
+# ADMIN DASHBOARD & KEYBOARD ENGINE
+# ─────────────────────────────────────────
 
 @router.message(F.text == "👥 Community", F.from_user.id.in_(settings.ADMIN_IDS))
 @router.callback_query(F.data == "refresh_club_stats")
@@ -417,6 +420,7 @@ async def club_information_dashboard(event: types.Message | types.CallbackQuery,
     """
     Displays live community stats, processing overhead, and specific 
     recurring financial metrics pulled strictly from your isolated club engine.
+    Now attaches an intuitive admin-only Reply Keyboard for seamless navigation.
     """
     await state.clear()
     
@@ -424,56 +428,127 @@ async def club_information_dashboard(event: types.Message | types.CallbackQuery,
     stats = await db._pool.fetchrow("""
         SELECT 
             (SELECT COUNT(*)::INT FROM club_subscriptions WHERE is_active = TRUE) as active_members,
+            (SELECT COUNT(*)::INT FROM club_subscriptions WHERE is_active = TRUE AND expires_at <= NOW() + INTERVAL '7 days') as expiring_soon,
             (SELECT COUNT(*)::INT FROM club_payments WHERE status = 'pending') as pending_members,
             (SELECT COALESCE(SUM(amount), 0)::NUMERIC FROM club_payments WHERE status = 'approved' AND processed_at >= NOW() - INTERVAL '30 days') as mrr,
             (SELECT COUNT(*)::INT FROM club_subscriptions) as total_lifetime_athletes
     """)
 
     active = stats['active_members'] if stats else 0
+    expiring = stats['expiring_soon'] if stats else 0
     pending = stats['pending_members'] if stats else 0
     mrr = stats['mrr'] if stats else 0
     total = stats['total_lifetime_athletes'] if stats else 0
 
     club_text = (
-        "👥 *HILAWE TRANSFORMATION CLUB*\n"
+        "👥 <b>HILAWE TRANSFORMATION CLUB</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "✨ *COMMUNITY ECOSYSTEM*\n"
-        f"▪️ *Active Members:* `{active} athletes`\n"
-        f"▪️ *Pending Onboarding:* `{pending} claims`\n"
-        f"▪️ *Total Network Pool:* `{total} initialized`\n"
-        "————————————————————\n"
-        "📈 *FINANCIAL MOMENTUM (30D)*\n"
-        f"▪️ *Club MRR:* `{mrr:.2f} ETB`\n"
+        "✨ <b>COMMUNITY ECOSYSTEM</b>\n"
+        f"▪️ Active Members: <code>{active} athletes</code>\n"
+        f"▪️ Expiring (Next 7 Days): <code>{expiring} athletes</code> ⚠️\n"
+        f"▪️ Pending Onboarding: <code>{pending} claims</code>\n"
+        f"▪️ Total Network Pool: <code>{total} initialized</code>\n"
+        "────────────────────\n"
+        "📈 <b>FINANCIAL MOMENTUM (30D)</b>\n"
+        f"▪️ Club MRR: <code>{mrr:.2f} ETB</code>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "⚙️ *System Action:* Access operational logs or refresh metrics below.\n"
-        f"⏱ _Last Synced: {datetime.now().strftime('%H:%M:%S')}_"
+        "⚙️ <i>System Action: Access operational logs or refresh metrics below.</i>\n"
+        f"⏱ <i>Last Synced: {datetime.now(ADDIS_TZ).strftime('%H:%M:%S')}</i>"
     )
 
-    # Re-attaching isolated structural management mechanics
-    builder = InlineKeyboardBuilder()
-    # Add this button to the builder in club_information_dashboard
-    builder.button(text="🚀 Kickoff: Send Club Links", callback_data="club_kickoff_dispatch")
-    builder.adjust(1)
-    builder.button(text="🔄 Sync Club Data", callback_data="refresh_club_stats")
-    builder.button(text="💎 Founders Command Center", callback_data="admin_home")
-    builder.adjust(1)
-    
-    inline_kb = builder.as_markup()
+    # 1. Maintain Inline Keyboards exactly as they were
+    inline_builder = InlineKeyboardBuilder()
+    inline_builder.button(text="🚀 Kickoff: Send Club Links", callback_data="club_kickoff_dispatch")
+    inline_builder.adjust(1)
+    inline_builder.button(text="🔄 Sync Club Data", callback_data="refresh_club_stats")
+    inline_builder.button(text="💎 Founders Command Center", callback_data="admin_home")
+    inline_builder.adjust(1)
+    inline_kb = inline_builder.as_markup()
+
+    # 2. Add New Persistent Admin Reply Keyboard (3 Buttons)
+    reply_builder = ReplyKeyboardBuilder()
+    reply_builder.button(text="🔄 Refresh Stats")
+    reply_builder.button(text="⏳ Expiring Soon")
+    reply_builder.button(text="⬅️ Back to Admin Menu")
+    reply_builder.adjust(2, 1)
+    admin_reply_kb = reply_builder.as_markup(resize_keyboard=True)
 
     if isinstance(event, types.Message):
-        await event.answer(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+        # Pass both inline structural utilities and the new navigation menu
+        await event.answer(club_text, reply_markup=inline_kb, parse_mode="HTML")
+        # Send a clean tracking anchor to plant the new reply markup seamlessly
+        await event.answer("🎛 Admin navigation panel locked open.", reply_markup=admin_reply_kb)
     else:
         try:
-            await event.message.edit_text(club_text, reply_markup=inline_kb, parse_mode="Markdown")
+            await event.message.edit_text(club_text, reply_markup=inline_kb, parse_mode="HTML")
             await event.answer("Club dashboard synchronized! ⚡️")
-        
-
         except TelegramBadRequest as e:
             if "message is not modified" in str(e):
                 await event.answer("Data is completely up to date.")
             else:
                 raise e
 
+
+# ─────────────────────────────────────────
+# NEW REPLY KEYBOARD UTILITY HANDLERS
+# ─────────────────────────────────────────
+
+@router.message(F.text == "🔄 Refresh Stats", F.from_user.id.in_(settings.ADMIN_IDS))
+async def handle_refresh_reply(message: types.Message, db: Database, state: FSMContext):
+    """Alias handler mapping the reply keyboard refresh back to main system loop."""
+    await club_information_dashboard(message, db, state)
+
+
+@router.message(F.text == "⏳ Expiring Soon", F.from_user.id.in_(settings.ADMIN_IDS))
+async def handle_expiring_soon_view(message: types.Message, db: Database):
+    """Pulls detailed lookahead reports of players about to lose cluster access."""
+    rows = await db._pool.fetch("""
+        SELECT u.full_name, cs.expires_at 
+        FROM club_subscriptions cs
+        JOIN users u ON u.telegram_id = cs.user_id
+        WHERE cs.is_active = TRUE AND cs.expires_at <= NOW() + INTERVAL '7 days'
+        ORDER BY cs.expires_at ASC
+        LIMIT 15
+    """)
+    
+    if not rows:
+        return await message.answer("✅ <b>No athletes are expiring within the next 7 days.</b>", parse_mode="HTML")
+        
+    lines = ["⏳ <b>ATHLETES EXPIRING SOON (NEXT 7 DAYS)</b>\n──────────────────────"]
+    for row in rows:
+        name = row['full_name'] or "Unknown Athlete"
+        days_left = (row['expires_at'] - datetime.now(ZoneInfo("UTC"))).days
+        days_str = f"{days_left} days left" if days_left > 0 else "Expiring today!"
+        lines.append(f"▪️ <b>{html.escape(name)}</b> — <code>{days_str}</code>")
+        
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@router.message(F.text == "⬅️ Back to Admin Menu", F.from_user.id.in_(settings.ADMIN_IDS))
+async def handle_back_to_admin(message: types.Message, state: FSMContext):
+    """
+    Removes the club administration keyboard array and restores the foundational control layout.
+    Replace 'admin_home_keyboard' with whatever default keyboard markup your bot utilizes.
+    """
+    await state.clear()
+    
+    # Rebuild your primary global admin reply layout here
+    main_admin_builder = ReplyKeyboardBuilder()
+    main_admin_builder.button(text="👥 Community")
+    main_admin_builder.button(text="⚙️ System Settings")
+    # Add other main menu buttons here...
+    main_admin_builder.adjust(2)
+    
+    await message.answer(
+        "⬅️ Returned to <b>Founders Main Hub</b>.", 
+        reply_markup=main_admin_builder.as_markup(resize_keyboard=True),
+        parse_mode="HTML"
+    )
+
+
+# ─────────────────────────────────────────
+# KICKOFF OPERATION DISPATCH ENGINE
+# ─────────────────────────────────────────
 
 @router.callback_query(F.data == "club_kickoff_dispatch")
 async def club_kickoff_preview(callback: types.CallbackQuery, db: Database):
@@ -514,9 +589,6 @@ async def club_kickoff_preview(callback: types.CallbackQuery, db: Database):
     await callback.message.edit_text(preview_html, reply_markup=kb.as_markup(), parse_mode="HTML")
     await callback.answer()
 
-import logging
-logger = logging.getLogger(__name__)
-
 
 @router.callback_query(F.data == "club_kickoff_confirmed")
 async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot: Bot):
@@ -546,21 +618,18 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
         lang = record['language'] or 'EN'
         name = record['full_name'] or 'Member'
 
-        # Generate fresh single-use invite links per member
         try:
             grp_link = await bot.create_chat_invite_link(
                 chat_id=getattr(settings, "CLUB_GROUP_ID", None),
                 name=f"Kickoff: {name}",
                 member_limit=1
             )
-            
             group_url = grp_link.invite_link
         except Exception as link_err:
             logger.error(f"Failed to generate invite links for {uid}: {link_err}")
             skipped += 1
             continue
 
-        # Build localized message
         if lang == "AM":
             msg = (
                 f"🎉 <b>ክለቡ ተጀምሯል! {html.escape(name.upper())}!</b>\n\n"
@@ -569,7 +638,7 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
                 f"1️⃣ <b>ክለብ ሃብ (ግሩፑ)፦</b>\n{group_url}\n\n"
                 f"<i>⚠️ እነዚህ ሊንኮች አንድ ጊዜ ብቻ ናቸው። ለሌላ ሰው አያጋሩ።</i>"
             )
-            btn_grp= "💪 ወደ ግሩፑ ግባ"
+            btn_grp = "💪 ወደ ግሩፑ ግባ"
         else:
             msg = (
                 f"🎉 <b>WE'RE LIVE, {html.escape(name.upper())}!</b>\n\n"
@@ -578,7 +647,7 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
                 f"1️⃣ <b>The Hub (Group):</b>\n{group_url}\n\n"
                 f"<i>⚠️ These are single-use links. Do not forward them.</i>"
             )
-            btn_grp= "💪 Enter the Hub"
+            btn_grp = "💪 Enter the Hub"
 
         builder = InlineKeyboardBuilder()
         builder.row(types.InlineKeyboardButton(text=btn_grp, url=group_url))
@@ -590,19 +659,16 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
                 reply_markup=builder.as_markup(),
                 parse_mode="HTML"
             )
-            # Clock starts NOW — only on confirmed delivery
             await db._pool.execute("""
                 UPDATE club_subscriptions
                 SET expires_at = NOW() + INTERVAL '30 days', updated_at = NOW()
                 WHERE user_id = $1
             """, uid)
             success += 1
-
         except Exception as send_err:
             logger.warning(f"Delivery failed for {uid}, skipping expiry update: {send_err}")
             failed += 1
 
-        # Gentle rate limiting — 50 users is fine but keeping it clean
         await asyncio.sleep(0.05)
 
     summary = (
@@ -615,10 +681,7 @@ async def club_kickoff_execute(callback: types.CallbackQuery, db: Database, bot:
         f"<i>Members with failed delivery still have expires_at = NULL and will appear next time you run kickoff.</i>"
     )
 
-    await callback.message.edit_text(summary, parse_mode="HTML")     
-  
-
-
+    await callback.message.edit_text(summary, parse_mode="HTML")
 
 
 @router.message(F.new_chat_members)

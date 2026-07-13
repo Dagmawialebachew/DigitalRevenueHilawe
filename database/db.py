@@ -184,6 +184,19 @@ CREATE TABLE IF NOT EXISTS club_subscriptions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
+CREATE TABLE IF NOT EXISTS club_checkins (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(telegram_id),
+    checkin_date DATE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_daily_checkin UNIQUE (user_id, checkin_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkins_date ON club_checkins (checkin_date);
+CREATE INDEX IF NOT EXISTS idx_checkins_user ON club_checkins (user_id);
+
 -- Highly performant indexing for admin panels and background validation cron-jobs
 CREATE INDEX IF NOT EXISTS idx_club_payments_status ON club_payments (status);
 CREATE INDEX IF NOT EXISTS idx_club_subs_expiry ON club_subscriptions (expires_at) WHERE is_active = TRUE;
