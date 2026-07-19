@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 router = Router(name="admin_club_promo")
 
 SCREENSHOT_FILE_IDS = [
-    "AgACAgQAAxkB...YOUR_FILE_ID_1...", # Screenshot 1 (Main discussion chat)
-    "AgACAgQAAxkB...YOUR_FILE_ID_2...", # Screenshot 2 (Meal confirmation)
-    "AgACAgQAAxkB...YOUR_FILE_ID_3...", # Screenshot 3 (Local food variety)
-    "AgACAgQAAxkB...YOUR_FILE_ID_4..."  # Screenshot 4 (Vault archive preview)
+    "AgACAgQAAxkBAAEC_pZqXKRllD5pLO5Oi__Q8D5hxAQ6PQACYA9rG72E4VKPnihxhhkIrgEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_phqXKSAfBty_ezg1o83efjK8JkmmAACYQ9rG72E4VK-gQRp0N_65gEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_ppqXKSSUB5NDRYgeFkvx52Tvnc7JQACYg9rG72E4VIYvwTFOIDjCQEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_pxqXKSpkX_5GXkWIXC7pc_mlx7t2wACYw9rG72E4VJ8CWcp2o5sigEAAwIAA3cAAz0E"  # Screenshot 4 (Vault archive preview)
 ]
 
 
