@@ -710,11 +710,7 @@ async def handle_new_club_member(message: types.Message, bot: Bot, db: Database)
                 logger.error(f"Failed to kick non-paying member {uid}: {e}")
             continue
 
-        # expires_at IS NOT NULL means they were already welcomed before (kickoff was sent)
-        # skip welcome silently — they're just rejoining after the incident
-        if sub['expires_at'] is not None:
-            continue
-
+   
         # Only brand new members (expires_at IS NULL) get the welcome
         name = member.first_name or "አትሌት"
         welcome_text = (
