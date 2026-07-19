@@ -9,10 +9,19 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 router = Router(name="admin_club_promo")
+
+SCREENSHOT_FILE_IDS = [
+    "AgACAgQAAxkB...YOUR_FILE_ID_1...", # Screenshot 1 (Main discussion chat)
+    "AgACAgQAAxkB...YOUR_FILE_ID_2...", # Screenshot 2 (Meal confirmation)
+    "AgACAgQAAxkB...YOUR_FILE_ID_3...", # Screenshot 3 (Local food variety)
+    "AgACAgQAAxkB...YOUR_FILE_ID_4..."  # Screenshot 4 (Vault archive preview)
+]
+
+
 def get_promo_card(lang: str, has_bought: bool = False) -> tuple[str, types.InlineKeyboardMarkup]:
     """
     Generates an ultra-short, high-converting direct response broadcast message.
-    Emphasizes that this is an interactive community ecosystem, not a static workout guide.
+    Emphasizes community accountability and weekly live interactive Q&A sessions.
     """
     builder = InlineKeyboardBuilder()
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
@@ -21,55 +30,50 @@ def get_promo_card(lang: str, has_bought: bool = False) -> tuple[str, types.Inli
     if not has_bought:
         if lang == "AM":
             text = (
-                f"<b>🚨 የመጀመሪያው ዙር ሊዘጋ 4 ቦታዎች ብቻ ቀሩ! 🚨</b>\n\n"
-                f"ይህ ተራ የስፖርት መመሪያ ወይም የፒዲኤፍ (PDF) ፋይል አይደለም። <b>ይህ የልምምድ ፕሮግራም አይደለም!</b>\n\n"
-                f"<b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> በቀጥታ ከኮች ሂላዌ ጋር የሚደረጉ የቪዲዮ ስብሰባዎች እና በየቀኑ አብረውህ የሚለፉ የቁርጠኞች ማህበረሰብ (Community) ነው፦\n\n"
-                f"👥 <b>የጠንካሮች ማህበረሰብ፦</b> በየቀኑ አብረውህ የሚሮጡ እና እንድታቆም የማይፈቅዱልህ ሰዎች ስብስብ።\n"
-                f"💎 <b>የቀጥታ የቪዲዮ ቆይታ፦</b> በየሳምንቱ ከኮች ሂላዌ ጋር ፊት ለፊት በመገናኘት እቅድህን የምታስተካክልበት።\n\n"
-                f"ክፍያው <b>በወር 299 ብር ብቻ</b> ነው—ከምታገኘው እውነተኛ የአካልና የህይወት ለውጥ አንፃር ይህ ገንዘብ ምንም ማለት አይደለም።\n\n"
-                f"⏳ <b>ሁሉም ነገር ሰኞ ይጀምራል!</b> የቀሩት 4 ቦታዎች ከመሙላታቸው በፊት አሁኑኑ ተቀላቀል፦"
+                f"<b>🚨 የመጀመሪያው ዙር ሊዘጋ ጥቂት ቦታዎች ብቻ ቀሩ! 🚨</b>\n\n"
+                f"ልክ ከላይ ባሉት ምስሎች ላይ እንደምታዩት፣ <b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> አባላት በየቀኑ አብረው የሚለፉበት፣ የዕለት ተዕለት ምግባቸውንና እንቅስቃሴያቸውን እያጋሩ እርስ በርስ የሚበረታቱበት ንቁ ማህበረሰብ (Community) ነው፦\n\n"
+                f"👥 <b>የጠንካሮች ስብስብ፦</b> ወንዶችም ሴቶችም በጋራ በመሆን ሆድና ቦርጭን ለማጥፋት፣ ክብደትን ለማስተካከልና ጡንቻን ለመገንባት በየቀኑ የምንነቃቃበት ልዩ ግሩፕ።\n"
+                f"📹 **የቀጥታ የቪዲዮ ስብሰባ (Live Sessions)፦** በየሳምንቱ ከኮች ሂላዌ ጋር ፊት ለፊት በቪዲዮ በመገናኘት፣ ማንኛውንም አይነት የፊትነስና የአመጋገብ ጥያቄዎቻችሁን በቀጥታ የምታቀርቡበትና ምላሽ የምታገኙበት መድረክ።\n\n"
+                f"ይህንን ሁሉንም ነገር የምታገኙት <b>በወር 299 ብር ብቻ</b> ነው! ሰዎች በፍጥነት እየገቡ ስለሆነ ይህ ዋጋ የሚቆየው ለጥቂት ሰዓታት ብቻ ነው።\n\n"
+                f"ቦታው ሳይሞላ አሁኑኑ ማህበረሰባችንን ተቀላቀሉ፦ 👇"
             )
-            btn_text = "🎯 ከቀሩት 4 ቦታዎች አንዱን ያዝ (299 ብር)"
+            btn_text = "🎯 ውስን ቦታውን አሁኑኑ ያዙ (299 ብር)"
         else:
             text = (
-                f"<b>🚨 FIRST ROUND CLOSING: ONLY 4 SPOTS LEFT! 🚨</b>\n\n"
-                f"Stop looking for another workout routine. <b>This is NOT a workout program.</b>\n\n"
-                f"The <b>Hilawe Transformation Club</b> is a live interactive ecosystem driven by community and direct video sessions with Coach Hilawe:\n\n"
-                f"👥 <b>The 1% Tribe:</b> A high-energy private room running together daily. No slacking.\n"
-                f"💎 <b>Live Video Sessions:</b> Direct face-to-face video troubleshooting and deep dives with Coach Hilawe.\n\n"
-                f"An investment of <b>299 ETB/month</b> is absolutely nothing compared to the massive value and identity shift you will receive.\n\n"
-                f"⏳ <b>We officially kick off this Monday.</b> Secure your access before the last 4 seats fill permanently:"
+                f"<b>🚨 FIRST ROUND CLOSING: ONLY A FEW SPOTS LEFT! 🚨</b>\n\n"
+                f"As you can see in the screenshots above, the <b>Hilawe Transformation Club</b> is an active group space where members push each other daily, sharing meals and workouts for ultimate consistency:\n\n"
+                f"👥 <b>The Tribe:</b> Men and women running together to burn stubborn fat, manage weight, and build clean shape.\n"
+                f"📹 <b>Weekly Live Audio/Video Q&As:</b> Get face-to-face with Coach Hilawe once a week to ask all your training and nutrition questions directly.\n\n"
+                f"Access to this community is just <b>299 ETB/month</b>! Slots are filling fast, and this price will only remain open for a few hours.\n\n"
+                f"Secure your spot and join the family now: 👇"
             )
-            btn_text = "🎯 Claim 1 of the Last 4 Spots (299 ETB)"
+            btn_text = "🎯 Claim Your Spot Now (299 ETB)"
 
-    # --- STATE 2: EXISTING BUYERS (OWN A PROGRAM BUT LACK EXECUTION) ---
+    # --- STATE 2: EXISTING BUYERS (OWN A PROGRAM / ACCELERATION STEP) ---
     else:
         if lang == "AM":
             text = (
-                f"<b>🚨 ለቪአይፒ አባላት የተደረገ ጥሪ፡ 4 ቦታዎች ብቻ! 🚨</b>\n\n"
-                f"መመሪያውን ገዝተሃል፤ ታዲያ ለምን ውጤት አልመጣም? ምክንያቱም የፒዲኤፍ (PDF) ሰነድ ብቻውን ስትሰንፍ አልጋ ላይ ሊቀሰቅስህ አይችልም። <b>ይህ አዲስ የስፖርት መመሪያ አይደለም!</b>\n\n"
-                f"ይህ ያንተን ፋይል ወደ እውነተኛ ውጤት የምትቀይርበት <b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> ነው፦\n\n"
-                f"🤝 <b>የማህበረሰብ ጉልበት፦</b> በየቀኑ እንድትተገብር የሚገፋፋህ ከፍተኛ ኃይል ያለው ስብስብ።\n"
-                f"🔥 <b>የቀጥታ የቪዲዮ ክትትል፦</b> በየሳምንቱ ከኮች ሂላዌ ጋር በቀጥታ ቪዲዮ በመገናኘት ስህተቶችህን ማስተካከል።\n\n"
-                f"ክፍያው <b>በወር 299 ብር ብቻ</b> ነው—የገዛኸውን ፕሮግራም ወደ እውነተኛ ለውጥ ለመቀየር ይህ ዋጋ ምንም ማለት አይደለም።\n\n"
-                f"⏳ <b>የመጀመሪያው ዙር ሰኞ ይጀምራል!</b> የቀሩት 4 የቪአይፒ ማሻሻያ ቦታዎች ሳይሞሉ አሁኑኑ ግባ፦"
+                f"<b>🚨 ለክለባችን አባላት የተደረገ ልዩ ጥሪ! 🚨</b>\n\n"
+                f"የስፖርትና የአመጋገብ መመሪያችንን ቀድመው ይዘዋል፤ አሁን ደግሞ ያንን እውቀት ይበልጥ ወደ ተግባርና ወደ እውነተኛ ውጤት የሚቀይሩበት ጊዜ ነው!\n\n"
+                f"<b>ሂላዌ ትራንስፎርሜሽን ክለብ</b> መመሪያውን በተሻለ ሁኔታ እንድትተገብሩ የሚያግዝ ማህበረሰብ ነው፦\n\n"
+                f"🤝 <b>የጋራ መደጋገፍ፦</b> በምስሎቹ ላይ እንደሚታየው በየቀኑ የእርስ በርስ ምግቦችን እያየን የምንማርበትና የምንበረታታበት መድረክ።\n"
+                f"🔥 <b>ቀጥታ ውይይት ከኮች ጋር፦</b> በየሳምንቱ በሚደረገው <b>Live ቪዲዮ</b> ላይ በመገኘት ማንኛውንም የሚያሻሽሏቸውን ጥያቄዎች ለኮች ሂላዌ በቀጥታ ጠይቀው ምላሽ የሚያገኙበት።\n\n"
+                f"የቀደመ እቅድዎን ይበልጥ ለማስቀጠል ክፍያው <b>በወር 299 ብር ብቻ</b> ነው። ቦታዎች በጣም ውስን ስለሆኑ አሁኑኑ ያሻሽሉ👇"
             )
-            btn_text = "🔥 የቪአይፒ ክለብ ቦታህን አሁን ያዝ (299 ብር)"
+            btn_text = "🔥 የቪአይፒ ክለብ ቦታዎን አሁን ያዙ (299 ብር)"
         else:
             text = (
-                f"<b>🚨 VIP UPGRADE NOTICE: ONLY 4 SEATS REMAINING 🚨</b>\n\n"
-                f"You already bought the program, but a downloaded file cannot force you out of bed. <b>This is NOT another workout routine.</b>\n\n"
-                f"This is your live execution room—the <b>Hilawe Transformation Club</b>. Move past static guides into live interactive coaching:\n\n"
-                f"🤝 <b>Tribe Accountability:</b> The exact daily environment you need to stay consistent.\n"
-                f"🔥 <b>Live Group Audits:</b> Weekly face-to-face video access with Coach Hilawe to guarantee execution.\n\n"
-                f"Spending <b>299 ETB/month</b> to save your blueprint from going to waste is symbolic. The payoff is elite physics.\n\n"
-                f"⏳ <b>Live onboarding starts this Monday.</b> Grab your upgrade before the last 4 seats vanish permanently:"
+                f"<b>🚨 EXCLUSIVE CLUB UPGRADE NOTICE! 🚨</b>\n\n"
+                f"You already have our training blueprint—now it's time to supercharge your execution layer with real group support!\n\n"
+                f"The <b>Hilawe Transformation Club</b> is built to complement your current program perfectly:\n\n"
+                f"🤝 <b>Daily Group Fire:</b> Share everyday meals and build clean habits alongside motivated men and women.\n"
+                f"🔥 <b>Live Q&A Sessions:</b> Jump on our weekly **Live Video Meetings** and ask Coach Hilawe all your burning fitness and nutrition questions directly.\n\n"
+                f"Take your progress to the next level for just <b>299 ETB/month</b>. Grab your upgrade before the last remaining seats fill up completely: 👇"
             )
             btn_text = "🔥 Upgrade to Live Club Tracking (299 ETB)"
 
     builder.button(text=btn_text, callback_data="initiate_club_subscription")
     return text, builder.as_markup()
-
 
 # --- 2. ADMIN CONTROL GATEWAY CONTROL ---
 @router.message(Command("club_broadcast"))
@@ -96,37 +100,40 @@ async def admin_broadcast_dashboard(message: types.Message):
 
 
 # --- 3. THE ISOLATED SAFETY TEST HARNESS ---
+# --- 3. THE ISOLATED SAFETY TEST HARNESS ---
 @router.callback_query(F.data == "promo_test_run")
-async def execute_test_harness(callback: types.CallbackQuery):
+async def execute_test_harness(callback: types.CallbackQuery, bot: Bot):
     """
-    Safely delivers copies of all localized and tier iterations directly into your chat.
+    Safely delivers copies of all localized and tier iterations directly 
+    into your chat alongside the 4 social proof screenshots.
     """
     if callback.from_user.id != settings.ADMIN_IDS[0]:
         return await callback.answer("⚠️ Access Denied.", show_alert=True)
 
     await callback.answer("Sending all structural preview variants...")
+    admin_chat_id = callback.message.chat.id
     
-    # 1. Render English Variants
-    en_cold_txt, en_cold_kb = get_promo_card("EN", has_bought=False)
-    en_vip_txt, en_vip_kb = get_promo_card("EN", has_bought=True)
-    
-    await callback.message.answer("📝 <b>[PREVIEW - ENGLISH - COLD LEAD]</b>", parse_mode="HTML")
-    await callback.message.answer(en_cold_txt, reply_markup=en_cold_kb, parse_mode="HTML")
-    
-    await callback.message.answer("📝 <b>[PREVIEW - ENGLISH - VIP UPGRADE]</b>", parse_mode="HTML")
-    await callback.message.answer(en_vip_txt, reply_markup=en_vip_kb, parse_mode="HTML")
+    # Common Media Album structure for layout validation
+    preview_album = [
+        types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[0]),
+        types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[1]),
+        types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[2]),
+        types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[3]),
+    ]
 
-    # 2. Render Amharic Variants
-    am_cold_txt, am_cold_kb = get_promo_card("AM", has_bought=False)
-    am_vip_txt, am_vip_kb = get_promo_card("AM", has_bought=True)
-    
+    # 1. Render Amharic - Cold Lead Variant
     await callback.message.answer("📝 <b>[PREVIEW - AMHARIC - COLD LEAD]</b>", parse_mode="HTML")
-    await callback.message.answer(am_cold_txt, reply_markup=am_cold_kb, parse_mode="HTML")
+    await bot.send_media_group(chat_id=admin_chat_id, media=preview_album)
+    am_cold_txt, am_cold_kb = get_promo_card("AM", has_bought=False)
+    await bot.send_message(chat_id=admin_chat_id, text=am_cold_txt, reply_markup=am_cold_kb, parse_mode="HTML")
     
+    # 2. Render Amharic - VIP Upgrade Variant
     await callback.message.answer("📝 <b>[PREVIEW - AMHARIC - VIP UPGRADE]</b>", parse_mode="HTML")
-    await callback.message.answer(am_vip_txt, reply_markup=am_vip_kb, parse_mode="HTML")
-
-
+    await bot.send_media_group(chat_id=admin_chat_id, media=preview_album)
+    am_vip_txt, am_vip_kb = get_promo_card("AM", has_bought=True)
+    await bot.send_message(chat_id=admin_chat_id, text=am_vip_txt, reply_markup=am_vip_kb, parse_mode="HTML")
+    
+    
 # --- PHASE 1: BROADCAST PREVIEW & DOUBLE-CHECK ---
 @router.callback_query(F.data == "promo_launch_live")
 async def preview_live_broadcast(callback: types.CallbackQuery, db: Database):
@@ -181,12 +188,13 @@ async def preview_live_broadcast(callback: types.CallbackQuery, db: Database):
 
 
 # --- PHASE 2: HIGH-SPEED BATCHED EXECUTION ---
+# --- PHASE 2: HIGH-SPEED BATCHED EXECUTION ---
 @router.callback_query(F.data == "promo_execute_confirmed")
 async def execute_live_broadcast(callback: types.CallbackQuery, db: Database, bot: Bot):
     if callback.from_user.id != settings.ADMIN_IDS[0]:
         return await callback.answer("⚠️ Access Denied.", show_alert=True)
 
-    await callback.message.edit_text("🛰️ <i>Streaming target identities and state variations from database...</i>", parse_mode="HTML")
+    await callback.message.edit_text("🛰️ <i>Stream target identities and state variations from database...</i>", parse_mode="HTML")
 
     # Pulls all users while retaining the active club subscription exclusion safety rail
     query = """
@@ -211,13 +219,29 @@ async def execute_live_broadcast(callback: types.CallbackQuery, db: Database, bo
 
     success_tracks = 0
     failure_tracks = 0
-    BATCH_SIZE = 25 
+    BATCH_SIZE = 15 
     
     async def send_safe_message(target_id, text, markup):
         nonlocal success_tracks, failure_tracks
         try:
-            await bot.send_message(chat_id=target_id, text=text, reply_markup=markup, parse_mode="HTML")
+            # 1. Build and dispatch the 4 screenshots as a combined album
+            media_album = [
+                types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[0]),
+                types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[1]),
+                types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[2]),
+                types.InputMediaPhoto(media=SCREENSHOT_FILE_IDS[3]),
+            ]
+            await bot.send_media_group(chat_id=target_id, media=media_album)
+            
+            # 2. Instantly deliver the highly persuasive caption with the action button locked below
+            await bot.send_message(
+                chat_id=target_id, 
+                text=text, 
+                reply_markup=markup, 
+                parse_mode="HTML"
+            )
             success_tracks += 1
+            
         except Exception as api_err:
             logger.warning(f"Delivery block on user {target_id}: {api_err}")
             failure_tracks += 1
@@ -225,8 +249,8 @@ async def execute_live_broadcast(callback: types.CallbackQuery, db: Database, bo
     # Chunk loop protecting Neon CPU cycles and complying with Telegram rate ceilings
     for i in range(0, total_count, BATCH_SIZE):
         batch = targets[i:i + BATCH_SIZE]
-        tasks = []
         
+        # Stagger task creation with a 0.05-second window to prevent 429 Flood burst crashes
         for record in batch:
             uid = record['telegram_id']
             lang = record['language'] or 'EN'
@@ -234,12 +258,12 @@ async def execute_live_broadcast(callback: types.CallbackQuery, db: Database, bo
             
             # Generate the specific personalized card iteration
             msg_text, msg_kb = get_promo_card(lang, has_bought=has_paid_product)
-            tasks.append(send_safe_message(uid, msg_text, msg_kb))
             
-        # Dispatch 25 tasks concurrently 
-        await asyncio.gather(*tasks)
+            # Execute sequentially per batch with a tiny microscopic delay to satisfy rate caps
+            await send_safe_message(uid, msg_text, msg_kb)
+            await asyncio.sleep(0.05)
         
-        # Rate limiting throttle
+        # Safe foundational baseline buffer time between batch waves
         await asyncio.sleep(1.0)
 
     summary_log = (
@@ -252,7 +276,7 @@ async def execute_live_broadcast(callback: types.CallbackQuery, db: Database, bo
     
     await callback.message.edit_text(summary_log, parse_mode="HTML")
     await bot.send_message(chat_id=settings.ADMIN_IDS[0], text="System Log: Broadcast pipeline run completed cleanly.", parse_mode="HTML")
-
+    
 
 @router.callback_query(F.data == "promo_cancel_broadcast")
 async def cancel_broadcast_action(callback: types.CallbackQuery):
