@@ -209,9 +209,7 @@ async def daily_mission_loop(bot: Bot, db: Database):
 # CLEAN REACTION-ONLY CHECK-IN HANDLER
 # ─────────────────────────────────────────
 @router.message(
-    F.chat.id == settings.CLUB_GROUP_ID,
-    F.message_thread_id == DAILY_MISSION_THREAD_ID
-)
+    F.chat.id == settings.CLUB_GROUP_ID)
 async def handle_mission_checkin(message: types.Message, db: Database):
     """
     Silently tracks member check-ins for ANY post inside the thread (text, photo, video)
