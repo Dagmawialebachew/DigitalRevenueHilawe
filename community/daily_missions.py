@@ -17,66 +17,73 @@ ADDIS_TZ = ZoneInfo("Africa/Addis_Ababa")
 # Dynamic split targets to hit both Fat Loss & Muscle Gain groups.
 # ─────────────────────────────────────────
 WEEKLY_MISSIONS = {
-    0: { # Monday
+    0: {  # Monday: The Momentum Builder
         "text": (
-            "🚀 <b>ሚሽን ሰኞ — አዲስ ጅምር (Fresh Start!)</b>\n\n"
-            "ሳምንቱን በድል ለመጀመር የዛሬ ግዴታዎቻችን እነዚህ ናቸው፦\n\n"
-            "🏃‍♂️ <b>ለሁላችሁም፦</b> ዛሬ ቢያንስ 3 ሊትር ውሃ መጠጣት!\n"
-            "🥗 <b>ለFat Loss ቡድን፦</b> ዛሬ ምንም አይነት በሰው ሰራሽ ስኳር የበለፀገ መጠጥ ወይም ጣፋጭ ነገር አለመንካት።\n"
-            "💪 <b>ለMuscle/Weight Gain ቡድን፦</b> 3 ዋና ምግቦችን በሰዓቱ መመገብ (ፕሮቲን ማካተት እንዳይረሱ)።\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> የዛሬውን ተግባር ሲጀምሩ ወይም ሲያጠናቅቁ <b>'ዝግጁ'</b> ወይም <b>'Done'</b> ብለው ሪፕላይ ያድርጉ! 👇"
+            "⚡️ <b>ሚሽን ሰኞ — የሳምንቱ ሞመንተም (Set The Tone!)</b>\n\n"
+            "አዲሱን ሳምንት በከፍተኛ ጉልበት እንጀምራለን! ዛሬ ምንም አይነት ምክንያት አይሰራም።\n\n"
+            "💧 <b>ለሁላችሁም (Habit Stack)፦</b> ዛሬ ጠዋት እንደነቁ 2 ትላልቅ ብርጭቆ ውሃ መጠጣት + በቀኑ ውስጥ ቢያንስ 3.5 ሊትር ውሃ መሙላት።\n"
+            "🥗 <b>ለFat Loss ቡድን፦</b> ዛሬ ከምሽቱ 1:00 ሰዓት በኋላ ምንም አይነት የካርቦሃይድሬት (ዳቦ፣ እንጀራ፣ ሩዝ) ምግብ አለመንካት።\n"
+            "🥩 <b>ለMuscle Gain ቡድን፦</b> ዛሬ በየምግባችሁ ላይ ቢያንስ 2 እንቁላል ወይም አኩሪ አተር/ምስር ማካተት።\n\n"
+            "👇 <b>ተልዕኮውን የጀመራችሁ ወይም የጨረሳችሁ፦</b> አሁኑኑ <b>'ዝግጁ'</b> ወይም <b>'Done'</b> ብላችሁ ሪፕላይ በማድረግ የመጀመሪያውን ነጥብ አስመዝግቡ!"
         )
     },
-    1: { # Tuesday
+    1: {  # Tuesday: Step & Sweat Overload
         "text": (
-            "🔥 <b>ሚሽን ማክሰኞ — የእንቅስቃሴ ቀን (Keep Moving!)</b>\n\n"
-            "ትናንት የነበረውን ጉልበት ዛሬም እንቀጥላለን።\n\n"
-            "🏃‍♂️ <b>ለሁላችሁም፦</b> ዛሬ 10,000 እርምጃ (10k steps) መሙላት ወይም ለ30 ደቂቃ ያህል ቀለል ያለ ፈጣን የእግር ጉዞ ማድረግ።\n\n"
-            "💬 ዛሬ ከተቀመጡበት ተነስተው ሰውነትዎን ያንቀሳቅሱ! ስራ ቦታም ቢሆኑ ደረጃዎችን ይጠቀሙ።\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> መልመጃውን ሲያጠናቅቁ ለዚህ መልዕክት <b>'ዝግጁ'</b> ብለው ምላሽ ይስጡ! 👇"
+            "🔥 <b>ሚሽን ማክሰኞ — የ12,000 እርምጃ ፈተና (Step Boss!)</b>\n\n"
+            "ትናንት የጀመርነውን የትጋት ጉልበት ዛሬ በእጥፍ እንጨምረዋለን።\n\n"
+            "🚶‍♂️ <b>የዛሬው ዋና ፈተና፦</b> ዛሬ ደረጃውን ከፍ አድርገነዋል! ቢያንስ <b>12,000 እርምጃዎች (12k steps)</b> መራመድ ወይም ለ35 ደቂቃ ያህል ሳያቋርጡ ፈጣን የእግር ጉዞ ማድረግ።\n\n"
+            "💡 <i>ምክር፦ ስራ ቦታም ሆናችሁ ታክሲ/መኪና ከምትጠብቁ ጥቂት ርቀት በእግርችሁ ተራመዱ!</i>\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> የእግር ጉዞችሁን ስታጠናቅቁ ወይም የቴሌግራም/Pedometer ስክሪንሾት በማያያዝ <b>'ዝግጁ'</b> ብላችሁ ይመልሱ!"
         )
     },
-    2: { # Wednesday
+    2: {  # Wednesday: Live Session & Upper Body Push
         "text": (
-            "🎥 <b>ሚሽን ረቡዕ — የLive Session እና የቤት ውስጥ ወርካውት!</b>\n\n"
-            "ዛሬ ልዩ ቀን ነው! ማታ የቀጥታ ስርጭት (Live Meeting) ይኖረናል።\n\n"
-            "🏋️‍♂️ <b>የዛሬው ስፖርት፦</b> 3 ዙር (15 Push-ups፣ 20 Squats እና 30 ሰከንድ Plank) በቤትዎ ውስጥ ይስሩ።\n\n"
-            "🚨 <b>ጠቃሚ ማሳሰቢያ፦</b> ማታ በምናደርገው የቀጥታ ውይይት ላይ Coach Hilawe ጥያቄዎቻችሁን በቀጥታ ይመልሳል። ጥያቄ ካላችሁ አሁኑኑ Q&A ክፍል ላይ አስቀምጡ!\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> ስፖርቱን ሰርተው ሲጨርሱ <b>'ዝግጁ'</b> ብለው ይጻፉ! 👇"
+            "🎥 <b>ሚሽን ረቡዕ — የLive Meeting እና የቤት ውስጥ ስፖርት!</b>\n\n"
+            "ዛሬ ልዩ ረቡዕ ነው! ማታ ከኮች ሂላዌ ጋር በይፋዊ <b>Live Meeting</b> ላይ እንገናኛለን።\n\n"
+            "🏋️‍♂️ <b>የዛሬው የቤት ውስጥ ወርካውት (4 ዙር)፦</b>\n"
+            "▪️ 20 Squats\n"
+            "▪️ 15 Push-ups (ጉልበት መሬት ላይ አድርጎ መስራት ይቻላል)\n"
+            "▪️ 40 ሰከንድ Plank holding\n\n"
+            "🚨 <b>ጥያቄና መልስ፦</b> ማታ በLive Session ላይ Coach Hilawe እንዲመልስላችሁ የምትፈልጉትን ጥያቄ <b>Q&A Desk</b> topic ላይ አስቀምጡ።\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> ስፖርቱን ሰርታችሁ ስትጨርሱ <b>'ዝግጁ'</b> ብላችሁ ፃፉ!"
         )
     },
-    3: { # Thursday
+    3: {  # Thursday: Local Protein & Clean Eating
         "text": (
-            "🥗 <b>ሚሽን ሐሙስ — የምግብ ቁጥጥር (Diet Discipline)</b>\n\n"
-            "ስፖርት ብቻውን ለውጥ አያመጣም፤ ዋናው ስራ የሚሰራው ማዕድ ቤት ነው!\n\n"
-            "🛑 <b>ለሁላችሁም፦</b> ዛሬ ምሽት ከምሽቱ 2:00 ሰዓት (8:00 PM) በኋላ ምንም አይነት ከባድ ምግብ አለመመገብ።\n"
-            "💧 ረሃብ ከተሰማዎት ውሃ ወይም ያለ ስኳር አረንጓዴ ሻይ (Green Tea) ይጠጡ።\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> ይህንን ስነ-ስርዓት ለመጠበቅ ቃል የገቡ አሁኑኑ <b>'ዝግጁ'</b> ብለው ይመዝገቡ👇"
+            "🥩 <b>ሚሽን ሐሙስ — የሀበሻ ፕሮቲን ፈተና (Habesha Fuel)</b>\n\n"
+            "ውድ የውጭ ምግቦችን ሳንገዛ በቤታችን ባለው የሀበሻ ምግብ ሰውነታችንን እንገነባለን!\n\n"
+            "🍽 <b>የዛሬው ተልዕኮ፦</b> ዛሬ በወሰዳችሁት ዋና ምግብ ላይ ከፍተኛ ፕሮቲን ያለው የሀገራችንን ምግብ (ዶሮ፣ ስጋ፣ እንቁላል፣ አተር/ምስር ወጥ) መመገብ እና ከምሽቱ 2:30 በኋላ ምንም አለመብላት።\n\n"
+            "🚫 <b>የሚከለከል፦</b> ዛሬ ምንም አይነት የታሸጉ ምግቦች፣ ቺፕሶች ወይም ለስላሳ መጠጦች አይፈቀዱም።\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> ይህንን የምግብ ስነ-ስርዓት የጠበቃችሁ አሁኑኑ <b>'ዝግጁ'</b> ብላችሁ አስመዝግቡ!"
         )
     },
-    4: { # Friday
+    4: {  # Friday: Mental Toughness & Core Shield
         "text": (
-            "🌟 <b>ሚሽን አርብ — ማህበረሰባዊ ቁርጠኝነት (Family Support)</b>\n\n"
-            "ብቻችንን ፈጣን ልንሆን እንችላለን፤ በጋራ ግን ሩቅ እንጓዛለን!\n\n"
-            "👥 <b>የዛሬው ተልዕኮ፦</b> ዛሬ ከቤተሰብዎ፣ ከባልደረባዎ ወይም ከጓደኛዎ ጋር ለ30 ደቂቃ አብረው ይራመዱ። በfitness ጉዟችን ሌሎችንም እናነሳሳለን።\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> የእግር ጉዞውን ሲጨርሱ <b>'ዝግጁ'</b> ብለው ሪፕላይ ያድርጉ! 👇"
+            "🛡 <b>ሚሽን አርብ — የጽናት እና የኮር (Abs/Core) ቀን!</b>\n\n"
+            "ሳምንቱ ሊጠናቀቅ ሲል ዘና ማለት የለም፤ ጠንካሮች የሚያወጡት በፈተና ወቅት ነው!\n\n"
+            "🔥 <b>የዛሬው የሆድና ቦርጭ ማጥፊያ ስፖርት (3 ዙር)፦</b>\n"
+            "▪️ 25 Mountain Climbers\n"
+            "▪️ 20 Leg Raises\n"
+            "▪️ 40 ሰከንድ Wall Sit (ግድግዳ ላይ መደገፍ)\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> እያንዳንዱን እንቅስቃሴ አጠናቃችሁ ስትጨርሱ ለዚህ መልዕክት <b>'ዝግጁ'</b> ብላችሁ ሪፕላይ ያድርጉ!"
         )
     },
-    5: { # Saturday
+    5: {  # Saturday: Show Your Plate (Visual Proof)
         "text": (
-            "📸 <b>ሚሽን ቅዳሜ — የቅዳሜ ፈተና (Weekend Shield)</b>\n\n"
-            "ብዙ ሰዎች ቅዳሜና እሁድ ላይ Cheat በማድረግ የሳምንቱን ልፋት ያበላሻሉ! እኛ ግን አንበላሽም።\n\n"
-            "🍽 <b>የዛሬው ተልዕኮ፦</b> ዛሬ የሚመገቡትን ምርጥ እና ጤናማ ምግብ ፎቶ አንስተው እዚህ ግሩፕ ላይ ይላኩ። እርስ በርስ እንማማር!\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> የጤናማ ምግባችሁን ፎቶ ስትልኩ ተልዕኮው በራስ-ሰር ይጸድቃል! 🔥"
+            "📸 <b>ሚሽን ቅዳሜ — የጤናማ ማዕድ ፎቶ (Show Your Plate!)</b>\n\n"
+            "ቅዳሜና እሁድ የብዙዎች የመሰነፍ ቀን ነው—ለእኛ ግን የልዩነት ቀን ነው!\n\n"
+            "🥗 <b>የዛሬው የፎቶ ተልዕኮ፦</b> ዛሬ ለቁርስ፣ ለምሳ ወይም ለራት የተመገባችሁትን ጤናማ እና ንጹህ የሀበሻ ምግብ ፎቶ አንስታችሁ እዚህ ግሩፕ ላይ ላኩ።\n\n"
+            "💬 <i>የሌሎችን ማዕድ በማየት አዳዲስ ጤናማ የምግብ ሀሳቦችን እንወስዳለን!</i>\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> የምግባችሁን ፎቶ ስትልኩ የዛሬው ሚሽናችሁ በራስ-ሰር ይጸድቃል! 📸🔥"
         )
     },
-    6: { # Sunday
+    6: {  # Sunday: Weekly Audit & Leaderboard Launch
         "text": (
-            "🔋 <b>ሚሽን እሁድ — እረፍት እና ቀጣይ እቅድ (Rest & Reset)</b>\n\n"
-            "ዛሬ ሰውነትዎ እንዲያገግም እረፍት ይስጡት። ነገር ግን አእምሮዎን ለሚቀጥለው ሳምንት ያዘጋጁ።\n\n"
-            "📝 <b>የዛሬው ተግባር፦</b> 10 ደቂቃ ወስደው በሚቀጥለው ሳምንት ማሳካት ስለሚፈልጉት የሰውነት ለውጥ ያስቡ እና ማስታወሻ ደብተርዎ ላይ ይጻፉ።\n\n"
-            "🚨 <b>ከምሽቱ 3:00 ሰዓት ላይ፦</b> የሳምንቱ የጀግኖች ሰንጠረዥ (Leaderboard) ይፋ ይሆናል! ማን ቀዳሚ ይሆን?\n\n"
-            "⚡️ <b>ለማረጋገጥ፦</b> ለቀጣዩ ሳምንት አእምሮአዊ ዝግጅት ካደረጉ <b>'ዝግጁ'</b> ይበሉ👇"
+            "📊 <b>ሚሽን እሁድ — የሳምንቱ ግምገማ እና የጀግኖች ሰንጠረዥ!</b>\n\n"
+            "ያለፈውን 6 ቀን ልፋታችሁን የምታዩበት እና ለቀጣዩ ሳምንት ኃይል የምትሰበስቡበት ቀን ነው።\n\n"
+            "📝 <b>የዛሬው ተግባር፦</b> በዚህ ሳምንት ያሳካችሁትን ትልቅ ስኬት ወይም የቀነሳችሁትን ቦርጭ/ክብደት በ1 መስመር ኮሜንት ላይ ጻፉልን።\n\n"
+            "🚨 <b>ከምሽቱ 3:00 ሰዓት ላይ፦</b> በዚህ ሳምንት 7ቱንም ቀን ሳይዛነፉ ያጠናቀቁ የሳምንቱ <b>TOP 10 ጀግኖች (Leaderboard)</b> ይፋ ይሆናል!\n\n"
+            "👇 <b>ለማረጋገጥ፦</b> የሳምንቱን ጉዞአችሁን ገምግማችሁ ካጠናቀቃችሁ <b>'ዝግጁ'</b> በሉ!"
         )
     },
 }
@@ -198,63 +205,47 @@ async def daily_mission_loop(bot: Bot, db: Database):
 # ─────────────────────────────────────────
 # CHECK-IN HANDLER (SOCIAL PROOF INJECTOR)
 # ─────────────────────────────────────────
+# ─────────────────────────────────────────
+# CLEAN REACTION-ONLY CHECK-IN HANDLER
+# ─────────────────────────────────────────
 @router.message(
     F.chat.id == settings.CLUB_GROUP_ID,
     F.message_thread_id == DAILY_MISSION_THREAD_ID
 )
 async def handle_mission_checkin(message: types.Message, db: Database):
-    if not message.text:
-        return
-
-    user_text = message.text.strip().lower()
+    """
+    Silently tracks member check-ins for ANY post inside the thread (text, photo, video)
+    and reacts with a 👍 to confirm without cluttering the group chat.
+    """
     uid = message.from_user.id
-    first_name = message.from_user.first_name or "አትሌት"
-
-    # Flexible keyword engine checker
-    if not any(kw in user_text for kw in VALID_KEYWORDS):
-        return
-
     today = datetime.now(ADDIS_TZ).date()
 
-    # Prevent double check-in on the same day
+    # 1. Prevent double check-in on the exact same day
     already = await db._pool.fetchval("""
         SELECT 1 FROM club_checkins
         WHERE user_id = $1 AND checkin_date = $2
     """, uid, today)
 
     if already:
-        return  # Silent to eliminate chat spam
+        # User already checked in today — react with a subtle thumb up anyway or ignore silently
+        try:
+            await message.react([types.ReactionTypeEmoji(emoji="👍")])
+        except Exception:
+            pass
+        return
 
-    # Log successful check-in
+    # 2. Log successful check-in into PostgreSQL
     await db._pool.execute("""
         INSERT INTO club_checkins (user_id, checkin_date)
         VALUES ($1, $2)
         ON CONFLICT DO NOTHING
     """, uid, today)
 
-    # Get overall historical check-in count for this specific user to calculate current milestone
-    total_checkins = await db._pool.fetchval("""
-        SELECT COUNT(*) FROM club_checkins WHERE user_id = $1
-    """, uid) or 1
-
-    # 1. Fire a cool native message reaction
+    # 3. Clean & Silent Confirmation — Thumbs Up Emoji Reaction only!
     try:
-        await message.react([types.ReactionTypeEmoji(emoji="🔥")])
-    except Exception:
-        pass
-
-    # 2. Public Text Reply to create intense Social Proof and FOMO for trailing members
-    try:
-        reply_text = (
-            f"🔥 <b>ፈጣን ምላሽ!</b>\n"
-            f"ወዳጃችን <b>{first_name}</b> የዛሬውን ተልዕኮ በተሳካ ሁኔታ አጠናቆ አስመዝግቧል! "
-            f"(ጠቅላላ የጽናት ጉዞ፦ {total_checkins} ቀናት) 👏\n\n"
-            f"የቀራችሁ አባላት ሰዓቱ ሳይረፍድ አሁኑኑ አጠናቅቁና 'ዝግጁ' በማለት አስመዝግቡ! 👇"
-        )
-        await message.reply(text=reply_text, parse_mode="HTML")
+        await message.react([types.ReactionTypeEmoji(emoji="👍")])
     except Exception as e:
-        logger.error(f"Failed to send public check-in reply: {e}")
-
+        logger.error(f"Failed to set 👍 reaction for user {uid}: {e}")
 
 # ─────────────────────────────────────────
 # ADMIN MANUAL TRIGGERS FOR TESTING
