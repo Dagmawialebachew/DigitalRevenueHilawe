@@ -182,71 +182,71 @@ def get_rotating_content(lang: str):
         proof_list[idx % len(proof_list)],
         urgency_list[idx % len(urgency_list)],
     )
-def build_deal_message(lang: str, product_id: int, price: int = 399, original_price: int = 1100):
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+def build_deal_message(lang: str, product_id: int, price: int = 300, original_price: int = 1100):
     lang = lang.upper() if lang.upper() in ["AM", "EN"] else "EN"
     
-    # Calculations
+    # Dynamic calculations
     daily_cost = round(price / 60, 1)
     discount_pct = round(((original_price - price) / original_price) * 100)
     savings = original_price - price
 
     if lang == "AM":
         text = (
-            f"<b>🔥 የ65% ታላቅ የዋጋ ቅናሽ! 8 ሳምንት ሙሉ ሰውነትዎን የሚቀይሩበት ልዩ ዕድል! 🔥</b>\n"
+            f"<b>🚨 አስቸኳይ ማሳሰቢያ፦ የ{discount_pct}% ቅናሹ በ300 ብር የሚዘጋው ዛሬ ምሽት ነው! 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"ለብዙዎች አስቸጋሪ የሆነውን የሰውነት ቅርፅ ማስተካከል፣ ቦርጭ ማጥፋት እና ጡንቻ መገንባት አሁን በታላቅ ቅናሽ በእጅዎ ገብቷል!\n\n"
-            f"<b>💰 የዋጋ እና የእሴት ስሌት (Value Breakdown)፦</b>\n"
+            f"<b>ቦታው ሙሉ ለሙሉ ከመዘጋቱ በፊት አሁኑኑ ያስይዙ!</b> የ8 ሳምንት ሙሉ የሰውነት ትራንስፎርሜሽን ፕሮግራማችንን በታሪክ አነስተኛ በሆነ ዋጋ የሚያገኙበት የመጨረሻው ዕድል አሁን ነው!\n\n"
+            f"<b>💰 የእሴትና የቅናሽ ስሌት (የዛሬ ብቻ)፦</b>\n"
             f"• ሙሉ የ8 ሳምንት ማሰልጠኛ ቪዲዮዎች\n"
-            f"• የሀበሻ ምግብ ላይ የተመሰረተ የአመጋገብ ስነ-ስርዓት\n"
             f"• የዘዋሪ ክፍያ የሌለው የህይወት ዘመን እውቀት\n"
+            f"• በቪድዮ የታገዘ ግራ መጋባት የሚያስቀር አሰራር\n"
             f"──────────────────\n"
             f"መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
-            f"🎁 <b>ዛሬ የሚያገኙበት ልዩ ዋጋ፦ {price:,} ብር ብቻ!</b>\n"
-            f"<b>(ለአንድ ጊዜ ብቻ የሚከፈል | {savings:,} ብር ይቆጥባሉ!)</b>\n\n"
-            f"ይህ ማለት በቀን <b>{daily_cost:.1f} ብር ብቻ</b> እንደማውጣት ነው። በአሁኑ ሰዓት በአንድ ማኪያቶ ዋጋ ሙሉ ህይወትዎን እና የአካል ብቃትዎን የሚቀይር ሙሉ ሲስተም እያገኙ ነው።\n\n"
+            f"🔥 <b>የዛሬ ልዩ የቅናሽ ዋጋ፦ {price:,} ብር ብቻ!</b>\n"
+            f"<b>(የአንድ ጊዜ ክፍያ | {savings:,} ብር ሙሉ በሙሉ ይቆጥባሉ!)</b>\n\n"
+            f"ይህ ማለት ለ8 ሳምንት ሙሉ በቀን <b>{daily_cost:.1f} ብር ብቻ</b> እያወጡ ነው! በአሁኑ ሰዓት በአንድ ማኪያቶ ዋጋ ቦርጭ የሚያጠፋ፣ ስብ የሚያቀልጥ እና አካልዎን የሚያስተካክል ሙሉ ሲስተም እያገኙ ነው። አሁንም ካመነቱና ካላስያዙ ዋጋው ወደ {original_price:,} ብር ይመለሳል!\n\n"
             f"<b>ይህ ፕሮግራም ምን ያካተተ ነው?</b>\n"
             f"🔥 <b>Fat Loss & Muscle Gain፦</b> ቦርጭና ከመጠን ያለፈ ስብ የሚያጠፋ፣ የተስተካከለ የሰውነት ቅርፅ የሚገነባ\n"
             f"🎥 <b>ቀላል ቪዲዮዎች፦</b> እያንዳንዱን እንቅስቃሴ በስልክዎ እያዩ በትክክል የሚሰሩት\n"
             f"🍲 <b>100% የሀገራችን ምግብ፦</b> ውድ የውጭ ምግቦች ሳይገዙ፣ በቤትዎ ባለው የሀበሻ ምግብ የሚሰራ\n\n"
             f"⚡ <b>የአባላቶቻችን እውነተኛ ምስክርነት፦</b>\n"
-            f"💬 <i>\"በዚህ አነስተኛ ዋጋ ሙሉ የ8 ሳምንት ፕሮግራም ማግኘት በጣም አስገርሞኛል። በአንድ ወር ውስጥ ቦርጬ ጠፍቶ የታየ ለውጥ አግኝቻለሁ!\"</i>\n"
-            f"— <b>ዮናስ ኪ.</b> ✅ (የ8 ሳምንት Transformation አባል)\n\n"
-            f"⏳ <b>ማሳሰቢያ፦</b> ይህ የ{discount_pct}% ቅናሽ የተደረገበት ቦታ በጣም ውስን ስለሆነ አሁኑኑ ተመዝግበው ለውጥዎን ይጀምሩ፦ 👇\n"
-            f"ከታች ያለውን ቁልፍ መንካት አይርሱ"
+            f"💬 <i>\"በ300 ብር ብቻ ሙሉ የ8 ሳምንት ፕሮግራም ማግኘት ማመን አቅቶኝ ነበር! በአንድ ወር ውስጥ ቦርጬ ጠፍቶ የታየ ለውጥ አግኝቻለሁ።\"</i>\n"
+            f"— <b>ሳሮን. ከ</b> ✅ (የ8 ሳምንት Transformation አባል)\n\n"
+            f"⏰ <b>ሰዓቱ እየቆጠረ ነው!</b> የቀሩት በጣም ውስን ቦታዎች ሳይሞሉ አሁኑኑ ታች ያለውን ቁልፍ ተጭነው ያስይዙ፦ 👇"
         )
-        btn_text = f"🚀 የ 8 ሳምንት ፕሮግራሙን ክፈት"
+        btn_text = f"🚀 የ 8 ሳምንት ፕሮግራሙን በ {price:,} ብር አሁኑኑ ክፈት"
 
     else:
         text = (
-            f"<b>🔥 MASSIVE 65% OFF DISCOUNT: Transform Your Body in 8 Weeks! 🔥</b>\n"
+            f"<b>🚨 URGENT NOTICE: 73% DISCOUNT EXPIRES TONIGHT! 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"Getting into the best shape of your life doesn't have to cost a fortune. Unlock our complete 8-week system at an unbeatable value!\n\n"
-            f"<b>💰 Value Breakdown:</b>\n"
+            f"<b>Lock in your spot before access resets!</b> This is your final window to secure our complete 8-week physical transformation system for just 300 ETB.\n\n"
+            f"<b>💰 Flash Deal Breakdown (Today Only):</b>\n"
             f"• Complete 8-Week Video Training Blueprint\n"
             f"• 100% Local Ethiopian Nutrition Plan\n"
             f"• Zero recurring fees or subscription traps\n"
             f"──────────────────\n"
             f"Regular Price: <s>{original_price:,} ETB</s>\n"
-            f"🎁 <b>Special Deal Today: {price:,} ETB Only!</b>\n"
-            f"<b>(One-Time Payment | You Save {savings:,} ETB!)</b>\n\n"
-            f"That breaks down to just <b>{daily_cost:.1f} ETB a day</b>—less than the price of a single macchiato in Addis for a complete physical transformation.\n\n"
+            f"🔥 <b>Today's Flash Deal: {price:,} ETB Only!</b>\n"
+            f"<b>(One-Time Payment | Instant {savings:,} ETB Savings!)</b>\n\n"
+            f"That breaks down to an insane <b>{daily_cost:.1f} ETB a day</b> for 8 full weeks—literally less than a fraction of a single coffee in Addis. Hesitate, and you will pay full price tomorrow.\n\n"
             f"<b>What Is Included:</b>\n"
             f"🔥 <b>Fat Loss & Muscle Toning:</b> Targeted routines to strip stubborn fat and build clean shape simultaneously.\n"
             f"🎥 <b>Step-by-Step Videos:</b> Easy-to-follow HD guides directly on your phone.\n"
             f"🍲 <b>100% Everyday Local Foods:</b> No expensive imported diets. Get results eating local Ethiopian meals.\n\n"
             f"⚡ <b>Real Member Proof:</b>\n"
-            f"💬 <i>\"Getting this entire 8-week blueprint for just {price:,} ETB is the best investment I've made. Lost my belly fat in just 4 weeks!\"</i>\n"
+            f"💬 <i>\"Getting this entire 8-week blueprint for just {price:,} ETB is the best decision I've made. Lost my belly fat in just 4 weeks!\"</i>\n"
             f"— <b>Yonas K.</b> ✅ (Active Member)\n\n"
-            f"👇 Click below to claim your {discount_pct}% discount before prices reset:"
+            f"⏰ <b>Timer is ticking!</b> Claim one of the final remaining slots before the price resets back to {original_price:,} ETB:"
         )
-        btn_text = f"🚀 Unlock 8-Week Access"
+        btn_text = f"🚀 Unlock 8-Week Access for {price:,} ETB Now"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn_text, callback_data=f"pay_{product_id}")]
     ])
 
     return text, kb
-
 
 
 import os
@@ -350,9 +350,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     target_filter = ""
     
     if target == "unpaid":
-        # target_filter = "AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
         target_filter = """
-        AND u.created_at >= NOW() - INTERVAL '100 weeks'
         AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
         """
         
@@ -378,7 +376,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 300) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -393,7 +391,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE effective_price = 100) as p100,
         COUNT(*) FILTER (WHERE effective_price = 199) as p199,
-        COUNT(*) FILTER (WHERE effective_price = 299) as p299,
+        COUNT(*) FILTER (WHERE effective_price = 300) as p300,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
         COUNT(*) FILTER (WHERE effective_price = 499) as p499,
         COUNT(*) FILTER (WHERE effective_price = 700) as p700
@@ -414,7 +412,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"💰 <b>Tier Breakdown:</b>\n"
         f"├ 100 ETB (Survey): <code>{stats['p100']}</code>\n"
         f"├ 199 ETB (Survey): <code>{stats['p199']}</code>\n"
-        f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
+        f"├ 300 ETB (Survey): <code>{stats['p300']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
         f"├ 499 ETB (Survey): <code>{stats['p499']}</code>\n"
         f"└ 700 ETB (Survey): <code>{stats['p700']}</code>\n"
@@ -446,14 +444,14 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # Initialize high-granularity stats
     stats = {
         "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
-        "100": 0, "199": 0, "299": 0, "399": 0, "499": 0, "700": 0
+        "100": 0, "199": 0, "300": 0, "399": 0, "499": 0, "700": 0
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 300) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -463,11 +461,9 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     """
     
     if target == "unpaid":
-        # base_query += " AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
-        base_query += """
-        AND u.created_at >= NOW() - INTERVAL '40 weeks'
-        AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
-        """
+            base_query += """
+            AND NOT EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')
+            """
     elif target == "paid":
         base_query += " AND EXISTS (SELECT 1 FROM payments pay WHERE pay.user_id = u.telegram_id AND pay.status = 'approved')"
     elif target == "test":
@@ -643,7 +639,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"💰 <b>Price Tier Distribution:</b>\n"
         f"├ 100 ETB: <code>{stats['100']}</code> users\n"
         f"├ 199 ETB: <code>{stats['199']}</code> users\n"
-        f"├ 299 ETB: <code>{stats['299']}</code> users\n"
+        f"├ 299 ETB: <code>{stats['300']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
         f"└ 700 ETB: <code>{stats['700']}</code> users\n"
@@ -669,7 +665,7 @@ async def broadcast_dryrun(message: types.Message):
                 )) as paid_count,
                 COUNT(*) FILTER (WHERE prod.price = 100) as tier_100,
                 COUNT(*) FILTER (WHERE prod.price = 199) as tier_199,
-                COUNT(*) FILTER (WHERE prod.price = 299) as tier_299,
+                COUNT(*) FILTER (WHERE prod.price = 300) as tier_300,
                 COUNT(*) FILTER (WHERE prod.price = 399) as tier_399,
                 COUNT(*) FILTER (WHERE prod.price = 499) as tier_499
             FROM users u
@@ -689,7 +685,7 @@ async def broadcast_dryrun(message: types.Message):
             f"💰 <b>Pricing Distribution:</b>\n"
             f"├ 100 ETB Tier: <code>{stats['tier_100']}</code>\n"
             f"├ 199 ETB Tier: <code>{stats['tier_199']}</code>\n"
-            f"├ 299 ETB Tier: <code>{stats['tier_299']}</code>\n"
+            f"├ 300 ETB Tier: <code>{stats['tier_300']}</code>\n"
             f"├ 399 ETB Tier: <code>{stats['tier_399']}</code>\n"
             f"└ 499 ETB Tier: <code>{stats['tier_499']}</code>\n"
             f"━━━━━━━━━━━━━━\n"
