@@ -20,6 +20,7 @@ from middlewares.error_handling_middleware import router as error_router
 from api.api import setup_admin_routes
 from scheduler.scheduler import check_and_send_reminders, test_reminder_for_user
 from scheduler.broadcast import router as broadcast_router
+from scheduler.one_message_broadcast import router as one_message_broadcast_router
 from testimonial.testimonial_questions import router as testimonial_router, testimonial_scheduler
 from Survey.price_results import router as price_survey_router
 from Survey.community_survey import router as community_survey_router
@@ -49,6 +50,7 @@ dp.include_router(price_survey_router)
 dp.include_router(community_survey_router)
 dp.include_router(broadcast_router)
 dp.include_router(missions_router)
+dp.include_router(one_message_broadcast_router)
 
 
 for c in all_comm_routers:

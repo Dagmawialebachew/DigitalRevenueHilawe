@@ -399,6 +399,27 @@ class Database:
         return await self._pool.fetchval("SELECT count(*) FROM payments WHERE status = 'pending'")
     
     
+    
+    async def fetch_unpaid_users(self) -> List[asyncpg.Record]:
+        """
+        Fetches all registered users who have never had an approved payment.
+        No time/interval limits applied.
+        """
+        query = """
+            SELECT telegram_id, language 
+            FROM users u
+            WHERE NOT EXISTS (
+                SELECT 1 FROM payments pay 
+                WHERE pay.user_id = u.telegram_id AND pay.status = 'approved'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM club_payments cpay 
+                WHERE cpay.user_id = u.telegram_id AND cpay.status = 'approved'
+            )
+        """
+        return await self._pool.fetch(query)
+    
+    
     async def get_all_products(self, limit: int = 10, offset: int = 0):
     # Change 'lang' to 'language' and 'telegram_file_id' if needed
         query = """
