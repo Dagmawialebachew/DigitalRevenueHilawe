@@ -365,21 +365,21 @@ class Database:
     
     async def get_club_financial_stats(self) -> Dict[str, float]:
         """
-        Computes dedicated gross revenue, transaction counts, and historical 
-        financial performance for the Hilawe Transformation Club engine.
+        Computes lifetime gross revenue and transaction counts
+        for the Hilawe Transformation Club engine.
         """
         query = """
             SELECT 
                 COUNT(*) FILTER (WHERE status = 'approved') as successful_billings,
-                COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0) as gross_club_profit,
-                COALESCE(SUM(amount) FILTER (WHERE status = 'approved' AND processed_at >= NOW() - INTERVAL '30 days'), 0) as rolling_30d_profit
+                COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0) as gross_club_profit
             FROM club_payments
         """
         row = await self._pool.fetchrow(query)
+        profit = float(row["gross_club_profit"]) if row else 0.0
         return {
             "total_transactions": row["successful_billings"] if row else 0,
-            "club_profit": float(row["gross_club_profit"]) if row else 0.0,
-            "mrr": float(row["rolling_30d_profit"]) if row else 0.0
+            "club_profit": profit,
+            "lifetime_revenue": profit
         }
 
     
