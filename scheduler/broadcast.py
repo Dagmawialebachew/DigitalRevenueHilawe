@@ -693,8 +693,7 @@ async def broadcast_dryrun(message: types.Message):
             f"💰 <b>Pricing Distribution:</b>\n"
             f"├ 100 ETB Tier: <code>{stats['tier_100']}</code>\n"
             f"├ 199 ETB Tier: <code>{stats['tier_199']}</code>\n"
-            f"├ 299 ETB Tier: <code>{stats['tier_299
-            ']}</code>\n"
+            f"├ 299 ETB Tier: <code>{stats['tier_299']}</code>\n"
             f"├ 399 ETB Tier: <code>{stats['tier_399']}</code>\n"
             f"└ 499 ETB Tier: <code>{stats['tier_499']}</code>\n"
             f"━━━━━━━━━━━━━━\n"
