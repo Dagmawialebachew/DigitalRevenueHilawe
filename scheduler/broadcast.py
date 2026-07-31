@@ -399,7 +399,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE effective_price = 100) as p100,
         COUNT(*) FILTER (WHERE effective_price = 199) as p199,
-        COUNT(*) FILTER (WHERE effective_price = 300) as p300,
+        COUNT(*) FILTER (WHERE effective_price = 299) as p299,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
         COUNT(*) FILTER (WHERE effective_price = 499) as p499,
         COUNT(*) FILTER (WHERE effective_price = 700) as p700
@@ -420,7 +420,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"💰 <b>Tier Breakdown:</b>\n"
         f"├ 100 ETB (Survey): <code>{stats['p100']}</code>\n"
         f"├ 199 ETB (Survey): <code>{stats['p199']}</code>\n"
-        f"├ 300 ETB (Survey): <code>{stats['p300']}</code>\n"
+        f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
         f"├ 499 ETB (Survey): <code>{stats['p499']}</code>\n"
         f"└ 700 ETB (Survey): <code>{stats['p700']}</code>\n"
@@ -452,7 +452,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # Initialize high-granularity stats
     stats = {
         "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
-        "100": 0, "199": 0, "300": 0, "399": 0, "499": 0, "700": 0
+        "100": 0, "199": 0, "299": 0, "399": 0, "499": 0, "700": 0
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
@@ -647,7 +647,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"💰 <b>Price Tier Distribution:</b>\n"
         f"├ 100 ETB: <code>{stats['100']}</code> users\n"
         f"├ 199 ETB: <code>{stats['199']}</code> users\n"
-        f"├ 299 ETB: <code>{stats['300']}</code> users\n"
+        f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
         f"└ 700 ETB: <code>{stats['700']}</code> users\n"
@@ -673,7 +673,7 @@ async def broadcast_dryrun(message: types.Message):
                 )) as paid_count,
                 COUNT(*) FILTER (WHERE prod.price = 100) as tier_100,
                 COUNT(*) FILTER (WHERE prod.price = 199) as tier_199,
-                COUNT(*) FILTER (WHERE prod.price = 300) as tier_300,
+                COUNT(*) FILTER (WHERE prod.price = 299) as tier_299,
                 COUNT(*) FILTER (WHERE prod.price = 399) as tier_399,
                 COUNT(*) FILTER (WHERE prod.price = 499) as tier_499
             FROM users u
@@ -693,7 +693,8 @@ async def broadcast_dryrun(message: types.Message):
             f"💰 <b>Pricing Distribution:</b>\n"
             f"├ 100 ETB Tier: <code>{stats['tier_100']}</code>\n"
             f"├ 199 ETB Tier: <code>{stats['tier_199']}</code>\n"
-            f"├ 300 ETB Tier: <code>{stats['tier_300']}</code>\n"
+            f"├ 299 ETB Tier: <code>{stats['tier_299
+            ']}</code>\n"
             f"├ 399 ETB Tier: <code>{stats['tier_399']}</code>\n"
             f"└ 499 ETB Tier: <code>{stats['tier_499']}</code>\n"
             f"━━━━━━━━━━━━━━\n"
