@@ -183,10 +183,13 @@ def get_rotating_content(lang: str):
         urgency_list[idx % len(urgency_list)],
     )
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 399,
+    price: int = 299,
     original_price: int = 1100
 ):
     lang = lang.upper()
@@ -195,98 +198,50 @@ def build_deal_message(
 
     program_days = 8 * 7
     daily_cost = price / program_days
-    discount_pct = round(
-        ((original_price - price) / original_price) * 100
-    )
+    discount_pct = round(((original_price - price) / original_price) * 100)
     savings = original_price - price
 
     if lang == "AM":
         text = (
-            f"<b>🚨 ብዙዎቻችሁ ስለጠየቃችሁን ቅናሹን ለዛሬ ብቻ "
-            f"አራዝመናል! 🚨</b>\n"
+            f"<b>🔥 የ 299 ብር ታላቅ ቅናሽ (73% OFF) — ዛሬ ምሽት ይዘጋል! 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-
-            f"ቅናሹ ካለፋችሁ በኋላ በድጋሚ ዕድል እንድንሰጣችሁ "
-            f"ብዙዎቻችሁ ጠይቃችሁናል። ስለዚህ የ<b>{discount_pct}% ቅናሹን</b> "
-            f"<b>ለዛሬ ብቻ</b> ለማራዘም ወስነናል።\n\n"
-
-            f"ይህ የ8 ሳምንት ሙሉ የሰውነት ለውጥ ፕሮግራምን "
-            f"በ<b>{price:,} ብር ብቻ</b> ለማግኘት የተሰጠ ተጨማሪ "
-            f"ዕድል ነው።\n\n"
-
-            f"<b>💰 የዛሬ ብቻ ልዩ ቅናሽ፦</b>\n"
-            f"• ሙሉ የ8 ሳምንት የስልጠና ቪዲዮዎች\n"
-            f"• በሀገራችን ምግቦች ላይ የተመሰረተ የአመጋገብ መመሪያ\n"
-            f"• በስልክዎ በቀላሉ የሚከተሉት ደረጃ በደረጃ ስልጠና\n"
-            f"• ተደጋጋሚ ወርሃዊ ክፍያ የለም\n"
-            f"──────────────────\n"
+            f"<i>\"በየወሩ የሚከፈል ነው?\"</i> ወይም <i>\"አሁን ላይ ብር የለኝም\"</i> ላላችሁ አባላት—እድሉ እንዳያመልጣችሁ የመጨረሻ ውሳኔ አስተላፍነናል።\n\n"
+            f"የ8 ሳምንት (2 ወር) ሙሉ የሰውነት ለውጥ ፕሮግራማችንን ከ1,100 ብር ወደ <b>{price:,} ብር ብቻ</b> ዝቅ አድርገነዋል! (የ{savings:,} ብር እውነተኛ ቁጠባ!)\n\n"
+            f"<b>💡 ይህ ማለት ምን ማለት ነው?</b>\n"
+            f"ለ8 ሳምንት ሙሉ ሲሰላ በቀን <b>{daily_cost:.1f} ብር ብቻ</b> እያወጣችሁ ነው! በአሁኑ ሰዓት በአንድ ማኪያቶ ዋጋ ቦርጭ የሚያጠፋ፣ ስብ የሚያቀልጥ እና ጡንቻ የሚገነባ ሙሉ ሲስተም በእጅዎ እያገኙ ነው። አሁንም ካመነቱ ጥፋቱ የእርስዎ ብቻ ነው።\n\n"
+            f"<b>🎁 በ 299 ብር ፓኬጅ ውስጥ ምን ያገኛሉ?</b>\n"
+            f"🔥 <b>Fat Loss & Muscle Gain፦</b> ቦርጭና ስብ የሚያጠፋ፣ የተስተካከለ የሰውነት ቅርፅ የሚገነባ\n"
+            f"🎥 <b>ቀላል HD ቪዲዮዎች፦</b> እያንዳንዱን እንቅስቃሴ በስልክዎ እያዩ በቤትዎ የሚሰሩበት\n"
+            f"🍲 <b>100% የሀበሻ ምግብ፦</b> ውድ የውጭ ምግቦች ሳይገዙ፣ በቤትዎ ባለው ምግብ የሚሰራ\n"
+            f"🚫 <b>ተደጋጋሚ ክፍያ የለም፦</b> ለአንድ ጊዜ ብቻ የሚከፈል የ300 ብር በታች ኢንቨስትመንት!\n\n"
+            f"💰 <b>የዛሬ ብቻ ልዩ የዋጋ ስሌት፦</b>\n"
             f"መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
-            f"🔥 <b>የዛሬ የተራዘመ ቅናሽ፦ {price:,} ብር ብቻ!</b>\n"
-            f"<b>አንድ ጊዜ ብቻ ይከፍላሉ—{savings:,} ብር ይቆጥባሉ።</b>\n\n"
-
-            f"ለ8 ሳምንት ሙሉ ሲከፋፈል ይህ በቀን "
-            f"<b>{daily_cost:.1f} ብር ብቻ</b> ነው።\n\n"
-
-            f"<b>በፕሮግራሙ ውስጥ ምን ያገኛሉ?</b>\n"
-            f"🔥 <b>Fat Loss & Muscle Toning፦</b> የሰውነት ስብን ለመቀነስና "
-            f"የተስተካከለ ቅርፅ ለመገንባት የተዘጋጁ ልምምዶች\n"
-            f"🎥 <b>ደረጃ በደረጃ ቪዲዮዎች፦</b> እያንዳንዱን እንቅስቃሴ "
-            f"በስልክዎ እያዩ እንዲሰሩ\n"
-            f"🍲 <b>የሀገራችን ምግብ፦</b> ውድ የውጭ ምግቦችን "
-            f"ሳይገዙ በተለመዱ የኢትዮጵያ ምግቦች እንዲከተሉ\n\n"
-
-            f"⏰ <b>የተጨማሪው ዕድል ዛሬ ያበቃል።</b>\n"
-            f"የቅናሽ ዋጋው ከማብቃቱ በፊት ከታች ያለውን ቁልፍ "
-            f"በመጫን የ8 ሳምንት ፕሮግራሙን ይክፈቱ፦ 👇"
+            f"🔥 <b>የዛሬ የቅናሽ ዋጋ፦ {price:,} ብር ብቻ! (73% ቅናሽ)</b>\n\n"
+            f"⏰ <b>ማሳሰቢያ፦</b> የቀሩት ቦታዎች(10) ሲሞሉ ዋጋው ወዲያውኑ ወደ {original_price:,} ብር ይመለሳል። አሁኑኑ ታች ያለውን ቁልፍ ተጭነው ቦታዎን ያስይዙ፦ 👇"
         )
 
-        btn_text = (
-            f"🚀 በ{price:,} ብር የ8 ሳምንት ፕሮግራሙን ክፈት"
-        )
+        btn_text = f"🚀 የ 8 ሳምንት ፕሮግራሙን ክፈት"
 
     else:
         text = (
-            f"<b>🚨 BECAUSE SO MANY OF YOU ASKED, WE EXTENDED THE "
-            f"DISCOUNT FOR TODAY ONLY! 🚨</b>\n"
+            f"<b>🔥 FLASH DEAL: 299 ETB ONLY (73% DISCOUNT) — EXPIRES TONIGHT! 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-
-            f"Many of you contacted us after missing the offer and asked "
-            f"for one more opportunity. We listened—and extended the "
-            f"<b>{discount_pct}% discount for today only.</b>\n\n"
-
-            f"This is your extra opportunity to unlock the complete "
-            f"8-week body-transformation program for just "
-            f"<b>{price:,} ETB.</b>\n\n"
-
-            f"<b>💰 Extended Deal—Today Only:</b>\n"
-            f"• Complete 8-week workout video program\n"
-            f"• Ethiopian-food-based nutrition guidance\n"
-            f"• Step-by-step exercises you can follow on your phone\n"
-            f"• No recurring fees or monthly subscription\n"
-            f"──────────────────\n"
-            f"Regular price: <s>{original_price:,} ETB</s>\n"
-            f"🔥 <b>Extended price today: {price:,} ETB only!</b>\n"
-            f"<b>One-time payment—you save {savings:,} ETB.</b>\n\n"
-
-            f"Across the full eight weeks, that works out to only "
-            f"<b>{daily_cost:.1f} ETB per day.</b>\n\n"
-
-            f"<b>What you’ll receive:</b>\n"
-            f"🔥 <b>Fat Loss & Muscle Toning:</b> Targeted routines designed "
-            f"to reduce body fat and build a stronger, more defined shape.\n"
-            f"🎥 <b>Step-by-Step Videos:</b> Follow every exercise directly "
-            f"from your phone.\n"
-            f"🍲 <b>Everyday Ethiopian Foods:</b> Practical nutrition guidance "
-            f"without requiring expensive imported foods.\n\n"
-
-            f"⏰ <b>This extra opportunity ends today.</b>\n"
-            f"Tap the button below to unlock the complete program before "
-            f"the extended price expires: 👇"
+            f"Let's eliminate every single excuse: <b>This is NOT a monthly subscription.</b> This is a single, ONE-TIME payment of just {price:,} ETB for the entire 8-week transformation blueprint.\n\n"
+            f"We slashed the price from 1,100 ETB down to <b>{price:,} ETB</b> to help you start your journey today. (You save {savings:,} ETB instantly!)\n\n"
+            f"<b>💡 Breaking down the numbers:</b>\n"
+            f"That works out to just <b>{daily_cost:.1f} ETB per day</b> over the 8-week program—literally a fraction of a single cup of coffee in Addis!\n\n"
+            f"<b>🎁 What you unlock today for 299 ETB:</b>\n"
+            f"🔥 <b>Fat Loss & Muscle Toning:</b> Routines designed to strip stubborn belly fat and build lean muscle.\n"
+            f"🎥 <b>Step-by-Step HD Videos:</b> Simple workout guides right on your smartphone.\n"
+            f"🍲 <b>100% Ethiopian Nutrition:</b> No expensive imported diets. Get results eating local foods.\n"
+            f"⚡ <b>Zero Hidden Fees:</b> One single payment unlocks full 8-week access.\n\n"
+            f"💰 <b>Today's Price Breakdown:</b>\n"
+            f"Regular Price: <s>{original_price:,} ETB</s>\n"
+            f"🔥 <b>Flash Deal Price: {price:,} ETB Only! (Save {discount_pct}%)</b>\n\n"
+            f"⏰ <b>Urgent Notice:</b> This price resets back to {original_price:,} ETB once the remaining slots are filled. Tap below to secure your access now: 👇"
         )
 
-        btn_text = (
-            f"🚀 Unlock the 8-Week Program for {price:,} ETB"
-        )
+        btn_text = f"🚀 Unlock 8-Week Program"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -300,7 +255,6 @@ def build_deal_message(
     )
 
     return text, kb
-
 
 
 import os
@@ -430,7 +384,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 299) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -505,7 +459,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 299) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -549,7 +503,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAEDvspqajv9poqcoyB5DPXoQ7OgKsU9cwACgg9rGxU4UFN-t4z6xblYvwEAAwIAA3kAAz0E"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAED3exqbOvH0vLfRYS6Yy-wW6H77XJouQACYw5rG31taVPR__ZolspsPAEAAwIAA3kAAz0E"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     
