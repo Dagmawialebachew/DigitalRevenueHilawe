@@ -48,6 +48,7 @@ class Settings:
     VERIFY_API_KEY: str = os.getenv("VERIFY_API", "sk_live_703d1fcdb5ed42916cd619be3c251062e4656eb7ddfcb268")
     CLUB_GROUP_ID: int = int(os.getenv("CLUB_GROUP_ID", "-1004486063628"))
     GCP_API_KEY: str = os.getenv("GCP_API_KEY", "")
+    TESTIMONIAL_ADMIN_CHAT_IDS=[1131741322,1597966240]
 
 
 settings = Settings()

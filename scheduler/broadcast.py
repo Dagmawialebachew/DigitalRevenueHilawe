@@ -183,18 +183,27 @@ def get_rotating_content(lang: str):
         urgency_list[idx % len(urgency_list)],
     )
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 299,
-    original_price: int = 1100
+    price: int = 499,
+    original_price: int = 1100,
+    full_name: str = "Champion",
+    gender: str = "MALE"
 ):
     lang = lang.upper()
     if lang not in {"AM", "EN"}:
         lang = "EN"
+        
+    gender = gender.upper() if gender else "MALE"
+
+    # Extract first name cleanly
+    first_name = full_name.strip().split()[0].capitalize() if full_name else ("ሻምፒዮን" if lang == "AM" else "Champion")
 
     program_days = 8 * 7
     daily_cost = price / program_days
@@ -202,46 +211,61 @@ def build_deal_message(
     savings = original_price - price
 
     if lang == "AM":
+        # Gender-specific Amharic phrasing (Male vs Female conjugation)
+        if gender == "FEMALE":
+            intro_text = (
+                f"<b>{first_name} 👋 አሰልጣኝ ህላዌ ነኝ።</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"ቦታችንን ከተቀላቀልሽ ቆየት ብለሻል። በወቅቱ በሰራሽው ምዘና መሰረት ሙሉ የሰውነት መገለጫሽን (Profile) አይቼው ነበር፤ "
+                f"ለአንቺ የተበጀው የ8 ሳምንት የለውጥ ፕሮግራምሽ ተዘጋጅቶ <b>እስካሁን እያበራ ነው ያለው።</b>\n\n"
+                f"እስካሁን ያልጀመርሽው በክፍያው ምክንያት እንደሆነ አውቃለሁ። <b>ስለዚህ ለአንቺ ብቻ የሚሆን ልዩ የዋጋ ቅናሽ ለማድረግ ወስኛለሁ!</b>"
+            )
+            notice_text = f"ማሳሰቢያ፦ መለያሽ እንዳይዘጋ ከታች ያለውን ቁልፍ ተጭነሽ አሁኑኑ ፕሮግራምሽን ክፈት፦ 👇"
+        else:
+            intro_text = (
+                f"<b>{first_name} 👋 አሰልጣኝ ህላዌ ነኝ።</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"ቦታችንን ከተቀላቀልክ ቆየት ብለሃል። በወቅቱ በሰራኸው ምዘና መሰረት ሙሉ የሰውነት መገለጫህን (Profile) አይቼው ነበር፤ "
+                f"ለአንተ የተበጀው የ8 ሳምንት የለውጥ ፕሮግራምህ ተዘጋጅቶ <b>እስካሁን እያበራ ነው ያለው።</b>\n\n"
+                f"እስካሁን ያልጀመርከው በክፍያው ምክንያት እንደሆነ አውቃለሁ። <b>ስለዚህ ለአንተ ብቻ የሚሆን ልዩ የዋጋ ቅናሽ ለማድረግ ወስኛለሁ!</b>"
+            )
+            notice_text = f"ማሳሰቢያ፦ መለያህ እንዳይዘጋ ከታች ያለውን ቁልፍ ተጭነህ አሁኑኑ ፕሮግራምህን ክፈት፦ 👇"
+
         text = (
-            f"<b>🔥 የ 299 ብር ታላቅ ቅናሽ (73% OFF) — ዛሬ ምሽት ይዘጋል! 🚨</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"<i>\"በየወሩ የሚከፈል ነው?\"</i> ወይም <i>\"አሁን ላይ ብር የለኝም\"</i> ላላችሁ አባላት—እድሉ እንዳያመልጣችሁ የመጨረሻ ውሳኔ አስተላፍነናል።\n\n"
-            f"የ8 ሳምንት (2 ወር) ሙሉ የሰውነት ለውጥ ፕሮግራማችንን ከ1,100 ብር ወደ <b>{price:,} ብር ብቻ</b> ዝቅ አድርገነዋል! (የ{savings:,} ብር እውነተኛ ቁጠባ!)\n\n"
-            f"<b>💡 ይህ ማለት ምን ማለት ነው?</b>\n"
-            f"ለ8 ሳምንት ሙሉ ሲሰላ በቀን <b>{daily_cost:.1f} ብር ብቻ</b> እያወጣችሁ ነው! በአሁኑ ሰዓት በአንድ ማኪያቶ ዋጋ ቦርጭ የሚያጠፋ፣ ስብ የሚያቀልጥ እና ጡንቻ የሚገነባ ሙሉ ሲስተም በእጅዎ እያገኙ ነው። አሁንም ካመነቱ ጥፋቱ የእርስዎ ብቻ ነው።\n\n"
-            f"<b>🎁 በ 299 ብር ፓኬጅ ውስጥ ምን ያገኛሉ?</b>\n"
-            f"🔥 <b>Fat Loss & Muscle Gain፦</b> ቦርጭና ስብ የሚያጠፋ፣ የተስተካከለ የሰውነት ቅርፅ የሚገነባ\n"
-            f"🎥 <b>ቀላል HD ቪዲዮዎች፦</b> እያንዳንዱን እንቅስቃሴ በስልክዎ እያዩ በቤትዎ የሚሰሩበት\n"
-            f"🍲 <b>100% የሀበሻ ምግብ፦</b> ውድ የውጭ ምግቦች ሳይገዙ፣ በቤትዎ ባለው ምግብ የሚሰራ\n"
-            f"🚫 <b>ተደጋጋሚ ክፍያ የለም፦</b> ለአንድ ጊዜ ብቻ የሚከፈል የ300 ብር በታች ኢንቨስትመንት!\n\n"
-            f"💰 <b>የዛሬ ብቻ ልዩ የዋጋ ስሌት፦</b>\n"
-            f"መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
-            f"🔥 <b>የዛሬ የቅናሽ ዋጋ፦ {price:,} ብር ብቻ! (73% ቅናሽ)</b>\n\n"
-            f"⏰ <b>ማሳሰቢያ፦</b> የቀሩት ቦታዎች(10) ሲሞሉ ዋጋው ወዲያውኑ ወደ {original_price:,} ብር ይመለሳል። አሁኑኑ ታች ያለውን ቁልፍ ተጭነው ቦታዎን ያስይዙ፦ 👇"
+            f"{intro_text}\n\n"
+            f"<b>💰 የዛሬ የ55% ልዩ ቅናሽ ስሌት፦</b>\n"
+            f"• መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
+            f"🔥 <b>ለ{first_name} የተደረገ ልዩ ዋጋ፦ {price:,} ብር ብቻ! (የ{savings:,} ብር ቁጠባ)</b>\n"
+            f"<b>(ለ8 ሳምንት ሙሉ በቀን {daily_cost:.1f} ብር ብቻ!)</b>\n\n"
+            f"<b>🎁 በውስጡ የሚያገኙት፦</b>\n"
+            f"• <b>Fat Loss & Muscle Gain፦</b> ቦርጭ ማጥፊያና ጡንቻ መገንቢያ\n"
+            f"• <b>የሀበሻ ምግብ መመሪያ፦</b> በቤትዎ ባለው ምግብ የሚሰራ\n"
+            f"• <b>HD ቪዲዮዎች፦</b> በስልክዎ እያዩ የሚሰሩት\n"
+            f"• <b>ተደጋጋሚ ክፍያ የለም!</b> (አንድ ጊዜ ብቻ)\n\n"
+            f"🚨 <b>{notice_text}</b>"
         )
 
-        btn_text = f"🚀 የ 8 ሳምንት ፕሮግራሙን ክፈት"
+        btn_text = f"⚡️ በ {price:,} ብር አሁኑኑ ክፈት"
 
     else:
         text = (
-            f"<b>🔥 FLASH DEAL: 299 ETB ONLY (73% DISCOUNT) — EXPIRES TONIGHT! 🚨</b>\n"
+            f"<b>{first_name} 👋 Coach Hilawe here.</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"Let's eliminate every single excuse: <b>This is NOT a monthly subscription.</b> This is a single, ONE-TIME payment of just {price:,} ETB for the entire 8-week transformation blueprint.\n\n"
-            f"We slashed the price from 1,100 ETB down to <b>{price:,} ETB</b> to help you start your journey today. (You save {savings:,} ETB instantly!)\n\n"
-            f"<b>💡 Breaking down the numbers:</b>\n"
-            f"That works out to just <b>{daily_cost:.1f} ETB per day</b> over the 8-week program—literally a fraction of a single cup of coffee in Addis!\n\n"
-            f"<b>🎁 What you unlock today for 299 ETB:</b>\n"
-            f"🔥 <b>Fat Loss & Muscle Toning:</b> Routines designed to strip stubborn belly fat and build lean muscle.\n"
-            f"🎥 <b>Step-by-Step HD Videos:</b> Simple workout guides right on your smartphone.\n"
-            f"🍲 <b>100% Ethiopian Nutrition:</b> No expensive imported diets. Get results eating local foods.\n"
-            f"⚡ <b>Zero Hidden Fees:</b> One single payment unlocks full 8-week access.\n\n"
-            f"💰 <b>Today's Price Breakdown:</b>\n"
-            f"Regular Price: <s>{original_price:,} ETB</s>\n"
-            f"🔥 <b>Flash Deal Price: {price:,} ETB Only! (Save {discount_pct}%)</b>\n\n"
-            f"⏰ <b>Urgent Notice:</b> This price resets back to {original_price:,} ETB once the remaining slots are filled. Tap below to secure your access now: 👇"
+            f"It’s been a while since you joined. I looked over your profile evaluation, and your custom 8-Week Transformation Blueprint has been <b>sitting ready, waiting for you.</b>\n\n"
+            f"I know the only reason you haven't started yet is the price. So I decided to personally drop the price so you can get started today.\n\n"
+            f"<b>💰 Today's 55% Off Flash Deal:</b>\n"
+            f"• Regular Price: <s>{original_price:,} ETB</s>\n"
+            f"🔥 <b>Special Price for {first_name}: {price:,} ETB Only! (Save {savings:,} ETB)</b>\n"
+            f"<b>(Just {daily_cost:.1f} ETB/day for the full 8 weeks!)</b>\n\n"
+            f"<b>🎁 What's Included:</b>\n"
+            f"• <b>Fat Loss & Muscle Toning:</b> Targeted home/gym routines\n"
+            f"• <b>100% Local Ethiopian Meal Plan:</b> Everyday home foods\n"
+            f"• <b>Step-by-Step HD Videos:</b> Direct on your phone\n"
+            f"• <b>Zero Monthly Subscription!</b> (One-time payment)\n\n"
+            f"🚨 Tap the button below to unlock your blueprint now before access resets: 👇"
         )
 
-        btn_text = f"🚀 Unlock 8-Week Program"
+        btn_text = f"⚡️ Unlock Blueprint for {price:,} ETB"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -384,7 +408,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 299) as effective_price
+            COALESCE(s.selected_price, 499) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -458,8 +482,8 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
-            u.telegram_id, u.language, p.id as p_id, 
-            COALESCE(s.selected_price, 299) as final_price
+            u.telegram_id, u.language, u.full_name, u.gender, p.id as p_id, 
+            COALESCE(s.selected_price, 499) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
@@ -503,7 +527,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     )
 
     # 4. Atomic & Fault-Tolerant Sender Task
-    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAED3exqbOvH0vLfRYS6Yy-wW6H77XJouQACYw5rG31taVPR__ZolspsPAEAAwIAA3kAAz0E"  # 🔁 replace this
+    CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAAICD2ml995Hk2v_RvtWWalCMmnL_HVbAAJ_Dmsbkw8xUTFX3jgeoXQOAQADAgADdwADOgQ"  # 🔁 replace this
     # CAMPAIGN_IMAGE_FILE_ID = "AgACAgQAAxkBAALX8Gn94mHeVAmqYUPkO9gE8xL34843AAJTDmsb9b7pU3MRcPN22trVAQADAgADeQADOwQ"  # 🔁 replace this
     
     
@@ -515,10 +539,13 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         async with semaphore:
             try:
                 text, kb = build_deal_message(
-    lang=user['language'],
-    product_id=user['p_id'],
-    price=int(user['final_price'])
-)
+                    lang=user['language'],
+                    product_id=user['p_id'],
+                    price=int(user['final_price']),
+                    full_name=user.get('full_name', ''),
+                    gender=user.get('gender', 'MALE') # <-- PASSING GENDER HERE
+                )
+
     
                 # ── SEND PHOTO WITH TEXT AS CAPTION ──────────────
                 # Telegram caption limit is 1024 chars.
