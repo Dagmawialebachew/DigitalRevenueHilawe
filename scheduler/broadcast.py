@@ -182,16 +182,13 @@ def get_rotating_content(lang: str):
         proof_list[idx % len(proof_list)],
         urgency_list[idx % len(urgency_list)],
     )
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 499,
+    price: int = 399,
     original_price: int = 1100,
     full_name: str = "Champion",
     gender: str = "MALE"
@@ -214,58 +211,60 @@ def build_deal_message(
         # Gender-specific Amharic phrasing (Male vs Female conjugation)
         if gender == "FEMALE":
             intro_text = (
-                f"<b>{first_name} 👋 አሰልጣኝ ህላዌ ነኝ።</b>\n"
+                f"<b>🚨 የ{first_name}(የ399 ብር ልዩ ጥሪ) እድል 🚨</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n\n"
-                f"ቦታችንን ከተቀላቀልሽ ቆየት ብለሻል። በወቅቱ በሰራሽው ምዘና መሰረት ሙሉ የሰውነት መገለጫሽን (Profile) አይቼው ነበር፤ "
-                f"ለአንቺ የተበጀው የ8 ሳምንት የለውጥ ፕሮግራምሽ ተዘጋጅቶ <b>እስካሁን እያበራ ነው ያለው።</b>\n\n"
-                f"እስካሁን ያልጀመርሽው በክፍያው ምክንያት እንደሆነ አውቃለሁ። <b>ስለዚህ ለአንቺ ብቻ የሚሆን ልዩ የዋጋ ቅናሽ ለማድረግ ወስኛለሁ!</b>"
+                f"{first_name} 👋 አሰልጣኝ ህላዌ ነኝ። ከተመዘገብሽ ቆየት ብለሻል። "
+                f"የሰጠሽኝን የሰውነት መረጃ ገምግሜ ለአንቺ የተበጀውን የ8 ሳምንት ፕሮግራም አዘጋጅቼ ነበር፤ "
+                f"ነገር ግን እስካሁን አለመጀመርሽን አየሁ።\n\n"
+                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንቺ ብቻ ዋጋውን ወደ 399 ብር ዝቅ አድርጌዋለሁ!</b>"
             )
-            notice_text = f"ማሳሰቢያ፦ መለያሽ እንዳይዘጋ ከታች ያለውን ቁልፍ ተጭነሽ አሁኑኑ ፕሮግራምሽን ክፈት፦ 👇"
+            notice_text = f"ማሳሰቢያ፦ ይህ ዕድል ከመዘጋቱ በፊት ከታች ያለውን ቁልፍ ተጭነሽ አሁኑኑ ፕሮግራምሽን ክፈቺ፦ 👇"
         else:
             intro_text = (
-                f"<b>{first_name} 👋 አሰልጣኝ ህላዌ ነኝ።</b>\n"
+                f"<b>🚨 የ{first_name}(የ399 ብር ልዩ ጥሪ) እድል 🚨</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n\n"
-                f"ቦታችንን ከተቀላቀልክ ቆየት ብለሃል። በወቅቱ በሰራኸው ምዘና መሰረት ሙሉ የሰውነት መገለጫህን (Profile) አይቼው ነበር፤ "
-                f"ለአንተ የተበጀው የ8 ሳምንት የለውጥ ፕሮግራምህ ተዘጋጅቶ <b>እስካሁን እያበራ ነው ያለው።</b>\n\n"
-                f"እስካሁን ያልጀመርከው በክፍያው ምክንያት እንደሆነ አውቃለሁ። <b>ስለዚህ ለአንተ ብቻ የሚሆን ልዩ የዋጋ ቅናሽ ለማድረግ ወስኛለሁ!</b>"
+                f"{first_name} 👋 አሰልጣኝ ህላዌ ነኝ። ከተመዘገብክ ቆየት ብለሃል። "
+                f"የሰጠኸኝን የሰውነት መረጃ ገምግሜ ለአንተ የተበጀውን የ8 ሳምንት ፕሮግራም አዘጋጅቼ ነበር፤ "
+                f"ነገር ግን እስካሁን አለመጀመርህን አየሁ።\n\n"
+                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንተ ብቻ ዋጋውን ወደ 399 ብር ዝቅ አድርጌዋለሁ!</b>"
             )
-            notice_text = f"ማሳሰቢያ፦ መለያህ እንዳይዘጋ ከታች ያለውን ቁልፍ ተጭነህ አሁኑኑ ፕሮግራምህን ክፈት፦ 👇"
+            notice_text = f"ማሳሰቢያ፦ ይህ ዕድል ከመዘጋቱ በፊት ከታች ያለውን ቁልፍ ተጭነህ አሁኑኑ ፕሮግራምህን ክፈት፦ 👇"
 
         text = (
             f"{intro_text}\n\n"
-            f"<b>💰 የዛሬ የ55% ልዩ ቅናሽ ስሌት፦</b>\n"
+            f"<b>💰 የዛሬ የ64% ልዩ ቅናሽ ስሌት፦</b>\n"
             f"• መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
             f"🔥 <b>ለ{first_name} የተደረገ ልዩ ዋጋ፦ {price:,} ብር ብቻ! (የ{savings:,} ብር ቁጠባ)</b>\n"
-            f"<b>(ለ8 ሳምንት ሙሉ በቀን {daily_cost:.1f} ብር ብቻ!)</b>\n\n"
+            f"<b>(ለ8 ሳምንት ሙሉ ሲሰላ በቀን {daily_cost:.1f} ብር ብቻ!)</b>\n\n"
             f"<b>🎁 በውስጡ የሚያገኙት፦</b>\n"
             f"• <b>Fat Loss & Muscle Gain፦</b> ቦርጭ ማጥፊያና ጡንቻ መገንቢያ\n"
-            f"• <b>የሀበሻ ምግብ መመሪያ፦</b> በቤትዎ ባለው ምግብ የሚሰራ\n"
+            f"• <b>የሀበሻ ምግብ eqd፦</b> በቤትዎ ባለው ምግብ የሚሰራ\n"
             f"• <b>HD ቪዲዮዎች፦</b> በስልክዎ እያዩ የሚሰሩት\n"
-            f"• <b>ተደጋጋሚ ክፍያ የለም!</b> (አንድ ጊዜ ብቻ)\n\n"
+            f"• <b>ተደጋጋሚ ክፍያ የለም!</b> (አንድ ጊዜ ብቻ የሚከፈል)\n\n"
             f"🚨 <b>{notice_text}</b>"
         )
 
-        btn_text = f"⚡️ በ {price:,} ብር አሁኑኑ ክፈት"
+        btn_text = f"⚡️ የ8 ሳምንት ፕሮግራሙን ክፈት"
 
     else:
         text = (
-            f"<b>{first_name} 👋 Coach Hilawe here.</b>\n"
+            f"<b>🚨 PRIORITY ACCESS UNLOCKED FOR {first_name.upper()} 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
-            f"It’s been a while since you joined. I looked over your profile evaluation, and your custom 8-Week Transformation Blueprint has been <b>sitting ready, waiting for you.</b>\n\n"
-            f"I know the only reason you haven't started yet is the price. So I decided to personally drop the price so you can get started today.\n\n"
-            f"<b>💰 Today's 55% Off Flash Deal:</b>\n"
+            f"{first_name} 👋 Coach Hilawe here. I reviewed your profile evaluation a while ago and built your custom 8-Week Transformation Blueprint, but noticed you haven't activated it yet.\n\n"
+            f"I know price was the main hurdle holding you back. So today, I personally dropped the activation cost down to <b>{price:,} ETB</b> so you can finally begin.\n\n"
+            f"<b>💰 Today's 64% Off Flash Deal:</b>\n"
             f"• Regular Price: <s>{original_price:,} ETB</s>\n"
             f"🔥 <b>Special Price for {first_name}: {price:,} ETB Only! (Save {savings:,} ETB)</b>\n"
-            f"<b>(Just {daily_cost:.1f} ETB/day for the full 8 weeks!)</b>\n\n"
+            f"<b>(That's just {daily_cost:.1f} ETB/day for 8 full weeks!)</b>\n\n"
             f"<b>🎁 What's Included:</b>\n"
             f"• <b>Fat Loss & Muscle Toning:</b> Targeted home/gym routines\n"
-            f"• <b>100% Local Ethiopian Meal Plan:</b> Everyday home foods\n"
+            f"• <b>100% Ethiopian Food Plan:</b> Everyday local nutrition\n"
             f"• <b>Step-by-Step HD Videos:</b> Direct on your phone\n"
-            f"• <b>Zero Monthly Subscription!</b> (One-time payment)\n\n"
-            f"🚨 Tap the button below to unlock your blueprint now before access resets: 👇"
+            f"• <b>Zero Monthly Fees!</b> (One-time payment)\n\n"
+            f"🚨 Tap below to claim your blueprint before this price tier resets: 👇"
         )
 
-        btn_text = f"⚡️ Unlock Blueprint for {price:,} ETB"
+        btn_text = f"⚡️ Unlock 8-Week Access"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -279,7 +278,6 @@ def build_deal_message(
     )
 
     return text, kb
-
 
 import os
 from datetime import datetime, timedelta
@@ -408,7 +406,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 499) as effective_price
+            COALESCE(s.selected_price, 399) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -483,7 +481,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     base_query = """
         SELECT 
             u.telegram_id, u.language, u.full_name, u.gender, p.id as p_id, 
-            COALESCE(s.selected_price, 499) as final_price
+            COALESCE(s.selected_price, 399) as final_price
         FROM users u
         INNER JOIN products p ON 
             u.language = p.language AND u.gender = p.gender AND 
