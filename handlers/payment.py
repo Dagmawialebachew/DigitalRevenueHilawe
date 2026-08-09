@@ -220,75 +220,75 @@ async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, pay
 
         # 🚀 ASYNC NON-BLOCKING VERIFICATION PROCESSING
         
-        start_time = time.perf_counter()
-        try:
-            file_info = await bot.get_file(proof_id)
-            img_stream = io.BytesIO()
-            await bot.download_file(file_info.file_path, destination=img_stream)
-            img_stream.seek(0)
+        # start_time = time.perf_counter()
+        # try:
+        #     file_info = await bot.get_file(proof_id)
+        #     img_stream = io.BytesIO()
+        #     await bot.download_file(file_info.file_path, destination=img_stream)
+        #     img_stream.seek(0)
 
-            # Process with verify.py core mechanics
-            local = await extract_local_data(img_stream)
+        #     # Process with verify.py core mechanics
+        #     local = await extract_local_data(img_stream)
 
-            # Verification Scenario 1: No clear text could be read by OCR
-            if not local["ref"] or len(str(local["ref"])) < 8:
-                elapsed = time.perf_counter() - start_time
-                await admin_msg.reply(
-                    f"🤖 <b>AI SCAN: MANUAL REVIEW REQUIRED 🧐</b>\n"
-                    f"────────────────────\n"
-                    f"⚠️ Layout is too messy or other bank. Couldn't extract a solid Transaction ID.\n"
-                    f"🛡️ <i>Locking it down to prevent a false approval. Over to you, human.</i>\n\n"
-                    f"⏱️ <b>Speed:</b> {elapsed:.2f}s",
-                    parse_mode="HTML"
-                )
-                return
+        #     # Verification Scenario 1: No clear text could be read by OCR
+        #     if not local["ref"] or len(str(local["ref"])) < 8:
+        #         elapsed = time.perf_counter() - start_time
+        #         await admin_msg.reply(
+        #             f"🤖 <b>AI SCAN: MANUAL REVIEW REQUIRED 🧐</b>\n"
+        #             f"────────────────────\n"
+        #             f"⚠️ Layout is too messy or other bank. Couldn't extract a solid Transaction ID.\n"
+        #             f"🛡️ <i>Locking it down to prevent a false approval. Over to you, human.</i>\n\n"
+        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s",
+        #             parse_mode="HTML"
+        #         )
+        #         return
 
-            # Verification Scenario 2: ID extracted, let's look up the APIs
-            bank_data = await verify_external(local["ref"], local["provider"])
-            is_real = bank_data.get("success", False)
-            is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
+        #     # Verification Scenario 2: ID extracted, let's look up the APIs
+        #     bank_data = await verify_external(local["ref"], local["provider"])
+        #     is_real = bank_data.get("success", False)
+        #     is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
 
-            api_amount = bank_data.get("data", {}).get("amount")
-            display_amount = f"{float(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "Unknown")
-            elapsed = time.perf_counter() - start_time
-            full_audit_report = format_audit_report(local, bank_data, elapsed, is_real, is_hilawe)
+        #     api_amount = bank_data.get("data", {}).get("amount")
+        #     display_amount = f"{float(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "Unknown")
+        #     elapsed = time.perf_counter() - start_time
+        #     full_audit_report = format_audit_report(local, bank_data, elapsed, is_real, is_hilawe)
         
-        # 2. Store it in cache
+        # # 2. Store it in cache
             
 
-            if is_real and is_hilawe:
-                evaluation_text = (
-                    f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n"
-                    f"────────────────────\n"
-                    f"🟢 100% authentic. Live bank transaction check confirmed the funds are safely in.\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref']}</code> • 💰 <b>{display_amount} ETB</b>\n"
-                    f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
-                )
-            else:
-                evaluation_text = (
-                    f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n"
-                    f"────────────────────\n"
-                    f"🔴 Fraud guard triggered. This transaction ID does not exist on the bank's live server.\n"
-                    f"🛡️ <i>Nice try, but the system just caught a ghost receipt. Do not send the program.</i>\n\n"
-                    f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref'] or 'N/A'}</code> • 💰 <b>{display_amount} ETB</b>\n"
-                    f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
-                )
+        #     if is_real and is_hilawe:
+        #         evaluation_text = (
+        #             f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n"
+        #             f"────────────────────\n"
+        #             f"🟢 100% authentic. Live bank transaction check confirmed the funds are safely in.\n\n"
+        #             f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref']}</code> • 💰 <b>{display_amount} ETB</b>\n"
+        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
+        #         )
+        #     else:
+        #         evaluation_text = (
+        #             f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n"
+        #             f"────────────────────\n"
+        #             f"🔴 Fraud guard triggered. This transaction ID does not exist on the bank's live server.\n"
+        #             f"🛡️ <i>Nice try, but the system just caught a ghost receipt. Do not send the program.</i>\n\n"
+        #             f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref'] or 'N/A'}</code> • 💰 <b>{display_amount} ETB</b>\n"
+        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
+        #         )
             
-            REPORT_CACHE[payment_id] = full_audit_report
+        #     REPORT_CACHE[payment_id] = full_audit_report
 
-            # 3. Define the "More Info" button
-            kb_info = InlineKeyboardBuilder()
-            kb_info.button(text="ℹ️ Detail", callback_data=f"info_{payment_id}")
+        #     # 3. Define the "More Info" button
+        #     kb_info = InlineKeyboardBuilder()
+        #     kb_info.button(text="ℹ️ Detail", callback_data=f"info_{payment_id}")
         
-        # 3. Send the reply with the button
-            await admin_msg.reply(
-            evaluation_text, 
-            reply_markup=kb_info.as_markup(), 
-            parse_mode="HTML"
-        )
+        # # 3. Send the reply with the button
+        #     await admin_msg.reply(
+        #     evaluation_text, 
+        #     reply_markup=kb_info.as_markup(), 
+        #     parse_mode="HTML"
+        # )
 
-        except Exception as ocr_err:
-            logger.error(f"In-line background execution processing error: {ocr_err}")
+        # except Exception as ocr_err:
+        #     logger.error(f"In-line background execution processing error: {ocr_err}")
 
     except Exception as e:
         logging.error(f"Global admin notification error: {e}")
