@@ -345,44 +345,326 @@ async def inspect_single_payment(callback: types.CallbackQuery, db: Database, bo
     parse_mode="HTML"
 )
     
-import html # Ensure this is imported
-
-@router.callback_query(F.data.startswith("approve_"), F.from_user.id.in_(settings.ADMIN_IDS))
-async def approve_payment(callback: types.CallbackQuery, db: Database, bot: Bot):
-    payment_id = int(callback.data.split("_")[1])
-    info = await db.approve_payment(payment_id)
     
-    if not info:
-        return await callback.answer("Error: Payment not found.")
+# ─────────────────────────────────────────────
+# POST-PURCHASE FOLLOW-UP
+# ─────────────────────────────────────────────
 
-    # Get the admin's name who clicked the button
-    admin_name = html.escape(callback.from_user.full_name)
+SCREENSHOT_FILE_IDS = [
+    "AgACAgQAAxkBAAEC_pZqXKRllD5pLO5Oi__Q8D5hxAQ6PQACYA9rG72E4VKPnihxhhkIrgEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_phqXKSAfBty_ezg1o83efjK8JkmmAACYQ9rG72E4VK-gQRp0N_65gEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_ppqXKSSUB5NDRYgeFkvx52Tvnc7JQACYg9rG72E4VIYvwTFOIDjCQEAAwIAA3cAAz0E",
+    "AgACAgQAAxkBAAEC_pxqXKSpkX_5GXkWIXC7pc_mlx7t2wACYw9rG72E4VJ8CWcp2o5sigEAAwIAA3cAAz0E",
+]
 
-    # 1. Message for the User (Athlete)
-    msg = (
-        "🔥 <b>ACCESS GRANTED</b>\n\nYour payment is verified. Your personalized Product is attached below. Let's work."
-        if info['language'] == "EN" else
-        "🔥 <b>ፈቃድ ተሰጥቷል</b>\n\nክፍያዎ ተረጋግጧል። የእርስዎ ልዩ የልምምድ እቅድ ከታች ተያይዟል። ስራ እንጀምር።"
+CLUB_PRICE = settings.BROADCAST_DEAL_PRICE
+# 2 minutes 30 seconds
+CLUB_FOLLOWUP_DELAY = 150
+
+
+# Keep background tasks alive until they finish
+_background_tasks = set()
+
+
+def spawn_background_task(coro):
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
+
+def build_wps_help_message(first_name: str, language: str) -> str:
+    first_name = html.escape(first_name)
+
+    if language == "AM":
+        return (
+    f"🎥 <b>{first_name}</b>, አንድ ትንሽ ማሳሰቢያ።\n\n"
+    "በፕሮግራሙ PDF ውስጥ ያሉት ቪዲዮዎች "
+    "በስልክዎ ላይ ካልተከፈቱ፣ አይጨነቁ።\n\n"
+    "📱 Play Store ላይ <b>WPS Office</b> ብለው ያውርዱ፣ "
+    "ከዚያ PDF ፋይሉን በWPS Office ይክፈቱ።\n\n"
+    "✅ ቪዲዮዎቹን ለመክፈት ይህን መንገድ ይጠቀሙ።"
+)
+
+    return (
+        f"🎥 <b>{first_name}</b>, one quick note.\n\n"
+        "If the videos inside your PDF don't open on your phone, "
+        "install <b>WPS Office</b> from the Play Store and open the PDF with it.\n\n"
+        "That usually fixes the video-opening issue ✅"
     )
 
-    # 2. Try sending document to the user
+
+def build_club_pitch(first_name: str, language: str) -> str:
+    first_name = html.escape(first_name)
+
+    if language == "AM":
+        return (
+            f"🔥 <b>{first_name}</b>, ፕሮግራሙን መግዛትዎ መጀመሪያው እርምጃ ነው።\n\n"
+            "ብዙ ሰዎች ፕሮግራም ይወስዳሉ፤ "
+            "ግን መንገድ ላይ የሚያቆያቸው support ስለሌለ ይቆማሉ።\n\n"
+            f"💎 <b>Hilawe Transformation Club — {CLUB_PRICE} ብር/ወር</b>\n\n"
+            "ቀጣይ guidance፣ community እና support ከእርስዎ ጋር ይሆናሉ።\n\n"
+            "👇 <b>ከውስጥ ምን እንደሚያገኙ ይመልከቱ።</b>"
+        )
+
+    return (
+        f"🔥 <b>{first_name}</b>, buying the program was the first move.\n\n"
+        "The part most people struggle with is staying consistent once they start.\n\n"
+        f"💎 <b>Hilawe Transformation Club — {CLUB_PRICE} ETB/month</b>\n\n"
+        "Keep ongoing guidance, community and support around your transformation.\n\n"
+        "👇 <b>Take a look inside.</b>"
+    )
+
+
+def build_club_cta(language: str):
+    builder = InlineKeyboardBuilder()
+
+    if language == "AM":
+        button_text = f"🔥 ክለቡን አሁን ልቀላቀል — {CLUB_PRICE} ብር"
+        text = (
+            "እቅዱ አሁን በእጅዎ ነው።\n"
+            "ቀጣዩ እርምጃ ብቻዎን ሳይሆን support ጋር መቀጠል ነው።\n\n"
+            f"💎 <b>{CLUB_PRICE} ብር/ወር</b>"
+        )
+    else:
+        button_text = f"🔥 Join the Club — {CLUB_PRICE} ETB/month"
+        text = (
+            "You already have the plan.\n"
+            "Now make it easier to actually stay with it.\n\n"
+            f"💎 <b>{CLUB_PRICE} ETB/month</b>"
+        )
+
+    builder.button(
+    text=button_text,
+    callback_data="initiate_club_subscription",
+)
+    return text, builder.as_markup()
+
+
+async def send_post_purchase_followup(
+    bot: Bot,
+    db: Database,
+    user_id: int,
+    first_name: str,
+    language: str,
+):
+    """
+    Step 1:
+        Send WPS/video help immediately.
+
+    Step 2:
+        Wait ~2.5 minutes.
+
+    Step 3:
+        Show Club screenshots + 299 ETB CTA.
+    """
+
+    language = (language or "AM").upper()
+
+    try:
+        # ─────────────────────────────────────
+        # 1. VIDEO / WPS HELP
+        # ─────────────────────────────────────
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=build_wps_help_message(
+                first_name,
+                language,
+            ),
+            parse_mode="HTML",
+        )
+
+        # ─────────────────────────────────────
+        # 2. WAIT BEFORE UPSELL
+        # ─────────────────────────────────────
+
+        await asyncio.sleep(CLUB_FOLLOWUP_DELAY)
+
+        # Do not upsell people who are already active Club members
+        active_club = await db._pool.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM club_subscriptions
+                WHERE user_id = $1
+                AND is_active = TRUE
+                AND (
+                    expires_at IS NULL
+                    OR expires_at > NOW()
+                )
+            )
+            """,
+            user_id,
+        )
+
+        if active_club:
+            logging.info(
+                f"Skipping Club upsell for active member {user_id}"
+            )
+            return
+
+        # ─────────────────────────────────────
+        # 3. CLUB SCREENSHOTS
+        # ─────────────────────────────────────
+
+        pitch = build_club_pitch(
+            first_name,
+            language,
+        )
+
+        media = []
+
+        for index, file_id in enumerate(SCREENSHOT_FILE_IDS):
+            media.append(
+                types.InputMediaPhoto(
+                    media=file_id,
+                    caption=pitch if index == 0 else None,
+                    parse_mode="HTML" if index == 0 else None,
+                )
+            )
+
+        await bot.send_media_group(
+            chat_id=user_id,
+            media=media,
+        )
+
+        # Tiny delay so the CTA appears cleanly below the album
+        await asyncio.sleep(1)
+
+        # ─────────────────────────────────────
+        # 4. PAYMENT CTA
+        # ─────────────────────────────────────
+
+        cta_text, cta_markup = build_club_cta(
+            language
+        )
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=cta_text,
+            reply_markup=cta_markup,
+            parse_mode="HTML",
+        )
+
+    except Exception as e:
+        logging.exception(
+            f"Post-purchase follow-up failed for user {user_id}: {e}"
+        )
+        
+        
+    
+import html # Ensure this is imported
+@router.callback_query(
+    F.data.startswith("approve_"),
+    F.from_user.id.in_(settings.ADMIN_IDS)
+)
+async def approve_payment(
+    callback: types.CallbackQuery,
+    db: Database,
+    bot: Bot,
+):
+    payment_id = int(
+        callback.data.split("_")[1]
+    )
+
+    info = await db.approve_payment(
+        payment_id
+    )
+
+    if not info:
+        return await callback.answer(
+            "Error: Payment not found."
+        )
+
+    admin_name = html.escape(
+        callback.from_user.full_name
+    )
+
+    language = (
+        info["language"]
+        if info["language"]
+        else "AM"
+    ).upper()
+
+    # ─────────────────────────────────────────
+    # GET CUSTOMER FIRST NAME
+    # ─────────────────────────────────────────
+
+    full_name = (
+    info["full_name"]
+    or "Champion"
+)
+
+    first_name = full_name.split()[0]
+    safe_first_name = html.escape(first_name)
+
+    # ─────────────────────────────────────────
+    # 1. PRODUCT DELIVERY MESSAGE
+    # ─────────────────────────────────────────
+
+    if language == "EN":
+        msg = (
+            f"🔥 <b>{safe_first_name}, ACCESS GRANTED</b>\n\n"
+            "Your payment has been verified ✅\n\n"
+            "Your personalized program is attached below.\n"
+            "Follow it consistently — this is where the real work begins. 💪"
+        )
+
+    else:
+        msg = (
+            f"🔥 <b>{safe_first_name}, ፈቃድ ተሰጥቷል</b>\n\n"
+            "ክፍያዎ ተረጋግጧል ✅\n\n"
+            "የእርስዎ ፕሮግራም ከታች ተያይዟል።\n"
+            "በተከታታይ ይከተሉት — ውጤቱ የሚጀምረው ከዚህ ነው። 💪"
+        )
+
+    # ─────────────────────────────────────────
+    # 2. SEND PRODUCT
+    # ─────────────────────────────────────────
+
     try:
         await bot.send_document(
-            chat_id=info['user_id'], 
-            document=info['telegram_file_id'], 
+            chat_id=info["user_id"],
+            document=info["telegram_file_id"],
             caption=msg,
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
-    except Exception as e:
-        logging.error(f"Delivery failed: {e}")
-        return await callback.answer("❌ Could not send. User might have blocked the bot.")
 
-    # 3. Update the Admin Group message
+    except Exception as e:
+        logging.error(
+            f"Delivery failed: {e}"
+        )
+
+        return await callback.answer(
+            "❌ Could not send. User might have blocked the bot."
+        )
+
+    # ─────────────────────────────────────────
+    # 3. START SUPPORT + CLUB FOLLOW-UP
+    #    WITHOUT BLOCKING ADMIN CALLBACK
+    # ─────────────────────────────────────────
+
+    spawn_background_task(
+    send_post_purchase_followup(
+        bot=bot,
+        db=db,
+        user_id=info["user_id"],
+        first_name=first_name,
+        language=language,
+    )
+)
+
+    # ─────────────────────────────────────────
+    # 4. UPDATE ADMIN MESSAGE
+    # ─────────────────────────────────────────
+
     try:
-        # Keep the old caption but add the approval info
-        # We escape the old caption to ensure it doesn't break HTML parsing
-        old_caption = callback.message.caption or ""
-        
+        old_caption = (
+            callback.message.caption
+            or ""
+        )
+
         new_caption = (
             f"{old_caption}\n\n"
             f"✅ <b>APPROVED & DELIVERED</b>\n"
@@ -391,16 +673,22 @@ async def approve_payment(callback: types.CallbackQuery, db: Database, bot: Bot)
 
         await callback.message.edit_caption(
             caption=new_caption,
-            reply_markup=None, # Removes the buttons so they can't be clicked twice
-            parse_mode="HTML"
+            reply_markup=None,
+            parse_mode="HTML",
         )
-        await callback.answer("Success: User notified & file sent.")
-        
+
+        await callback.answer(
+            "✅ Approved, delivered & follow-up scheduled."
+        )
+
     except Exception as e:
-        logging.error(f"Admin UI update error: {e}")
-        # If the caption edit fails, at least give the admin a popup confirmation
-        await callback.answer(f"✅ Approved by {callback.from_user.first_name}")
-        
+        logging.error(
+            f"Admin UI update error: {e}"
+        )
+
+        await callback.answer(
+            f"✅ Approved by {callback.from_user.first_name}"
+        )       
 
 @router.callback_query(F.data == "admin_home", F.from_user.id.in_(settings.ADMIN_IDS))
 async def callback_admin_home(callback: types.CallbackQuery, state: FSMContext, db: Database):

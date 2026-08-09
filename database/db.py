@@ -355,10 +355,15 @@ class Database:
                 
                 # Get the PDF and User Language
                 return await conn.fetchrow("""
-                    SELECT p.telegram_file_id, u.language, u.telegram_id as user_id
-                    FROM products p
-                    JOIN users u ON u.telegram_id = $1
-                    WHERE p.id = $2
+                    SELECT
+                    p.telegram_file_id,
+                    u.language,
+                    u.telegram_id AS user_id,
+                    u.full_name,
+                    u.gender
+                FROM products p
+                JOIN users u ON u.telegram_id = $1
+                WHERE p.id = $2
                 """, row['user_id'], row['product_id'])
 
 
