@@ -31,66 +31,167 @@ CLUB_REPORT_CACHE = {}
 class ClubPaymentStates(StatesGroup):
     awaiting_club_proof = State()
 
-# --- 1. PREMIUM USER PAYMENT INVOICE ---
-@router.callback_query(F.data == "initiate_club_subscription")
-async def start_club_checkout(callback: types.CallbackQuery, state: FSMContext, db: Database):
+@router.callback_query(
+    F.data.in_({
+        "initiate_club_subscription",
+        "renew_club_subscription"
+    })
+)
+async def start_club_checkout(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    db: Database
+):
     await callback.answer()
+
     uid = callback.from_user.id
-    
-    # Safely fetch user preference directly via internal pool
-    user_rec = await db._pool.fetchrow("SELECT language FROM users WHERE telegram_id = $1", uid)
-    lang = (user_rec['language'] if user_rec else 'EN') or 'EN'
-    
-    price = settings.BROADCAST_DEAL_PRICE # 299 ETB
-    await state.update_data(club_amount=price)
-    
+
+    user_rec = await db._pool.fetchrow("""
+        SELECT language
+        FROM users
+        WHERE telegram_id = $1
+    """, uid)
+
+    lang = (user_rec["language"] if user_rec else "EN") or "EN"
+
+    is_renewal = callback.data == "renew_club_subscription"
+
+    # ─────────────────────────────────────────
+    # Prevent duplicate pending renewal/payment
+    # ─────────────────────────────────────────
+    pending = await db._pool.fetchrow("""
+        SELECT id, payment_type, created_at
+        FROM club_payments
+        WHERE user_id = $1
+          AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+    """, uid)
+
+    if pending:
+        if lang == "AM":
+            text = (
+                "⏳ <b>ክፍያዎ በማረጋገጥ ላይ ነው</b>\n\n"
+                "ቀድሞ የላኩት የክለብ ክፍያ አሁንም እየተረጋገጠ ነው።\n"
+                "እባክዎ በድጋሚ አይክፈሉ።"
+            )
+        else:
+            text = (
+                "⏳ <b>Your payment is already being verified</b>\n\n"
+                "You already have a pending club payment.\n"
+                "Please do not pay again while it is being reviewed."
+            )
+
+        return await callback.message.answer(
+            text,
+            parse_mode="HTML"
+        )
+
+    subscription = await db._pool.fetchrow("""
+        SELECT is_active, expires_at
+        FROM club_subscriptions
+        WHERE user_id = $1
+    """, uid)
+
+    # If button says renewal but no previous membership exists,
+    # safely treat it as a normal subscription.
+    if is_renewal and not subscription:
+        is_renewal = False
+
+    price = settings.BROADCAST_DEAL_PRICE
+
+    await state.update_data(
+        club_amount=price,
+        club_payment_type="renewal" if is_renewal else "new"
+    )
+
     def escape_html(val):
         return html.escape(str(val)) if val else "Not Configured"
 
     if lang == "EN":
+
+        if is_renewal:
+            heading = "🔄 COACH HILAWE CLUB RENEWAL"
+            type_line = (
+                "Your next 30 days will be added after your "
+                "current membership period."
+            )
+        else:
+            heading = "💳 COACH HILAWE TRANSFORMATION CLUB"
+            type_line = "30-Day Transformation Club Access"
+
         invoice_html = (
-            f"💳 <b>COACH HILAWE TRANSFORMATION CLUB</b>\n"
+            f"<b>{heading}</b>\n"
             f"──────────────────────────────\n"
-            f"💵 <b>Price:</b> <code>{price} ETB</code> (30-Day Pass)\n\n"
-            f"<b>👉 STEP 1: Transfer {price} ETB to one of these accounts:</b>\n\n"
+            f"💵 <b>Price:</b> <code>{price} ETB</code>\n"
+            f"📅 <b>{type_line}</b>\n\n"
+            f"<b>👉 STEP 1: Transfer {price} ETB:</b>\n\n"
+
             f"🔹 <b>Commercial Bank of Ethiopia (CBE)</b>\n"
             f"• Account: <code>{settings.BANK_CBE}</code>\n"
+            f"• Name: <i>{escape_html(settings.BANK_CBE_NAME)}</i>\n\n"
+
             f"🔹 <b>Bank of Abyssinia (BOA)</b>\n"
             f"• Account: <code>{settings.BANK_BOA}</code>\n"
             f"• Name: <i>{escape_html(settings.BANK_BOA_NAME)}</i>\n\n"
+
             f"──────────────────────────────\n"
-            f"<b>👉 STEP 2: Send the payment screenshot right here.</b>\n\n"
-            f"💡 <i>Tip: Tap any account number above to copy it automatically!</i>"
+            f"<b>👉 STEP 2: Send the payment screenshot here.</b>"
         )
+
         cancel_btn = "❌ Cancel Payment"
+
     else:
+
+        if is_renewal:
+            heading = "🔄 የሂላዌ ትራንስፎርሜሽን ክለብ እድሳት"
+            type_line = (
+                "አዲሱ 30 ቀን አሁን ያለዎት አባልነት "
+                "ከተጠናቀቀ በኋላ ይጨመራል።"
+            )
+        else:
+            heading = "💳 ሂላዌ ትራንስፎርሜሽን ክለብ"
+            type_line = "የ30 ቀን የክለብ አባልነት"
+
         invoice_html = (
-            f"💳 <b>COACH HILAWE TRANSFORMATION CLUB</b>\n"
+            f"<b>{heading}</b>\n"
             f"──────────────────────────────\n"
-            f"💵 <b>ዋጋ፦</b> <code>{price} ብር</code> (ለ30 ቀናት)\n\n"
-            f"<b>👉 ደረጃ 1፦ እባክዎ {price} ብሩን ከታች ባሉት አማራጮች ይክፈሉ፡</b>\n\n"
-            f"🔹 <b>የኢትዮጵያ ንግድ ባንክ (CBE)</b>\n"
+            f"💵 <b>ዋጋ፦</b> <code>{price} ብር</code>\n"
+            f"📅 <b>{type_line}</b>\n\n"
+
+            f"<b>👉 ደረጃ 1፦ {price} ብሩን ይክፈሉ።</b>\n\n"
+
+            f"🔹 <b>CBE</b>\n"
             f"• አካውንት፦ <code>{settings.BANK_CBE}</code>\n"
             f"• ስም፦ <i>{escape_html(settings.BANK_CBE_NAME)}</i>\n\n"
-            f"🔹 <b>አቢሲኒያ ባንክ (BOA)</b>\n"
+
+            f"🔹 <b>BOA</b>\n"
             f"• አካውንት፦ <code>{settings.BANK_BOA}</code>\n"
             f"• ስም፦ <i>{escape_html(settings.BANK_BOA_NAME)}</i>\n\n"
+
             f"──────────────────────────────\n"
-            f"<b>👉 ደረጃ 2፦ ክፍያውን እንደፈጸሙ የደረሰኙን ፎቶ (Screenshot) እዚህ ይላኩ።</b>\n\n"
-            f"💡 <i>ጠቃሚ ምክር፦ የባንክ አካውንት ቁጥሩን ለመገልበጥ (ኮፒ ለማድረግ) ቁጥሩን አንዴ ይጫኑት።</i>"
+            f"<b>👉 ደረጃ 2፦ የክፍያውን Screenshot እዚህ ይላኩ።</b>"
         )
+
         cancel_btn = "❌ ክፍያውን ሰርዝ"
 
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text=cancel_btn)]],
+        keyboard=[
+            [types.KeyboardButton(text=cancel_btn)]
+        ],
         resize_keyboard=True,
         one_time_keyboard=True
     )
-    
-    await callback.message.answer(invoice_html, reply_markup=kb, parse_mode="HTML")
-    await state.set_state(ClubPaymentStates.awaiting_club_proof)
-# --- 2. CANCELLATION OVERRIDE ROUTINE ---
 
+    await callback.message.answer(
+        invoice_html,   
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+    await state.set_state(
+        ClubPaymentStates.awaiting_club_proof
+    )
 @router.message(ClubPaymentStates.awaiting_club_proof, F.text.in_({"❌ Cancel Payment", "❌ ክፍያውን ሰርዝ"}))
 async def cancel_club_checkout(message: types.Message, state: FSMContext, db: Database):
     uid = message.from_user.id
@@ -124,10 +225,38 @@ async def process_club_receipt(message: types.Message, state: FSMContext, db: Da
     progress = await message.answer(load_msg, reply_markup=types.ReplyKeyboardRemove(), parse_mode="HTML")
 
     # Independent Atomic Transaction Insertion
+    payment_type = data.get("club_payment_type", "new")
+
+    current_sub = await db._pool.fetchrow("""
+        SELECT expires_at
+        FROM club_subscriptions
+        WHERE user_id = $1
+    """, uid)
+
+    previous_expiry = (
+        current_sub["expires_at"]
+        if current_sub
+        else None
+    )
+
     pay_id = await db._pool.fetchval("""
-        INSERT INTO club_payments (user_id, amount, proof_file_id, status)
-        VALUES ($1, $2, $3, 'pending') RETURNING id
-    """, uid, amount, proof_id)
+        INSERT INTO club_payments (
+            user_id,
+            amount,
+            proof_file_id,
+            status,
+            payment_type,
+            previous_expiry
+        )
+        VALUES ($1, $2, $3, 'pending', $4, $5)
+        RETURNING id
+    """,
+        uid,
+        amount,
+        proof_id,
+        payment_type,
+        previous_expiry
+    )
 
     stages = [
         ("📤 Encrypting visual receipt...", "📤 የደረሰኝ ምስል በመቀየር ላይ..."),
@@ -167,32 +296,121 @@ async def process_club_receipt(message: types.Message, state: FSMContext, db: Da
     asyncio.create_task(notify_admin_club_payment(bot, message, uid, full_name, lang, amount, pay_id, proof_id, db))
 
 # --- 4. ASYNC AUDIT & SECURE CORE INTERFACE ---
-
-# --- 4. ASYNC AUDIT & SECURE CORE INTERFACE ---
-
-async def notify_admin_club_payment(bot: Bot, msg: types.Message, uid: int, name: str, lang: str, amt: float, pay_id: int, proof_id: str, db: Database):
+async def notify_admin_club_payment(
+    bot: Bot,
+    msg: types.Message,
+    uid: int,
+    name: str,
+    lang: str,
+    amt: float,
+    pay_id: int,
+    proof_id: str,
+    db: Database
+):
     try:
-        username = f"@{msg.from_user.username}" if msg.from_user.username else "No Username"
-        
-        caption = (
-            f"👑 <b>TRANSFORMATION CLUB: NEW MEMBERSHIP APPLICANT</b>\n"
-            f"──────────────────────────────\n"
-            f"👤 <b>User:</b> {html.escape(name)} | {html.escape(username)}\n"
-            f"🆔 <b>User ID:</b> <code>{uid}</code>\n"
-            f"🌍 <b>Language:</b> <code>{lang}</code>\n"
-            f"──────────────────────────────\n"
-            f"💰 <b>Subscription Tier:</b> <code>{amt} ETB / Month</code>\n"
-            f"🎫 <b>Club Payment ID:</b> #{pay_id}\n"
-            f"──────────────────────────────\n"
-            f"⚡️ <b>Verify financial integrity and choose action:</b>"
+        username = (
+            f"@{msg.from_user.username}"
+            if msg.from_user.username
+            else "No Username"
         )
 
-        kb = InlineKeyboardBuilder()
-        kb.button(text="✅ APPROVE ENTRY", callback_data=f"club_approve_{pay_id}")
-        kb.button(text="❌ REJECT RECEIPT", callback_data=f"club_reject_{pay_id}")
-        kb.adjust(1)
+        payment = await db._pool.fetchrow("""
+            SELECT
+                payment_type,
+                previous_expiry
+            FROM club_payments
+            WHERE id = $1
+        """, pay_id)
 
-        # FIX: Try fetching from settings config first, fallback safely if missing
+        payment_type = (
+            payment["payment_type"]
+            if payment
+            else "new"
+        )
+
+        previous_expiry = (
+            payment["previous_expiry"]
+            if payment
+            else None
+        )
+
+        is_renewal = payment_type == "renewal"
+
+        previous_payments = await db._pool.fetchval("""
+            SELECT COUNT(*)
+            FROM club_payments
+            WHERE user_id = $1
+              AND status = 'approved'
+        """, uid)
+
+        if is_renewal:
+
+            expiry_text = (
+                previous_expiry.strftime("%Y-%m-%d %H:%M")
+                if previous_expiry
+                else "Unknown"
+            )
+
+            caption = (
+                "🔄 <b>TRANSFORMATION CLUB — RENEWAL PAYMENT</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 <b>Member:</b> {html.escape(name)}\n"
+                f"🔗 <b>Username:</b> {html.escape(username)}\n"
+                f"🆔 <code>{uid}</code>\n"
+                f"🌍 Language: <code>{lang}</code>\n\n"
+
+                "♻️ <b>PAYMENT TYPE: MEMBERSHIP RENEWAL</b>\n"
+                f"💰 Amount: <code>{amt} ETB</code>\n"
+                f"🎫 Payment ID: <code>#{pay_id}</code>\n"
+                f"📆 Current Expiry: <code>{expiry_text}</code>\n"
+                f"🧾 Previous Approved Club Payments: "
+                f"<code>{previous_payments}</code>\n\n"
+            )
+
+        else:
+
+            caption = (
+                "👑 <b>TRANSFORMATION CLUB — NEW PAYMENT</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 <b>User:</b> {html.escape(name)}\n"
+                f"🔗 <b>Username:</b> {html.escape(username)}\n"
+                f"🆔 <code>{uid}</code>\n"
+                f"🌍 Language: <code>{lang}</code>\n\n"
+                f"💰 Subscription: <code>{amt} ETB / 30 Days</code>\n"
+                f"🎫 Payment ID: <code>#{pay_id}</code>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━"
+            )
+
+        kb = InlineKeyboardBuilder()
+
+        if is_renewal:
+            kb.button(
+                text="✅ APPROVE RENEWAL +30 DAYS",
+                callback_data=f"club_approve_{pay_id}"
+            )
+
+            kb.button(
+                text="🧾 VIEW PREVIOUS PAYMENTS",
+                callback_data=f"club_history_{uid}"
+            )
+
+            kb.button(
+                text="❌ REJECT RENEWAL",
+                callback_data=f"club_reject_{pay_id}"
+            )
+
+        else:
+            kb.button(
+                text="✅ APPROVE ENTRY",
+                callback_data=f"club_approve_{pay_id}"
+            )
+
+            kb.button(
+                text="❌ REJECT RECEIPT",
+                callback_data=f"club_reject_{pay_id}"
+            )
+
+        kb.adjust(1)
 
         admin_msg = await bot.send_photo(
             chat_id=-5196014443,
@@ -202,128 +420,578 @@ async def notify_admin_club_payment(bot: Bot, msg: types.Message, uid: int, name
             parse_mode="HTML"
         )
 
+        # ──────────────────────────────────────
+        # Existing OCR / bank verification
+        # ──────────────────────────────────────
         start = time.perf_counter()
+
         try:
             file_info = await bot.get_file(proof_id)
+
             img_stream = io.BytesIO()
-            await bot.download_file(file_info.file_path, destination=img_stream)
+
+            await bot.download_file(
+                file_info.file_path,
+                destination=img_stream
+            )
+
             img_stream.seek(0)
 
             local = await extract_local_data(img_stream)
-            # Defensive check on parsed text structure
+
             ref_id = local.get("ref") if local else None
-            provider = local.get("provider", "CBE") if local else "CBE"
-            raw_text = local.get("raw_text", "") if local else ""
+            provider = (
+                local.get("provider", "CBE")
+                if local
+                else "CBE"
+            )
+
+            raw_text = (
+                local.get("raw_text", "")
+                if local
+                else ""
+            )
 
             if not ref_id or len(str(ref_id)) < 8:
+
                 await admin_msg.reply(
-                    f"🤖 <b>CLUB AI SCAN: MANUAL ESCALATION REQUIRED 🧐</b>\n"
-                    f"──────────────────────────────\n"
-                    f"⚠️ Failed to parse valid unique transaction keys from image layout.\n"
-                    f"🛡️ <i>Locking safety mechanisms to protect the pipeline against manipulation.</i>",
+                    "🤖 <b>AI SCAN: MANUAL REVIEW REQUIRED</b>\n\n"
+                    "Could not reliably parse a transaction reference.",
                     parse_mode="HTML"
                 )
+
                 return
 
-            bank_data = await verify_external(ref_id, provider)
-            is_real = bank_data.get("success", False)
-            is_hilawe = is_hilawe_receiver(raw_text, bank_data)
+            bank_data = await verify_external(
+                ref_id,
+                provider
+            )
+
+            is_real = bank_data.get(
+                "success",
+                False
+            )
+
+            is_hilawe = is_hilawe_receiver(
+                raw_text,
+                bank_data
+            )
+
             elapsed = time.perf_counter() - start
 
             if is_real and is_hilawe:
                 eval_txt = (
-                    f"🤖 <b>CLUB AI SCAN: VERIFIED AUTHENTIC ✅</b>\n"
-                    f"──────────────────────────────\n"
-                    f"🟢 Transaction matches live bank ledger parameters completely.\n"
-                    f"📊 <b>{provider}</b> • 🆔 <code>{ref_id}</code> • ⏱️ <code>{elapsed:.2f}s</code>"
+                    "🤖 <b>CLUB AI SCAN: VERIFIED ✅</b>\n"
+                    f"🏦 {provider}\n"
+                    f"🆔 <code>{ref_id}</code>\n"
+                    f"⏱️ <code>{elapsed:.2f}s</code>"
                 )
             else:
                 eval_txt = (
-                    f"🤖 <b>CLUB AI SCAN: SUSPICIOUS / FRAUD DETECTED 🚨</b>\n"
-                    f"──────────────────────────────\n"
-                    f"🔴 Alert triggered. Reference hash not located or receiver payload mismatch.\n"
-                    f"📊 <b>{provider}</b> • 🆔 <code>{ref_id or 'N/A'}</code>"
+                    "🚨 <b>CLUB AI SCAN: REVIEW REQUIRED</b>\n"
+                    f"🏦 {provider}\n"
+                    f"🆔 <code>{ref_id or 'N/A'}</code>"
                 )
 
-            CLUB_REPORT_CACHE[pay_id] = format_club_audit(local, bank_data, elapsed, is_real, is_hilawe)
-            
-            kb_info = InlineKeyboardBuilder()
-            kb_info.button(text="ℹ️ Audit Details", callback_data=f"club_info_{pay_id}")
-            await admin_msg.reply(eval_txt, reply_markup=kb_info.as_markup(), parse_mode="HTML")
+            CLUB_REPORT_CACHE[pay_id] = format_club_audit(
+                local,
+                bank_data,
+                elapsed,
+                is_real,
+                is_hilawe
+            )
+
+            info_kb = InlineKeyboardBuilder()
+
+            info_kb.button(
+                text="ℹ️ Audit Details",
+                callback_data=f"club_info_{pay_id}"
+            )
+
+            if is_renewal:
+                info_kb.button(
+                    text="🧾 Previous Payments",
+                    callback_data=f"club_history_{uid}"
+                )
+
+            info_kb.adjust(1)
+
+            await admin_msg.reply(
+                eval_txt,
+                reply_markup=info_kb.as_markup(),
+                parse_mode="HTML"
+            )
 
         except Exception as ocr_err:
-            logger.error(f"Club parsing process exception details: {ocr_err}")
+            logger.error(
+                f"Club OCR error: {ocr_err}"
+            )
+
     except Exception as e:
-        logger.error(f"Global structural admin alert failure: {e}")
+        logger.error(
+            f"Club admin payment notification failed: {e}"
+        )
 
 #Don't ever forget to reset their membership expiry date later on buddy
 
+@router.callback_query(
+    F.data.startswith("club_history_")
+)
+async def show_club_payment_history(
+    callback: types.CallbackQuery,
+    db: Database
+):
+    if callback.from_user.id not in settings.ADMIN_IDS:
+        return await callback.answer(
+            "Access denied.",
+            show_alert=True
+        )
 
-@router.callback_query(F.data.startswith("club_approve_"))
-async def approve_club_member(callback: types.CallbackQuery, db: Database, bot: Bot):
-    pay_id = int(callback.data.split("_")[-1])
-    admin_user = html.escape(callback.from_user.username or callback.from_user.full_name)
+    uid = int(
+        callback.data.split("_")[-1]
+    )
 
-    pay_row = await db._pool.fetchrow("SELECT user_id, status FROM club_payments WHERE id = $1", pay_id)
-    if not pay_row:
-        return await callback.answer("❌ Transaction context missing.", show_alert=True)
-    if pay_row['status'] != 'pending':
-        return await callback.answer("⚠️ Action blocked: Payment is already processed.", show_alert=True)
+    user = await db._pool.fetchrow("""
+        SELECT full_name, username
+        FROM users
+        WHERE telegram_id = $1
+    """, uid)
 
-    uid = pay_row['user_id']
-    user_rec = await db._pool.fetchrow("SELECT language, full_name FROM users WHERE telegram_id = $1", uid)
-    lang = (user_rec['language'] if user_rec else 'EN') or 'EN'
-    name = (user_rec['full_name'] if user_rec else 'Member') or 'Member'
+    rows = await db._pool.fetch("""
+        SELECT
+            id,
+            amount,
+            status,
+            payment_type,
+            created_at,
+            processed_at,
+            previous_expiry,
+            resulting_expiry
+        FROM club_payments
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 15
+    """, uid)
 
-    # Atomic Dual-Table updates
-    await db._pool.execute("""
-        UPDATE club_payments 
-        SET status = 'approved', processed_by = $1, processed_at = NOW() 
-        WHERE id = $2
-    """, admin_user, pay_id)
+    if not rows:
+        return await callback.answer(
+            "No club payments found.",
+            show_alert=True
+        )
 
-    # FIX: Set expires_at to NULL intentionally so time doesn't drain before launch day
-    await db._pool.execute("""
-        INSERT INTO club_subscriptions (user_id, is_active, expires_at, last_payment_id, updated_at)
-        VALUES ($1, TRUE, NULL, $2, NOW())
-        ON CONFLICT (user_id) DO UPDATE 
-        SET is_active = TRUE, expires_at = NULL, last_payment_id = $2, auto_renew_reminded = FALSE, updated_at = NOW()
-    """, uid, pay_id)
+    name = (
+        user["full_name"]
+        if user
+        else "Unknown"
+    )
+
+    username = (
+        f"@{user['username']}"
+        if user and user["username"]
+        else "No username"
+    )
+
+    lines = [
+        "🧾 <b>CLUB PAYMENT HISTORY</b>",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"👤 <b>{html.escape(name or 'Unknown')}</b>",
+        f"🔗 {html.escape(username)}",
+        f"🆔 <code>{uid}</code>",
+        ""
+    ]
+
+    approved_count = 0
+    total_paid = 0.0
+
+    for row in rows:
+
+        if row["status"] == "approved":
+            icon = "✅"
+            approved_count += 1
+            total_paid += float(row["amount"] or 0)
+
+        elif row["status"] == "pending":
+            icon = "⏳"
+
+        else:
+            icon = "❌"
+
+        payment_type = (
+            row["payment_type"] or "new"
+        ).upper()
+
+        date_text = row["created_at"].strftime(
+            "%Y-%m-%d"
+        )
+
+        lines.append(
+            f"{icon} <b>#{row['id']}</b> • "
+            f"{payment_type} • "
+            f"{row['amount']} ETB • "
+            f"{date_text}"
+        )
+
+    lines.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"💳 Approved Payments: <code>{approved_count}</code>",
+        f"💰 Lifetime Club Revenue: <code>{total_paid:.2f} ETB</code>"
+    ])
+
+    await callback.message.reply(
+        "\n".join(lines),
+        parse_mode="HTML"
+    )
+
+    await callback.answer()
+    
+@router.callback_query(
+    F.data.startswith("club_approve_")
+)
+async def approve_club_member(
+    callback: types.CallbackQuery,
+    db: Database,
+    bot: Bot
+):
+    if callback.from_user.id not in settings.ADMIN_IDS:
+        return await callback.answer(
+            "⚠️ Access Denied.",
+            show_alert=True
+        )
+
+    pay_id = int(
+        callback.data.split("_")[-1]
+    )
+
+    admin_user = (
+        callback.from_user.username
+        or callback.from_user.full_name
+        or "Admin"
+    )
+
+    # Lock everything inside one DB transaction.
+    async with db._pool.acquire() as conn:
+
+        async with conn.transaction():
+
+            payment = await conn.fetchrow("""
+                SELECT
+                    id,
+                    user_id,
+                    amount,
+                    status,
+                    payment_type
+                FROM club_payments
+                WHERE id = $1
+                FOR UPDATE
+            """, pay_id)
+
+            if not payment:
+                return await callback.answer(
+                    "❌ Payment not found.",
+                    show_alert=True
+                )
+
+            if payment["status"] != "pending":
+                return await callback.answer(
+                    "⚠️ This payment was already processed.",
+                    show_alert=True
+                )
+
+            uid = payment["user_id"]
+
+            payment_type = (
+                payment["payment_type"]
+                or "new"
+            )
+
+            user = await conn.fetchrow("""
+                SELECT
+                    language,
+                    full_name
+                FROM users
+                WHERE telegram_id = $1
+            """, uid)
+
+            lang = (
+                user["language"]
+                if user and user["language"]
+                else "EN"
+            )
+
+            name = (
+                user["full_name"]
+                if user and user["full_name"]
+                else "Member"
+            )
+
+            subscription = await conn.fetchrow("""
+                SELECT
+                    is_active,
+                    expires_at
+                FROM club_subscriptions
+                WHERE user_id = $1
+                FOR UPDATE
+            """, uid)
+
+            old_expiry = (
+                subscription["expires_at"]
+                if subscription
+                else None
+            )
+
+            now = datetime.now(timezone.utc)
+
+            # ─────────────────────────────────────
+            # RENEWAL
+            # ─────────────────────────────────────
+            if payment_type == "renewal":
+
+                if old_expiry and old_expiry > now:
+
+                    # Active member:
+                    # KEEP unused days + add 30 days.
+                    new_expiry = (
+                        old_expiry
+                        + timedelta(days=30)
+                    )
+
+                    was_expired = False
+
+                else:
+
+                    # Expired member:
+                    # Fresh 30-day cycle.
+                    new_expiry = (
+                        now
+                        + timedelta(days=30)
+                    )
+
+                    was_expired = True
+
+            # ─────────────────────────────────────
+            # NEW SUBSCRIPTION
+            # ─────────────────────────────────────
+            else:
+
+                new_expiry = (
+                    now
+                    + timedelta(days=30)
+                )
+
+                was_expired = (
+                    not subscription
+                    or not old_expiry
+                    or old_expiry <= now
+                )
+
+            # Mark payment approved.
+            await conn.execute("""
+                UPDATE club_payments
+                SET
+                    status = 'approved',
+                    processed_by = $1,
+                    processed_at = NOW(),
+                    previous_expiry = $2,
+                    resulting_expiry = $3
+                WHERE id = $4
+            """,
+                admin_user,
+                old_expiry,
+                new_expiry,
+                pay_id
+            )
+
+            # Upsert subscription.
+            await conn.execute("""
+                INSERT INTO club_subscriptions (
+                    user_id,
+                    is_active,
+                    expires_at,
+                    auto_renew_reminded,
+                    renewal_warning_sent_at,
+                    expired_notice_sent_at,
+                    last_payment_id,
+                    updated_at
+                )
+                VALUES (
+                    $1,
+                    TRUE,
+                    $2,
+                    FALSE,
+                    NULL,
+                    NULL,
+                    $3,
+                    NOW()
+                )
+
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    is_active = TRUE,
+                    expires_at = EXCLUDED.expires_at,
+                    auto_renew_reminded = FALSE,
+                    renewal_warning_sent_at = NULL,
+                    expired_notice_sent_at = NULL,
+                    last_payment_id = EXCLUDED.last_payment_id,
+                    updated_at = NOW()
+            """,
+                uid,
+                new_expiry,
+                pay_id
+            )
+
+    # ─────────────────────────────────────────
+    # Update admin receipt card
+    # ─────────────────────────────────────────
 
     try:
-        orig = callback.message.caption or ""
+        original = callback.message.caption or ""
+
+        type_label = (
+            "🔄 RENEWAL APPROVED"
+            if payment_type == "renewal"
+            else "👑 NEW MEMBERSHIP APPROVED"
+        )
+
         await callback.message.edit_caption(
-            caption=f"{orig}\n\n👑 <b>APPROVED BY:</b> @{admin_user}\n👥 Registration Confirmed (Clock Paused).",
+            caption=(
+                f"{original}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ <b>{type_label}</b>\n"
+                f"👤 Approved by: @{html.escape(admin_user)}\n"
+                f"📆 New Expiry: "
+                f"<code>{new_expiry.strftime('%Y-%m-%d')}</code>"
+            ),
             reply_markup=None,
             parse_mode="HTML"
         )
-    except Exception as err:
-        logger.error(f"Admin display modification failure: {err}")
-        await callback.message.edit_reply_markup(reply_markup=None)
 
-    if lang == "EN":
-        alert_html = (
-            f"🎉 <b>REGISTRATION CONFIRMED, {name.upper()}!</b>\n\n"
-            f"Your payment has been successfully verified and your spot in the Coach Hilawe Transformation Club is secured.\n\n"
-            f"⏳ <b>What's Next?</b>\n"
-            f"The club will start soon! You don't need to do anything right now. "
-            f"As soon as we officially begin, we will send a message right here with your direct group access links. Stay tuned! 🔥"
+    except Exception as exc:
+        logger.warning(
+            f"Admin receipt update failed: {exc}"
         )
+
+    # ─────────────────────────────────────────
+    # ACTIVE RENEWAL: already inside group
+    # ─────────────────────────────────────────
+
+    if payment_type == "renewal" and not was_expired:
+
+        old_text = (
+            old_expiry.strftime("%Y-%m-%d")
+            if old_expiry
+            else "N/A"
+        )
+
+        new_text = new_expiry.strftime(
+            "%Y-%m-%d"
+        )
+
+        if lang == "AM":
+
+            confirmation = (
+                "✅ <b>የክለብ አባልነትዎ ታድሷል!</b>\n\n"
+                "የ299 ብር ክፍያዎ ተረጋግጧል። 🔥\n\n"
+                f"📅 የቀድሞ ማብቂያ፦ <code>{old_text}</code>\n"
+                f"🚀 አዲሱ ማብቂያ፦ <code>{new_text}</code>\n\n"
+                "የቀሩዎት ቀናት አልጠፉም። "
+                "አዲሱ 30 ቀን በቀድሞው አባልነትዎ ላይ ተጨምሯል።\n\n"
+                "👥 ከግሩፑ መውጣት ወይም በድጋሚ መግባት "
+                "አያስፈልግዎትም። አባልነትዎ ይቀጥላል። 💪"
+            )
+
+        else:
+
+            confirmation = (
+                "✅ <b>MEMBERSHIP RENEWED!</b>\n\n"
+                "Your 299 ETB renewal has been verified. 🔥\n\n"
+                f"📅 Previous expiry: <code>{old_text}</code>\n"
+                f"🚀 New expiry: <code>{new_text}</code>\n\n"
+                "You lost zero remaining days. Your new 30 days "
+                "were added after your existing membership.\n\n"
+                "👥 You are already inside the club, so you do not "
+                "need another invite link. Your access continues normally. 💪"
+            )
+
+        await bot.send_message(
+            chat_id=uid,
+            text=confirmation,
+            parse_mode="HTML"
+        )
+
+    # ─────────────────────────────────────────
+    # NEW / EXPIRED MEMBER:
+    # Create fresh one-use invite
+    # ─────────────────────────────────────────
+
     else:
-        alert_html = (
-            f"🎉 <b>ምዝገባዎ ተረጋግጧል፣ {name.upper()}!</b>\n\n"
-            f"የከፈሉት ክፍያ በተሳካ ሁኔታ ተረጋግጧል፤ የክለብ አባልነት ቦታዎ ሙሉ በሙሉ ተይዟል።\n\n"
-            f"⏳ <b>ቀጣዩ ደረጃ ምንድነው?</b>\n"
-            f"ክለቡ በቅርቡ ይጀምራል! አሁን ላይ ምንም ማድረግ የሚጠበቅብዎት ነገር የለም። "
-            f"ሁሉም ነገር ዝግጁ ሲሆን ወደ ግሩፑ እና ቻናሉ መግቢያ የሆኑትን ሊንኮች በዚህ ቦት በኩል ወዲያውኑ እንልክልዎታለን። በትዕግስት ይጠብቁን! 🔥"
-        )
 
-    try:
-        await bot.send_message(chat_id=uid, text=alert_html, parse_mode="HTML")
-        await callback.answer("Member approved & registered.", show_alert=False)
-    except Exception as e:
-        logger.error(f"Failed delivery alert sequence target routing user {uid}: {e}")
+        try:
+            invite = await bot.create_chat_invite_link(
+                chat_id=settings.CLUB_GROUP_ID,
+                name=f"Club Access: {name}",
+                member_limit=1
+            )
 
+            group_url = invite.invite_link
+
+            builder = InlineKeyboardBuilder()
+
+            if lang == "AM":
+
+                text = (
+                    "🎉 <b>የክለብ አባልነትዎ ነቅቷል!</b>\n\n"
+                    "የክፍያዎ ማረጋገጫ ተጠናቋል።\n\n"
+                    f"📅 አባልነትዎ እስከ "
+                    f"<code>{new_expiry.strftime('%Y-%m-%d')}</code> "
+                    "ድረስ ይቆያል።\n\n"
+                    "👇 ወደ ክለቡ ለመግባት ይጫኑ።"
+                )
+
+                builder.button(
+                    text="💪 ወደ ክለቡ ግባ",
+                    url=group_url
+                )
+
+            else:
+
+                text = (
+                    "🎉 <b>YOUR CLUB ACCESS IS ACTIVE!</b>\n\n"
+                    "Your payment has been verified successfully.\n\n"
+                    f"📅 Membership valid until: "
+                    f"<code>{new_expiry.strftime('%Y-%m-%d')}</code>\n\n"
+                    "👇 Use your private one-time link to enter the club."
+                )
+
+                builder.button(
+                    text="💪 Enter Transformation Club",
+                    url=group_url
+                )
+
+            await bot.send_message(
+                chat_id=uid,
+                text=text,
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML"
+            )
+
+        except Exception as invite_error:
+
+            logger.error(
+                f"Could not create club invite for {uid}: "
+                f"{invite_error}"
+            )
+
+            await bot.send_message(
+                uid,
+                "✅ Your membership payment was approved. "
+                "Please contact support if you need a new club access link."
+            )
+
+    await callback.answer(
+        "✅ Club payment approved.",
+        show_alert=False
+    )
 
 def format_club_audit(local, bank_data, elapsed, is_real, is_hilawe):
     data = bank_data.get("data", {}) if "data" in bank_data else bank_data
@@ -459,8 +1127,12 @@ async def club_information_dashboard(event: types.Message | types.CallbackQuery,
     # 1. Maintain Inline Keyboards exactly as they were
     inline_builder = InlineKeyboardBuilder()
     inline_builder.button(text="🚀 Kickoff: Send Club Links", callback_data="club_kickoff_dispatch")
+    inline_builder.button(
+    text=f"⚠️ Send Renewal Warnings ({expiring})",
+    callback_data="club_renewal_dashboard_preview"
+)
     inline_builder.adjust(1)
-    inline_builder.button(text="🔄 Sync Club Data", callback_data="refresh_club_stats")
+    
     inline_builder.button(text="💎 Founders Command Center", callback_data="admin_home")
     inline_builder.adjust(1)
     inline_kb = inline_builder.as_markup()

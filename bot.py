@@ -25,6 +25,7 @@ from testimonial.testimonial_questions import router as testimonial_router, test
 from Survey.price_results import router as price_survey_router
 from Survey.community_survey import router as community_survey_router
 from community.daily_missions import router as missions_router, daily_mission_loop
+# from community.club_expiry import club_expiry_loop
 
 
 logging.basicConfig(
@@ -200,6 +201,9 @@ async def create_app() -> web.Application:
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
         asyncio.create_task(daily_mission_loop(bot, db))
+#         asyncio.create_task(
+#     club_expiry_loop(bot, db)
+# )
         # asyncio.create_task(reminder_worker(bot, db))
         # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
        

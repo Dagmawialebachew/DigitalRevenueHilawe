@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS products (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
+-- Product Sales payment only
 CREATE TABLE IF NOT EXISTS payments (
     id SERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(telegram_id),
@@ -201,6 +201,29 @@ CREATE INDEX IF NOT EXISTS idx_checkins_user ON club_checkins (user_id);
 CREATE INDEX IF NOT EXISTS idx_club_payments_status ON club_payments (status);
 CREATE INDEX IF NOT EXISTS idx_club_subs_expiry ON club_subscriptions (expires_at) WHERE is_active = TRUE;
 -- CREATE INDEX IF NOT EXISTS idx_club_survey_vote ON club_survey(vote, voted_yes);
+
+-- New Club Renewal Updates
+
+ALTER TABLE club_payments
+ADD COLUMN IF NOT EXISTS payment_type VARCHAR(20) DEFAULT 'new';
+
+ALTER TABLE club_payments
+ADD COLUMN IF NOT EXISTS previous_expiry TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE club_payments
+ADD COLUMN IF NOT EXISTS resulting_expiry TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE club_subscriptions
+ADD COLUMN IF NOT EXISTS renewal_warning_sent_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE club_subscriptions
+ADD COLUMN IF NOT EXISTS expired_notice_sent_at TIMESTAMP WITH TIME ZONE;
+
+CREATE INDEX IF NOT EXISTS idx_club_payments_type
+ON club_payments(payment_type);
+
+CREATE INDEX IF NOT EXISTS idx_club_subscriptions_renewal
+ON club_subscriptions(is_active, expires_at);
 
 """
 
