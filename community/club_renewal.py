@@ -45,10 +45,10 @@ def build_renewal_warning(
         if gender == "FEMALE":
 
             if days_left <= 1:
-                urgency = (
-                    f"🚨 <b>{first_name}፣ የክለብ አባልነትሽ "
-                    f"ሊያበቃ 1 ቀን ብቻ ቀርቶታል!</b>"
-                )
+                    urgency = (
+                        f"🚨 <b>{first_name}፣ ዛሬ የክለብ አባልነትሽ "
+                        f"የመጨረሻ ቀን ነው!</b>"
+                    )
             else:
                 urgency = (
                     f"⏳ <b>{first_name}፣ የክለብ አባልነትሽ "
@@ -77,10 +77,10 @@ def build_renewal_warning(
         else:
 
             if days_left <= 1:
-                urgency = (
-                    f"🚨 <b>{first_name}፣ የክለብ አባልነትህ "
-                    f"ሊያበቃ 1 ቀን ብቻ ቀርቶታል!</b>"
-                )
+                    urgency = (
+                        f"🚨 <b>{first_name}፣ ዛሬ የክለብ አባልነትህ "
+                        f"የመጨረሻ ቀን ነው!</b>"
+                    )
             else:
                 urgency = (
                     f"⏳ <b>{first_name}፣ የክለብ አባልነትህ "
@@ -136,8 +136,7 @@ def build_renewal_warning(
 
         if days_left <= 1:
             urgency = (
-                f"🚨 <b>{first_name.upper()}, YOUR CLUB ACCESS "
-                f"ENDS IN 1 DAY</b>"
+                f"🚨 <b>{first_name.upper()}, THIS IS YOUR FINAL DAY IN THE CLUB</b>"
             )
         else:
             urgency = (
@@ -220,11 +219,15 @@ async def dashboard_renewal_preview(
           ON u.telegram_id = cs.user_id
 
         WHERE cs.is_active = TRUE
-          AND cs.expires_at > NOW()
-          AND cs.expires_at <= NOW() + INTERVAL '3 days'
-          AND cs.auto_renew_reminded = FALSE
+  AND cs.expires_at > NOW()
+  AND cs.expires_at <= NOW() + INTERVAL '4 days'
 
-          AND NOT EXISTS (
+  AND (
+      cs.renewal_warning_sent_at IS NULL
+      OR cs.renewal_warning_sent_at <= NOW() - INTERVAL '12 hours'
+  )
+
+  AND NOT EXISTS (
               SELECT 1
               FROM club_payments cp
               WHERE cp.user_id = cs.user_id
@@ -246,9 +249,9 @@ async def dashboard_renewal_preview(
         f"💰 Potential renewals: <code>{potential_revenue:,} ETB</code>\n\n"
         "Target rules:\n"
         "• Active member\n"
-        "• 3 days or less remaining\n"
-        "• Not already reminded\n"
-        "• No pending renewal payment\n\n"
+        "• 4 days or less remaining\n"
+"• Last reminder was at least 12 hours ago\n"
+"• No pending renewal payment\n\n"
         "Choose an action:"
     )
 
@@ -293,7 +296,7 @@ async def club_renewal_preview(
             COUNT(*) FILTER (
                 WHERE is_active = TRUE
                   AND expires_at > NOW()
-                  AND expires_at <= NOW() + INTERVAL '3 days'
+                  AND expires_at <= NOW() + INTERVAL '4 days'
             )::INT AS due,
 
             COUNT(*) FILTER (
@@ -318,13 +321,13 @@ async def club_renewal_preview(
     preview = (
         "🔄 <b>CLUB RENEWAL BROADCAST</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⏳ Expiring within 3 days: <code>{due}</code>\n"
+        f"⏳ Expiring within 4 days: <code>{due}</code>\n"
         f"💳 Pending renewals: <code>{pending}</code>\n"
         f"❌ Already expired: <code>{stats['expired']}</code>\n\n"
         f"💰 Maximum immediate renewal value:\n"
         f"<code>{expected:,} ETB</code>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Only active members with ≤3 days remaining "
+        "Only active members with ≤4 days remaining "
         "will receive this message."
     )
 
@@ -446,8 +449,12 @@ async def launch_renewal_broadcast(
 
         WHERE cs.is_active = TRUE
   AND cs.expires_at > NOW()
-  AND cs.expires_at <= NOW() + INTERVAL '3 days'
-  AND cs.auto_renew_reminded = FALSE
+  AND cs.expires_at <= NOW() + INTERVAL '4 days'
+
+  AND (
+      cs.renewal_warning_sent_at IS NULL
+      OR cs.renewal_warning_sent_at <= NOW() - INTERVAL '12 hours'
+  )
 
   AND NOT EXISTS (
       SELECT 1
