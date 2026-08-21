@@ -25,6 +25,7 @@ from testimonial.testimonial_questions import router as testimonial_router, test
 from Survey.price_results import router as price_survey_router
 from Survey.community_survey import router as community_survey_router
 from community.daily_missions import router as missions_router, daily_mission_loop
+from scheduler.product_feedback import router as product_feedback_router
 # from community.club_expiry import club_expiry_loop
 
 
@@ -52,6 +53,7 @@ dp.include_router(community_survey_router)
 dp.include_router(broadcast_router)
 dp.include_router(missions_router)
 dp.include_router(one_message_broadcast_router)
+dp.include_router(product_feedback_router)
 
 
 for c in all_comm_routers:

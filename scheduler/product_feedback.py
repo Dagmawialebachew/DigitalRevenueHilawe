@@ -21,18 +21,13 @@ logger = logging.getLogger(__name__)
 
 CAMPAIGN_KEY = "paid_product_feedback_v1"
 
-# Add this environment/config value:
-# TESTIMONIAL_ADMIN_CHAT_IDS=-1001234567890
-TESTIMONIAL_ADMIN_CHAT_IDS = getattr(
-    settings,
-    "TESTIMONIAL_ADMIN_CHAT_IDS",
-    [
-        getattr(
-            settings,
-            "ADMIN_NEW_USER_LOG_ID",
-            settings.ADMIN_IDS[0],
-        )
-    ],
+configured_admin_chat_ids = getattr(settings, "TESTIMONIAL_ADMIN_CHAT_IDS", [])
+fallback_admin_chat_id = getattr(settings, "ADMIN_NEW_USER_LOG_ID", 0)
+if not fallback_admin_chat_id and settings.ADMIN_IDS:
+    fallback_admin_chat_id = settings.ADMIN_IDS[0]
+
+TESTIMONIAL_ADMIN_CHAT_IDS = configured_admin_chat_ids or (
+    [fallback_admin_chat_id] if fallback_admin_chat_id else []
 )
 
 
@@ -122,6 +117,10 @@ async def send_testimonial_to_admin_chats(
 # Protect against accidentally configuring one integer instead of a list.
 if isinstance(TESTIMONIAL_ADMIN_CHAT_IDS, int):
     TESTIMONIAL_ADMIN_CHAT_IDS = [TESTIMONIAL_ADMIN_CHAT_IDS]
+
+BROADCAST_CONCURRENCY = 20
+BROADCAST_TASK_BATCH_SIZE = 500
+MAX_BROADCAST_RETRIES = 5
 
 class ProductFeedbackStates(StatesGroup):
     awaiting_consent = State()
@@ -511,47 +510,57 @@ async def launch_product_feedback_broadcast(
         "blocked": 0,
     }
 
-    semaphore = asyncio.Semaphore(20)
-
     async def send_to_user(record):
         uid = record["telegram_id"]
         lang = record["language"]
 
-        async with semaphore:
-            text, markup = build_feedback_broadcast(lang)
+        text, markup = build_feedback_broadcast(lang)
 
-            while True:
-                try:
-                    await bot.send_message(
-                        chat_id=uid,
-                        text=text,
-                        reply_markup=markup,
-                        parse_mode="HTML",
-                    )
-                    stats["sent"] += 1
-                    break
+        for attempt in range(1, MAX_BROADCAST_RETRIES + 1):
+            try:
+                await bot.send_message(
+                    chat_id=uid,
+                    text=text,
+                    reply_markup=markup,
+                    parse_mode="HTML",
+                )
+                stats["sent"] += 1
+                break
 
-                except TelegramRetryAfter as exc:
-                    await asyncio.sleep(exc.retry_after)
-
-                except TelegramForbiddenError:
-                    stats["blocked"] += 1
-                    break
-
-                except Exception as exc:
+            except TelegramRetryAfter as exc:
+                if attempt == MAX_BROADCAST_RETRIES:
                     stats["failed"] += 1
-                    logger.exception(
-                        "Feedback broadcast failed for %s: %s",
+                    logger.error(
+                        "Feedback broadcast rate-limited too many times for %s",
                         uid,
-                        exc,
                     )
                     break
+                await asyncio.sleep(exc.retry_after)
 
-            await asyncio.sleep(0.05)
+            except TelegramForbiddenError:
+                stats["blocked"] += 1
+                break
 
-    await asyncio.gather(
-        *(send_to_user(record) for record in targets)
-    )
+            except Exception as exc:
+                stats["failed"] += 1
+                logger.exception(
+                    "Feedback broadcast failed for %s: %s",
+                    uid,
+                    exc,
+                )
+                break
+
+        await asyncio.sleep(0.05)
+
+    for start in range(0, len(targets), BROADCAST_TASK_BATCH_SIZE):
+        batch = targets[start:start + BROADCAST_TASK_BATCH_SIZE]
+        semaphore = asyncio.Semaphore(BROADCAST_CONCURRENCY)
+
+        async def bounded_send(record):
+            async with semaphore:
+                await send_to_user(record)
+
+        await asyncio.gather(*(bounded_send(record) for record in batch))
 
     report = (
         "🏁 <b>PRODUCT FEEDBACK BROADCAST COMPLETE</b>\n"
@@ -939,19 +948,27 @@ async def finish_product_feedback(
         else "Not set"
     )
 
-    await bot.send_message(
-        chat_id=TESTIMONIAL_ADMIN_CHAT_IDS,
-        text=(
-            "✅ <b>TESTIMONIAL SESSION COMPLETED</b>\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-            f"🧾 Session ID: <code>{session_id}</code>\n"
-            f"👤 User: <b>{html.escape(user.full_name)}</b>\n"
-            f"🔗 Username: <code>{html.escape(username)}</code>\n"
-            f"📨 Messages submitted: <code>{message_count}</code>\n"
-            f"🕒 Completed: <code>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</code>"
-        ),
-        parse_mode="HTML",
+    completion_text = (
+        "✅ <b>TESTIMONIAL SESSION COMPLETED</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🧾 Session ID: <code>{session_id}</code>\n"
+        f"👤 User: <b>{html.escape(user.full_name)}</b>\n"
+        f"🔗 Username: <code>{html.escape(username)}</code>\n"
+        f"📨 Messages submitted: <code>{message_count}</code>\n"
+        f"🕒 Completed: <code>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</code>"
     )
+    for admin_chat_id in TESTIMONIAL_ADMIN_CHAT_IDS:
+        try:
+            await bot.send_message(
+                chat_id=admin_chat_id,
+                text=completion_text,
+                parse_mode="HTML",
+            )
+        except Exception:
+            logger.exception(
+                "Completion notification failed for admin chat %s",
+                admin_chat_id,
+            )
 
     if lang == "AM":
         thank_you = (
