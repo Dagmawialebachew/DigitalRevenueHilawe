@@ -102,6 +102,28 @@ async def send_testimonial_to_admin_chats(
                     )
                     forwarded_message_id = copied.message_id
 
+                elif source_message.photo:
+                    copied = await bot.send_photo(
+                        chat_id=admin_chat_id,
+                        photo=source_message.photo[-1].file_id,
+                        caption=(
+                            "⚠️ Original photo forwarded privately for review. "
+                            "Alter faces and identifying marks before public posting."
+                        ),
+                    )
+                    forwarded_message_id = copied.message_id
+
+                elif source_message.document:
+                    copied = await bot.send_document(
+                        chat_id=admin_chat_id,
+                        document=source_message.document.file_id,
+                        caption=(
+                            "⚠️ Original image document forwarded privately for review. "
+                            "Alter faces and identifying marks before public posting."
+                        ),
+                    )
+                    forwarded_message_id = copied.message_id
+
             delivery_results[admin_chat_id] = forwarded_message_id
 
         except Exception as admin_delivery_error:
@@ -125,6 +147,7 @@ MAX_BROADCAST_RETRIES = 5
 class ProductFeedbackStates(StatesGroup):
     awaiting_consent = State()
     awaiting_feedback = State()
+    awaiting_photos = State()
 
 
 SCHEMA_SQL = """
@@ -157,6 +180,24 @@ ON product_feedback_sessions(campaign_key, status);
 
 CREATE INDEX IF NOT EXISTS idx_feedback_messages_session
 ON product_feedback_messages(session_id);
+
+CREATE TABLE IF NOT EXISTS product_feedback_photos (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER NOT NULL
+        REFERENCES product_feedback_sessions(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    photo_type VARCHAR(10) NOT NULL CHECK (photo_type IN ('before', 'after')),
+    media_kind VARCHAR(20) NOT NULL,
+    telegram_file_id TEXT NOT NULL,
+    source_message_id BIGINT NOT NULL,
+    file_name TEXT,
+    mime_type VARCHAR(100),
+    forwarded_message_id BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_photos_session
+ON product_feedback_photos(session_id, photo_type);
 """
 
 
@@ -348,7 +389,6 @@ async def request_product_feedback_preview(
             FROM product_feedback_sessions fs
             WHERE fs.user_id = u.telegram_id
               AND fs.campaign_key = $1
-              AND fs.status = 'completed'
         )
         """,
         CAMPAIGN_KEY,
@@ -368,7 +408,7 @@ async def request_product_feedback_preview(
         "• Purchase approved more than 2 days ago\n"
         "• Community-only members excluded\n"
         "• Unpaid users excluded\n"
-        "• Completed respondents excluded",
+        "• Existing respondents excluded",
         parse_mode="HTML",
     )
 
@@ -497,7 +537,6 @@ async def launch_product_feedback_broadcast(
             FROM product_feedback_sessions fs
             WHERE fs.user_id = u.telegram_id
               AND fs.campaign_key = $1
-              AND fs.status = 'completed'
         )
         ORDER BY u.telegram_id
         """,
@@ -898,8 +937,57 @@ async def collect_product_feedback(
 
 
 # ─────────────────────────────────────────────
-# FINISH TESTIMONIAL SESSION
+# OPTIONAL BEFORE/AFTER PHOTO STUDIO
 # ─────────────────────────────────────────────
+
+def build_photo_prompt(
+    lang: str,
+    *,
+    before_count: int = 0,
+    after_count: int = 0,
+) -> tuple[str, types.InlineKeyboardMarkup]:
+    lang = (lang or "EN").upper()
+    kb = InlineKeyboardBuilder()
+
+    if lang == "AM":
+        text = (
+            "📸 <b>አማራጭ የለውጥ ፎቶዎች</b>\n\n"
+            "ከፈለጉ የበፊት እና የኋላ ለውጥዎን የሚያሳዩ ፎቶዎችን መላክ ይችላሉ። "
+            "ብዙ ፎቶዎችን መላክ ይችላሉ።\n\n"
+            "ፎቶዎቹ በመጀመሪያ ለቡድኑ ብቻ በግል ይደርሳሉ። "
+            "ማንኛውም ፎቶ በይፋ ከመለጠፉ በፊት ፊትዎ እና ልዩ መለያዎችዎ "
+            "ይደበቃሉ፣ ይቀየራሉ ወይም ይቆረጣሉ።\n\n"
+            f"የበፊት ፎቶዎች: <b>{before_count}</b> | "
+            f"የኋላ ፎቶዎች: <b>{after_count}</b>"
+        )
+        before_text = "📸 የበፊት ፎቶ ላክ"
+        after_text = "📸 የኋላ ፎቶ ላክ"
+        finish_text = "✅ ጨርሻለሁ"
+        skip_text = "⏭️ ፎቶ ሳልልክ ጨርስ"
+    else:
+        text = (
+            "📸 <b>Optional transformation photos</b>\n\n"
+            "If you want, share before-and-after photos that show your change. "
+            "You can upload multiple photos for either stage.\n\n"
+            "Your original photos will first be received privately by our team. "
+            "Before anything is posted publicly, faces and unique identifying marks "
+            "will be hidden, altered, blurred, or cropped. Your face will not be "
+            "shown online in the original photo.\n\n"
+            f"Before photos: <b>{before_count}</b> | "
+            f"After photos: <b>{after_count}</b>"
+        )
+        before_text = "📸 Upload Before Photo"
+        after_text = "📸 Upload After Photo"
+        finish_text = "✅ I’m Finished"
+        skip_text = "⏭️ Skip Photos"
+
+    kb.button(text=before_text, callback_data="product_feedback_photo:before")
+    kb.button(text=after_text, callback_data="product_feedback_photo:after")
+    kb.button(text=finish_text, callback_data="product_feedback_photos:finish")
+    kb.button(text=skip_text, callback_data="product_feedback_photos:skip")
+    kb.adjust(1)
+    return text, kb.as_markup()
+
 
 @router.callback_query(
     ProductFeedbackStates.awaiting_feedback,
@@ -908,14 +996,9 @@ async def collect_product_feedback(
 async def finish_product_feedback(
     callback: types.CallbackQuery,
     state: FSMContext,
-    db: Database,
-    bot: Bot,
 ):
-    await callback.answer()
-
     data = await state.get_data()
     lang = data.get("feedback_language", "EN")
-    session_id = data.get("feedback_session_id")
     message_count = int(data.get("feedback_message_count", 0))
 
     if message_count < 1:
@@ -926,28 +1009,181 @@ async def finish_product_feedback(
             "እባክዎ ከመጨረስዎ በፊት ቢያንስ አንድ የድምፅ "
             "ወይም የጽሑፍ መልዕክት ይላኩ።"
         )
-        return await callback.answer(
-            warning,
-            show_alert=True,
+        return await callback.answer(warning, show_alert=True)
+
+    await callback.answer()
+    await state.update_data(
+        feedback_photo_type=None,
+        before_photo_count=0,
+        after_photo_count=0,
+    )
+    prompt, markup = build_photo_prompt(lang)
+    await callback.message.answer(prompt, reply_markup=markup, parse_mode="HTML")
+    await state.set_state(ProductFeedbackStates.awaiting_photos)
+
+
+@router.callback_query(
+    ProductFeedbackStates.awaiting_photos,
+    F.data.startswith("product_feedback_photo:"),
+)
+async def choose_product_feedback_photo_type(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+):
+    photo_type = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    lang = data.get("feedback_language", "EN")
+    await state.update_data(feedback_photo_type=photo_type)
+    await callback.answer()
+
+    if lang == "AM":
+        prompt = (
+            f"📸 እባክዎ የ{'በፊት' if photo_type == 'before' else 'የኋላ'} "
+            "ፎቶዎን አሁን ይላኩ። አንድ ወይም ብዙ ፎቶዎችን መላክ ይችላሉ።"
         )
+    else:
+        prompt = (
+            f"📸 Send your {photo_type} photo now. "
+            "You may send one or multiple images, then choose another stage or finish."
+        )
+    await callback.message.answer(prompt)
+
+
+@router.message(
+    ProductFeedbackStates.awaiting_photos,
+    F.photo | F.document,
+)
+async def collect_product_feedback_photo(
+    message: types.Message,
+    state: FSMContext,
+    db: Database,
+    bot: Bot,
+):
+    data = await state.get_data()
+    session_id = data.get("feedback_session_id")
+    photo_type = data.get("feedback_photo_type")
+    lang = data.get("feedback_language", "EN")
+
+    if not session_id or photo_type not in {"before", "after"}:
+        return await message.answer(
+            "Choose Before Photo or After Photo first."
+            if lang == "EN"
+            else "መጀመሪያ የበፊት ወይም የኋላ ፎቶ ምረጡ።"
+        )
+
+    if message.document:
+        mime_type = (message.document.mime_type or "").lower()
+        file_name = message.document.file_name or ""
+        image_extensions = (".jpg", ".jpeg", ".png", ".webp", ".heic")
+        if not mime_type.startswith("image/") and not file_name.lower().endswith(image_extensions):
+            return await message.answer(
+                "Please send an image file only."
+                if lang == "EN"
+                else "እባክዎ የምስል ፋይል ብቻ ይላኩ።"
+            )
+
+        media_kind = "document"
+        file_id = message.document.file_id
+        file_name = message.document.file_name
+        mime_type = message.document.mime_type
+    else:
+        media_kind = "photo"
+        file_id = message.photo[-1].file_id
+        file_name = None
+        mime_type = "image/jpeg"
+
+    metadata = (
+        "📸 <b>NEW TRANSFORMATION PHOTO</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🧾 Session ID: <code>{session_id}</code>\n"
+        f"👤 User: <b>{html.escape(message.from_user.full_name)}</b>\n"
+        f"🆔 Telegram ID: <code>{message.from_user.id}</code>\n"
+        f"📍 Stage: <b>{photo_type.upper()}</b>\n"
+        f"🔐 Consent: <b>{html.escape(data.get('feedback_consent', 'private'))}</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "⚠️ <b>PRIVATE ADMIN REVIEW ONLY</b>\n"
+        "Hide, alter, blur, or crop faces and unique marks before any public posting."
+    )
+    delivery_results = await send_testimonial_to_admin_chats(
+        bot,
+        source_message=message,
+        metadata=metadata,
+    )
+    forwarded_message_id = next(
+        (message_id for message_id in delivery_results.values() if message_id is not None),
+        None,
+    )
+
+    await db._pool.execute(
+        """
+        INSERT INTO product_feedback_photos (
+            session_id, user_id, photo_type, media_kind, telegram_file_id,
+            source_message_id, file_name, mime_type, forwarded_message_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        """,
+        session_id,
+        message.from_user.id,
+        photo_type,
+        media_kind,
+        file_id,
+        message.message_id,
+        file_name,
+        mime_type,
+        forwarded_message_id,
+    )
+
+    count_key = f"{photo_type}_photo_count"
+    current_count = int(data.get(count_key, 0)) + 1
+    await state.update_data(**{count_key: current_count})
+    data[count_key] = current_count
+    prompt, markup = build_photo_prompt(
+        lang,
+        before_count=int(data.get("before_photo_count", 0)),
+        after_count=int(data.get("after_photo_count", 0)),
+    )
+    await message.answer(
+        "✅ Photo received privately. You can upload another one or continue below."
+        if lang == "EN"
+        else "✅ ፎቶዎ በግል ደርሶናል። ሌላ ፎቶ መላክ ወይም ከታች መቀጠል ይችላሉ።",
+        reply_markup=markup,
+        parse_mode="HTML",
+    )
+
+
+async def complete_product_feedback_session(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    db: Database,
+    bot: Bot,
+):
+    await callback.answer()
+    data = await state.get_data()
+    lang = data.get("feedback_language", "EN")
+    session_id = data.get("feedback_session_id")
+    message_count = int(data.get("feedback_message_count", 0))
+    photo_counts = await db._pool.fetchrow(
+        """
+        SELECT
+            COUNT(*) FILTER (WHERE photo_type = 'before')::INT AS before_count,
+            COUNT(*) FILTER (WHERE photo_type = 'after')::INT AS after_count
+        FROM product_feedback_photos
+        WHERE session_id = $1
+        """,
+        session_id,
+    )
 
     await db._pool.execute(
         """
         UPDATE product_feedback_sessions
-        SET status = 'completed',
-            completed_at = NOW()
+        SET status = 'completed', completed_at = NOW()
         WHERE id = $1
         """,
         session_id,
     )
 
     user = callback.from_user
-    username = (
-        f"@{user.username}"
-        if user.username
-        else "Not set"
-    )
-
+    username = f"@{user.username}" if user.username else "Not set"
     completion_text = (
         "✅ <b>TESTIMONIAL SESSION COMPLETED</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
@@ -955,6 +1191,8 @@ async def finish_product_feedback(
         f"👤 User: <b>{html.escape(user.full_name)}</b>\n"
         f"🔗 Username: <code>{html.escape(username)}</code>\n"
         f"📨 Messages submitted: <code>{message_count}</code>\n"
+        f"📸 Before photos: <code>{photo_counts['before_count']}</code>\n"
+        f"📸 After photos: <code>{photo_counts['after_count']}</code>\n"
         f"🕒 Completed: <code>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</code>"
     )
     for admin_chat_id in TESTIMONIAL_ADMIN_CHAT_IDS:
@@ -984,8 +1222,18 @@ async def finish_product_feedback(
             "us improve the program and help other people make a more informed decision."
         )
 
-    await callback.message.answer(
-        thank_you,
-        parse_mode="HTML",
-    )
+    await callback.message.answer(thank_you, parse_mode="HTML")
     await state.clear()
+
+
+@router.callback_query(
+    ProductFeedbackStates.awaiting_photos,
+    F.data.in_({"product_feedback_photos:finish", "product_feedback_photos:skip"}),
+)
+async def finish_product_feedback_photos(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    db: Database,
+    bot: Bot,
+):
+    await complete_product_feedback_session(callback, state, db, bot)
