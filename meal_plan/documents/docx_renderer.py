@@ -263,8 +263,6 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
         _set_run_font(rr5, size=8.5, bold=True, color=ORANGE)
 
     doc.add_page_break()
-
-
 def _plan_glance(doc: Document, plan: dict[str, Any], context: DocumentContext) -> None:
     c = copy_for(context.normalized_language)
     _section_title(doc, c["plan_glance"], "01")
@@ -363,12 +361,19 @@ def _rotation(doc: Document, plan: dict[str, Any], language: str) -> None:
     p = doc.add_paragraph()
     r = p.add_run(f"7 days = one personalized core week. 14/30-day products use the same reviewed core with the approved rotation and swaps shown above.")
     _set_run_font(r, size=8.8, color=GRAPHITE)
+    fasting_dates = [str(row.get("date")) for row in rotation if row.get("core_source") == "FASTING"]
+    if fasting_dates:
+        p2 = doc.add_paragraph()
+        label = "የወቅታዊ ጾም መዋቅር የሚጠቀሙ ቀናት: " if language == "AM" else "Dates using the seasonal fasting core: "
+        _set_run_font(p2.add_run(label + ", ".join(fasting_dates)), size=8.5, bold=True, color=ORANGE)
     doc.add_page_break()
 
 
 def _days(doc: Document, plan: dict[str, Any], language: str) -> None:
     c = copy_for(language)
-    for day in plan.get("core_week") or []:
+    rows = list(plan.get("core_week") or [])
+    fasting_rows = list(plan.get("fasting_core_week") or [])
+    for day in rows:
         _orange_kicker(doc, f"DAY {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
         p = doc.add_paragraph(style="Heading 1")
         r = p.add_run(day_label(str(day.get("day_name") or "Day"), language))
@@ -391,6 +396,25 @@ def _days(doc: Document, plan: dict[str, Any], language: str) -> None:
             rr = p3.add_run(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]))
             _set_run_font(rr, size=7.8, color=ORANGE)
         doc.add_page_break()
+
+    if fasting_rows:
+        _section_title(doc, c["fasting_core"], "03F")
+        note = doc.add_paragraph()
+        _set_run_font(note.add_run(c["fasting_core_note"]), size=8.8, color=GRAPHITE)
+        for day in fasting_rows:
+            _orange_kicker(doc, f"DAY {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
+            p = doc.add_paragraph(style="Heading 1")
+            _set_run_font(p.add_run(day_label(str(day.get("day_name") or "Day"), language)), size=20, bold=True, color=INK)
+            _set_run_font(p.add_run("   " + c["fasting_day"]), size=8.5, bold=True, color=ORANGE)
+            totals = day.get("totals") or {}
+            p2 = doc.add_paragraph()
+            _set_run_font(p2.add_run(
+                f"{rounded(totals.get('kcal'))} kcal   |   P {rounded(totals.get('protein'))} g   "
+                f"C {rounded(totals.get('carbs'))} g   F {rounded(totals.get('fat'))} g"
+            ), size=8.8, color=GRAPHITE)
+            for meal in day.get("meals") or []:
+                _meal_card(doc, meal, language)
+            doc.add_page_break()
 
 
 def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
@@ -425,6 +449,26 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
             rr = p.add_run(value)
             _set_run_font(rr, size=7.6 if i == 0 else 7.2, bold=i == 0, color=INK if i == 0 else GRAPHITE)
     doc.add_page_break()
+    fasting_rows = plan.get("fasting_grocery") or []
+    if fasting_rows:
+        _section_title(doc, c["fasting_grocery"], "04F")
+        fasting_table = doc.add_table(rows=1, cols=3)
+        fasting_table.style = "Table Grid"
+        for i, text in enumerate(("Item", c["planned"], c["buy"])):
+            cell = fasting_table.rows[0].cells[i]
+            _shade_cell(cell, ORANGE)
+            _set_run_font(cell.paragraphs[0].add_run(text), size=8, bold=True, color="#FFFFFF")
+        for row in fasting_rows:
+            cells = fasting_table.add_row().cells
+            values = (
+                local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), language),
+                f"{rounded(row.get('planned_grams'))} g",
+                str(row.get("purchase_quantity") or ""),
+            )
+            for i, (cell, value) in enumerate(zip(cells, values)):
+                _set_cell_border(cell)
+                _set_run_font(cell.paragraphs[0].add_run(value), size=7.5, bold=i == 0, color=INK)
+        doc.add_page_break()
 
 
 def _guides(doc: Document, context: DocumentContext) -> None:

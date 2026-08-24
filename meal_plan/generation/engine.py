@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from meal_plan.generation.dataset import HilaweDataset, load_dataset
-from meal_plan.generation.fasting import fasting_days_for_week
+from meal_plan.generation.fasting import fasting_days_for_period
 from meal_plan.generation.formatting import familiar_portion
 from meal_plan.generation.grocery import build_grocery
 from meal_plan.generation.meal_structure import meal_structure
@@ -135,7 +135,12 @@ def _build_meal(
     )
 
 
-def _rotation(duration_days: int, start_date: date) -> list[dict[str, Any]]:
+def _rotation(
+    duration_days: int,
+    start_date: date,
+    fasting_days: tuple[bool, ...] | None = None,
+    fasting_core_days: tuple[bool, ...] | None = None,
+) -> list[dict[str, Any]]:
     output=[]
     for offset in range(duration_days):
         week=offset//7+1
@@ -149,45 +154,34 @@ def _rotation(duration_days: int, start_date: date) -> list[dict[str, Any]]:
             "week":week,
             "core_day_index":core_day,
             "mode":mode,
+            "fasting": bool(fasting_days and fasting_days[offset]),
+            "core_source": "FASTING" if fasting_core_days and fasting_core_days[offset] else "REGULAR",
         })
     return output
 
 
-def generate_plan(
+def _generate_core_week(
     *,
+    dataset: HilaweDataset,
     answers: dict[str, Any],
-    nutrition_profile: dict[str, Any],
-    meals_per_day: int,
+    slots: tuple[SlotSpec, ...] | list[SlotSpec],
+    targets: dict[str, float],
     start_date: date,
-    duration_days: int,
+    fasting_days: tuple[bool, ...],
     region: str,
-    country_name: str | None = None,
-    dataset: HilaweDataset | None = None,
-) -> dict[str, Any]:
-    if duration_days not in {7,14,30}:
-        raise GenerationError("Meal engine supports 7, 14, or 30 day products")
-    dataset = dataset or load_dataset()
-    dietary = str(answers.get("dietary_pattern") or "").upper()
-    if dietary not in {"OMNIVORE", "VEGETARIAN", "VEGAN"}:
-        raise GenerationError("A supported dietary pattern is required before meal generation")
-    slots = meal_structure(meals_per_day)
-    targets = _target_dict(nutrition_profile)
-    try:
-        fasting_days = fasting_days_for_week(start_date, str(answers.get("orthodox_fasting") or "NONE"), dataset.fasting_calendar)
-    except ValueError as exc:
-        raise GenerationError(str(exc)) from exc
-
+    country_name: str | None,
+) -> tuple[list[GeneratedDay], dict[str, float], list[str]]:
     selector = TemplateSelector(dataset, answers, region=region, country_name=country_name)
     solver = DaySolver(dataset, answers)
     days: list[GeneratedDay] = []
     weekly_food_grams: dict[str, float] = {}
     all_warnings: list[str] = []
     fasting_ordinal = 0
+    dietary = str(answers.get("dietary_pattern") or "").upper()
 
     for d in range(7):
         current = start_date + timedelta(days=d)
         fasting = fasting_days[d]
-        dietary = str(answers.get("dietary_pattern") or "").upper()
         template_fasting_mode = fasting or dietary == "VEGAN"
         fish_permitted = fasting and dietary == "OMNIVORE" and bool(answers.get("fish_during_fast"))
         fish_slot = "Lunch" if fish_permitted and fasting_ordinal % 2 == 0 else ("Dinner" if fish_permitted else "")
@@ -195,7 +189,7 @@ def generate_plan(
         used_today: set[str] = set()
         for spec in slots:
             prefer_fish = spec.source_slot == fish_slot
-            avoid_fish = fish_permitted and spec.source_slot in {"Lunch","Dinner"} and spec.source_slot != fish_slot
+            avoid_fish = fish_permitted and spec.source_slot in {"Lunch", "Dinner"} and spec.source_slot != fish_slot
             template = selector.choose(
                 fasting=template_fasting_mode, source_slot=spec.source_slot, day_index=d, exclude_today=used_today,
                 prefer_fish=prefer_fish, avoid_fish=avoid_fish, whole_food_first=fasting,
@@ -223,8 +217,58 @@ def generate_plan(
         day=GeneratedDay(d,current.strftime("%A"),current,fasting,meals,totals,list(dict.fromkeys(day_warnings)),status)
         days.append(day)
         all_warnings.extend(day.warnings)
+    return days, weekly_food_grams, all_warnings
 
-    used_recipe_ids=sorted({rid for day in days for meal in day.meals for rid in meal.recipe_ids})
+
+def generate_plan(
+    *,
+    answers: dict[str, Any],
+    nutrition_profile: dict[str, Any],
+    meals_per_day: int,
+    start_date: date,
+    duration_days: int,
+    region: str,
+    country_name: str | None = None,
+    dataset: HilaweDataset | None = None,
+) -> dict[str, Any]:
+    if duration_days not in {7,14,30}:
+        raise GenerationError("Meal engine supports 7, 14, or 30 day products")
+    dataset = dataset or load_dataset()
+    dietary = str(answers.get("dietary_pattern") or "").upper()
+    if dietary not in {"OMNIVORE", "VEGETARIAN", "VEGAN"}:
+        raise GenerationError("A supported dietary pattern is required before meal generation")
+    slots = meal_structure(meals_per_day)
+    targets = _target_dict(nutrition_profile)
+    pattern = str(answers.get("orthodox_fasting") or "NONE").upper()
+    verified_years = dataset.meta.get("verified_fasting_calendar_years")
+    try:
+        all_fasting_days = fasting_days_for_period(
+            start_date, duration_days, pattern, dataset.fasting_calendar,
+            verified_years=verified_years,
+        )
+    except ValueError as exc:
+        raise GenerationError(str(exc)) from exc
+
+    weekly_pattern = "WED_FRI" if pattern in {"WED_FRI", "WED_FRI_AND_SEASONAL"} else "NONE"
+    regular_period_days = fasting_days_for_period(start_date, duration_days, weekly_pattern, dataset.fasting_calendar)
+    seasonal_days = tuple(
+        all_fasting_days[index] and not regular_period_days[index]
+        for index in range(duration_days)
+    )
+    regular_days, weekly_food_grams, all_warnings = _generate_core_week(
+        dataset=dataset, answers=answers, slots=slots, targets=targets, start_date=start_date,
+        fasting_days=regular_period_days[:7], region=region, country_name=country_name,
+    )
+    fasting_core: list[GeneratedDay] = []
+    fasting_food_grams: dict[str, float] = {}
+    if any(seasonal_days):
+        fasting_core, fasting_food_grams, fasting_warnings = _generate_core_week(
+            dataset=dataset, answers=answers, slots=slots, targets=targets, start_date=start_date,
+            fasting_days=(True,) * 7, region=region, country_name=country_name,
+        )
+        all_warnings.extend(fasting_warnings)
+
+    used_recipe_ids=sorted({rid for day in [*regular_days, *fasting_core] for meal in day.meals for rid in meal.recipe_ids})
     uncalibrated=[]
     for rid in used_recipe_ids:
         recipe=dataset.recipe_by_id.get(rid) or {}
@@ -254,9 +298,11 @@ def generate_plan(
             "training_type":answers.get("training_type"),
         },
         "meal_structure":[{"label":s.label,"source_slot":s.source_slot,"target_share":s.target_share} for s in slots],
-        "core_week":[d.to_dict() for d in days],
-        "rotation":_rotation(duration_days,start_date),
+        "core_week":[d.to_dict() for d in regular_days],
+        "fasting_core_week":[d.to_dict() for d in fasting_core],
+        "rotation":_rotation(duration_days,start_date,all_fasting_days,seasonal_days),
         "grocery":build_grocery(weekly_food_grams,dataset),
+        "fasting_grocery":build_grocery(fasting_food_grams,dataset) if fasting_food_grams else None,
         "review":{
             "required":True,
             "status":"PENDING",

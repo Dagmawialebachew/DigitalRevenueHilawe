@@ -467,6 +467,34 @@ class MealPlanRepository:
                 region,
             )
 
+    async def get_fasting_calendar_window(self, start_date: date, end_date: date):
+        """Return verified year coverage and annual occurrences overlapping a plan."""
+        if end_date < start_date:
+            raise ValueError("Plan end date cannot be before its start date")
+        years = list(range(start_date.year, end_date.year + 1))
+        async with self.pool.acquire() as conn:
+            coverage = await conn.fetch(
+                """
+                SELECT calendar_year,status,source_name,source_url,verified_at
+                FROM nutrition_fasting_calendar_coverage
+                WHERE calendar_year = ANY($1::int[])
+                ORDER BY calendar_year
+                """,
+                years,
+            )
+            seasons = await conn.fetch(
+                """
+                SELECT rule_id,fast_name,start_date,end_date,verified_for_year,notes
+                FROM nutrition_fasting_calendar
+                WHERE verification_status='VERIFIED_RULESET'
+                  AND start_date IS NOT NULL AND end_date IS NOT NULL
+                  AND start_date <= $2 AND end_date >= $1
+                ORDER BY start_date,rule_id
+                """,
+                start_date, end_date,
+            )
+        return coverage, seasons
+
     async def create_or_get_pending_quote(
         self,
         intake_id: int,

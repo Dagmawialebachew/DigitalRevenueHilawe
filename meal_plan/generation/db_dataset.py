@@ -42,12 +42,20 @@ async def load_dataset_from_db(conn: Any) -> HilaweDataset:
     if len(versions) != 1:
         raise ValueError(f"Nutrition dataset version mismatch in PostgreSQL: {sorted(versions)}")
     version = next(iter(versions))
+    coverage = await conn.fetch(
+        """
+        SELECT calendar_year FROM nutrition_fasting_calendar_coverage
+        WHERE status='VERIFIED_COMPLETE'
+        ORDER BY calendar_year
+        """
+    )
 
     return HilaweDataset(
         meta={
             "dataset_version": version,
             "source": "postgresql_imported_hilawe_dataset",
             "counts": {key: len(rows) for key, rows in sections.items()},
+            "verified_fasting_calendar_years": [int(row["calendar_year"]) for row in coverage],
         },
         foods=sections["foods"],
         recipes=sections["recipes"],

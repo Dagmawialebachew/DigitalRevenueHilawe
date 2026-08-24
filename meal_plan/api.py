@@ -22,6 +22,12 @@ from meal_plan.health_review import notify_health_review
 from meal_plan.followup import send_followup_review
 from meal_plan.followup_policy import CheckinValidationError, decide_revision, validate_checkin_answers
 from meal_plan.followup_repository import MealPlanFollowUpRepository
+from meal_plan.fasting_calendar import (
+    FastingCalendarCoverageRequired,
+    build_overlaps,
+    missing_verified_years,
+    seasonal_fasting_selected,
+)
 from meal_plan.intake_validation import normalize_step, validate_answer_patch, validate_complete_assessment
 from meal_plan.nutrition_targets import calculate_nutrition_profile
 from meal_plan.payment import bank_accounts, build_settlement, notify_payment_ready
@@ -101,6 +107,27 @@ def _money(row) -> dict[str, Any] | None:
         "amount": str(amount) if amount is not None else None,
         "label": row.get("label"),
     }
+
+
+async def _checkout_fasting_context(repo, intake, config) -> dict[str, Any]:
+    answers = dict(intake.get("answers") or {})
+    pattern = str(answers.get("orthodox_fasting") or "NONE").upper()
+    context: dict[str, Any] = {
+        "pattern": pattern,
+        "seasonal_selected": seasonal_fasting_selected(pattern),
+        "coverage_years": [],
+        "overlaps": [],
+    }
+    if not context["seasonal_selected"]:
+        return context
+
+    coverage, rows = await repo.get_fasting_calendar_window(config.start_date, config.ends_on)
+    missing = missing_verified_years(config.start_date, config.ends_on, coverage)
+    if missing:
+        raise FastingCalendarCoverageRequired(missing)
+    context["coverage_years"] = [int(row["calendar_year"]) for row in coverage]
+    context["overlaps"] = [item.to_dict() for item in build_overlaps(config.start_date, config.ends_on, rows)]
+    return context
 
 
 
@@ -495,6 +522,16 @@ async def preview_checkout(request: web.Request) -> web.Response:
     if intake["state"] not in {IntakeState.PROFILE_READY.value, IntakeState.CHECKOUT_READY.value}:
         return _error("PROFILE_NOT_READY", "Your nutrition profile must be ready before checkout.", status=409)
 
+    try:
+        fasting_context = await _checkout_fasting_context(repo, intake, config)
+    except FastingCalendarCoverageRequired as exc:
+        return _error(
+            "FASTING_CALENDAR_NOT_VERIFIED",
+            str(exc),
+            status=409,
+            details={"missing_years": list(exc.missing_years)},
+        )
+
     config_payload = {
         "meals_per_day": config.meals_per_day,
         "start_date": config.start_date.isoformat(),
@@ -515,10 +552,12 @@ async def preview_checkout(request: web.Request) -> web.Response:
             return web.json_response({
                 "ok": True, "pricing_status": "READY", "configuration": config_payload,
                 "price": _money(quote), "quote_id": quote["id"], "state": "CHECKOUT_READY",
+                "fasting_calendar": fasting_context,
             })
         return web.json_response({
             "ok": True, "pricing_status": "MANUAL_REVIEW_REQUIRED", "configuration": config_payload,
             "quote_id": quote["id"], "quote_public_id": str(quote["public_id"]), "state": intake["state"],
+            "fasting_calendar": fasting_context,
         })
 
     price = await repo.get_active_price(region, config.duration_days, config.service_type)
@@ -526,12 +565,13 @@ async def preview_checkout(request: web.Request) -> web.Response:
     if not price:
         return web.json_response({
             "ok": True, "pricing_status": "NOT_CONFIGURED", "configuration": config_payload,
-            "price": None, "state": intake["state"],
+            "price": None, "state": intake["state"], "fasting_calendar": fasting_context,
         })
     intake = await repo.mark_checkout_ready(intake["id"])
     return web.json_response({
         "ok": True, "pricing_status": "READY", "configuration": config_payload,
         "price": _money(price), "pricing_id": price["id"], "state": intake["state"],
+        "fasting_calendar": fasting_context,
     })
 
 
@@ -577,6 +617,16 @@ async def start_payment(request: web.Request) -> web.Response:
     intake = await repo.get_open_intake_for_user(identity.telegram_id)
     if not intake or intake["state"] != IntakeState.CHECKOUT_READY.value:
         return _error("CHECKOUT_NOT_READY", "Prepare checkout before starting payment.", status=409)
+
+    try:
+        await _checkout_fasting_context(repo, intake, config)
+    except FastingCalendarCoverageRequired as exc:
+        return _error(
+            "FASTING_CALENDAR_NOT_VERIFIED",
+            str(exc),
+            status=409,
+            details={"missing_years": list(exc.missing_years)},
+        )
 
     region = intake["country_region"]
     pricing_id = None

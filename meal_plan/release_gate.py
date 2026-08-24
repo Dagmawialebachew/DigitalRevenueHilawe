@@ -30,7 +30,7 @@ from scripts.meal_plan_readiness import collect_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_DATASET_VERSION = "HILAWE_MEAL_OS_V1.3_2026-08-17"
-EXPECTED_ENGINE_MIGRATIONS = {"0001", "0002"}
+EXPECTED_ENGINE_MIGRATIONS = {"0001", "0002", "0003"}
 
 
 @dataclass(frozen=True)
@@ -202,7 +202,7 @@ def collect_release_findings(mode: str = "demo", *, full_demo: bool = False) -> 
     findings.append(ReleaseFinding(
         "MIGRATION_SET",
         _status(EXPECTED_ENGINE_MIGRATIONS.issubset(migrations)),
-        "Required Meal Plan migrations 0001 and 0002 are present." if EXPECTED_ENGINE_MIGRATIONS.issubset(migrations) else "Required Meal Plan migrations 0001/0002 are missing.",
+        "Required Meal Plan migrations 0001 through 0003 are present." if EXPECTED_ENGINE_MIGRATIONS.issubset(migrations) else "Required Meal Plan migrations 0001/0002/0003 are missing.",
     ))
 
     try:

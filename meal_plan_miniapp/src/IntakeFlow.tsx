@@ -203,8 +203,12 @@ function renderStep(step: Step, ctx: RenderContext) {
     case 'DIETARY_PATTERN': return <ChoiceStep title={ctx.text.dietaryTitle} body={ctx.text.dietaryBody} options={dietaryPatternOptions[ctx.language]} selected={str(ctx.answers.dietary_pattern)} onSelect={(value) => ctx.commit({ dietary_pattern: value }, 'BUDGET')} disabled={ctx.saving} />
     case 'BUDGET': return <ChoiceStep title={ctx.text.budgetTitle} body={ctx.text.budgetBody} options={budgetOptions[ctx.language]} selected={str(ctx.answers.grocery_budget)} onSelect={(value) => ctx.commit({ grocery_budget: value }, 'FASTING')} disabled={ctx.saving} />
     case 'FASTING': return <FastingStep {...ctx} />
-    case 'LIKES': return <FoodSelectStep {...ctx} mode="likes" />
-    case 'DISLIKES': return <FoodSelectStep {...ctx} mode="dislikes" />
+    // These adjacent screens share an implementation but must not share local
+    // selection state. Distinct keys make React remount the control when the
+    // mode changes, so dislikes initialize from disliked_foods rather than the
+    // selections held by the preceding likes screen (and vice versa on Back).
+    case 'LIKES': return <FoodSelectStep key="likes" {...ctx} mode="likes" />
+    case 'DISLIKES': return <FoodSelectStep key="dislikes" {...ctx} mode="dislikes" />
     case 'ALLERGIES': return <AllergyStep {...ctx} />
     case 'INTOLERANCES': return <IntoleranceStep {...ctx} />
     case 'HEALTH_PREGNANCY': return <HealthYesNo {...ctx} field="health_pregnancy_postpartum_lactating" question={ctx.text.pregnancyQ} next="HEALTH_EATING" />

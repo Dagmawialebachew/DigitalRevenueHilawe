@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { DayPicker as GregorianDayPicker } from 'react-day-picker'
+import { DayPicker as EthiopicDayPicker } from 'react-day-picker/ethiopic'
 import {
+  FastingCalendarContext,
   getCheckoutOptions,
   IntakeAnswers,
   Language,
@@ -108,6 +111,63 @@ function localISO(d: Date) {
   return `${y}-${m}-${day}`
 }
 
+function dateFromISO(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day, 12)
+}
+
+function formatGregorian(value: string, language: Language): string {
+  return new Intl.DateTimeFormat(language === 'AM' ? 'am-ET' : 'en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  }).format(dateFromISO(value))
+}
+
+function formatEthiopian(value: string, language: Language): string {
+  return new Intl.DateTimeFormat(language === 'AM' ? 'am-ET-u-ca-ethiopic' : 'en-US-u-ca-ethiopic', {
+    year: 'numeric', month: 'long', day: 'numeric', calendar: 'ethiopic',
+  }).format(dateFromISO(value))
+}
+
+function DualDate({ value, language }: { value: string; language: Language }) {
+  return <span className="dual-date"><strong>{formatEthiopian(value, language)}</strong><small>{formatGregorian(value, language)}</small></span>
+}
+
+function CalendarPicker({ value, min, language, onChange }: { value: string; min: string; language: Language; onChange: (value: string) => void }) {
+  const [calendar, setCalendar] = useState<'ETHIOPIAN' | 'GREGORIAN'>(language === 'AM' ? 'ETHIOPIAN' : 'GREGORIAN')
+  const selected = dateFromISO(value)
+  const minimum = dateFromISO(min)
+  const common = {
+    mode: 'single' as const,
+    selected,
+    defaultMonth: selected,
+    disabled: { before: minimum },
+    onSelect: (date: Date | undefined) => { if (date) onChange(localISO(date)) },
+  }
+  return <div className="calendar-picker-shell">
+    <div className="calendar-toggle" role="group" aria-label="Calendar system">
+      <button type="button" className={calendar === 'ETHIOPIAN' ? 'selected' : ''} onClick={() => setCalendar('ETHIOPIAN')}>የኢትዮጵያ</button>
+      <button type="button" className={calendar === 'GREGORIAN' ? 'selected' : ''} onClick={() => setCalendar('GREGORIAN')}>Gregorian</button>
+    </div>
+    {calendar === 'ETHIOPIAN'
+      ? <EthiopicDayPicker {...common} numerals={language === 'AM' ? 'geez' : 'latn'} />
+      : <GregorianDayPicker {...common} />}
+    <div className="calendar-selection"><small>{language === 'AM' ? 'የተመረጠው ቀን' : 'SELECTED DATE'}</small><DualDate value={value} language={language} /></div>
+  </div>
+}
+
+function FastingCalendarPanel({ context, language }: { context: FastingCalendarContext | undefined; language: Language }) {
+  if (!context?.seasonal_selected || context.overlaps.length === 0) return null
+  return <div className="fasting-overlap-panel">
+    <div className="fasting-overlap-heading"><span>✦</span><div><small>{language === 'AM' ? 'የጾም ቀናት' : 'FASTING CALENDAR'}</small><strong>{language === 'AM' ? 'ከፕላንዎ ጋር የሚገናኝ' : 'Overlapping your plan'}</strong></div></div>
+    {context.overlaps.map((season) => <div className="fasting-season-card" key={season.rule_id}>
+      <strong>{season.name}</strong>
+      <DualDate value={season.overlap_start} language={language} />
+      {season.overlap_end !== season.overlap_start && <><span className="date-separator">→</span><DualDate value={season.overlap_end} language={language} /></>}
+      <em>{season.overlap_days} {language === 'AM' ? 'የጾም ቀናት በፕላኑ ውስጥ' : `fasting day${season.overlap_days === 1 ? '' : 's'} in this plan`}</em>
+    </div>)}
+  </div>
+}
+
 function formatPrice(price: PriceOption | undefined) {
   if (!price) return '—'
   const amount = Number(price.amount)
@@ -190,9 +250,10 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       <div className="summary-grid compact-summary">
         <Summary label={language === 'AM' ? 'ቀናት' : 'Duration'} value={`${config.duration_days}`} />
         <Summary label={language === 'AM' ? 'ምግብ / ቀን' : 'Meals / day'} value={`${config.meals_per_day}`} />
-        <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Starts'} value={result.configuration.start_date} />
+        <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Starts'} value={`${formatEthiopian(result.configuration.start_date, language)} / ${formatGregorian(result.configuration.start_date, language)}`} />
         <Summary label={language === 'AM' ? 'አገልግሎት' : 'Service'} value={config.service_type === 'FOLLOW_UP' ? 'Follow-Up' : 'Meal Plan'} />
       </div>
+      <FastingCalendarPanel context={result.fasting_calendar} language={language} />
       <p className="lead checkout-note">{result.pricing_status === 'READY' ? (language === 'AM' ? 'ዋጋዎ ተረጋግጧል። ቀጥለው የCBE / Abyssinia የክፍያ መመሪያዎን ይክፈቱ።' : 'Your price is confirmed. Continue to open the CBE / Abyssinia payment instructions.') : result.pricing_status === 'MANUAL_REVIEW_REQUIRED' ? t.manualPricing : t.pricingMissing}</p>
       {result.pricing_status === 'READY' && <button className="primary-button tall" disabled={loading} onClick={() => void beginPayment()}>{loading ? '…' : (language === 'AM' ? 'ወደ ክፍያ ቀጥል →' : 'Continue to payment →')}</button>}
       <button className="secondary-button wide" onClick={() => setResult(null)}>← {t.back}</button>
@@ -226,10 +287,11 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     {step === 'START' && <>
       <h1>{t.startTitle}</h1><p className="lead">{t.startBody}</p>
       <div className="start-date-grid">
-        <button className={config.start_date === tomorrowISO() ? 'selected' : ''} onClick={() => setConfig({ ...config, start_date: tomorrowISO() })}><strong>{t.tomorrow}</strong><small>{tomorrowISO()}</small></button>
-        <button className={config.start_date === nextMondayISO() ? 'selected' : ''} onClick={() => setConfig({ ...config, start_date: nextMondayISO() })}><strong>{t.nextMonday}</strong><small>{nextMondayISO()}</small></button>
+        <button className={config.start_date === tomorrowISO() ? 'selected' : ''} onClick={() => setConfig({ ...config, start_date: tomorrowISO() })}><strong>{t.tomorrow}</strong><DualDate value={tomorrowISO()} language={language} /></button>
+        <button className={config.start_date === nextMondayISO() ? 'selected' : ''} onClick={() => setConfig({ ...config, start_date: nextMondayISO() })}><strong>{t.nextMonday}</strong><DualDate value={nextMondayISO()} language={language} /></button>
       </div>
-      <label className="date-picker"><span>{t.chooseDate}</span><input type="date" min={tomorrowISO()} value={config.start_date} onChange={(e) => setConfig({ ...config, start_date: e.target.value })} /></label>
+      <p className="calendar-label">{t.chooseDate}</p>
+      <CalendarPicker value={config.start_date} min={tomorrowISO()} language={language} onChange={(start_date) => setConfig({ ...config, start_date })} />
       <FlowButtons back={() => go('MEALS')} next={() => go('DURATION')} backText={t.back} nextText={t.continue} />
     </>}
 
@@ -258,7 +320,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       <div className="summary-grid">
         <Summary label={language === 'AM' ? 'ቀናት' : 'Duration'} value={`${config.duration_days}`} />
         <Summary label={language === 'AM' ? 'ምግብ / ቀን' : 'Meals / day'} value={`${config.meals_per_day}`} />
-        <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Start date'} value={config.start_date} />
+        <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Start date'} value={`${formatEthiopian(config.start_date, language)} / ${formatGregorian(config.start_date, language)}`} />
         <Summary label={language === 'AM' ? 'አገልግሎት' : 'Service'} value={config.service_type === 'FOLLOW_UP' ? 'Meal Plan + Follow-Up' : 'Meal Plan'} />
       </div>
       <div className="summary-price"><span>{language === 'AM' ? 'ዋጋ' : 'PRICE'}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'በreview ይረጋገጣል' : 'Manual confirmation') : formatPrice(selectedPrice)}</strong></div>

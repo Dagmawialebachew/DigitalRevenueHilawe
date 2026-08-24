@@ -277,9 +277,13 @@ class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
         self.assertIn('inputMode={step < 1 ? \'decimal\' : \'numeric\'}', intake)
         self.assertNotIn("Number(event.target.value || min)", intake)
 
-    def test_phase10_adds_no_database_migration(self):
+    def test_phase10_migrations_remain_and_followup_calendar_is_additive(self):
         versions = sorted(path.name for path in (ROOT / "database" / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
-        self.assertEqual(versions, ["0001_meal_plan_core.sql", "0002_hilawe_nutrition_dataset.sql"])
+        self.assertEqual(versions, [
+            "0001_meal_plan_core.sql",
+            "0002_hilawe_nutrition_dataset.sql",
+            "0003_verified_fasting_calendar.sql",
+        ])
 
     def test_acceptance_script_never_writes_database(self):
         source = (ROOT / "scripts" / "meal_plan_acceptance.py").read_text(encoding="utf-8").lower()

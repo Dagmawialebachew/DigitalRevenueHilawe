@@ -314,7 +314,12 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         ("LEFTPADDING", (0,0), (-1,-1), 4*mm), ("RIGHTPADDING", (0,0), (-1,-1), 4*mm),
         ("TOPPADDING", (0,0), (-1,-1), 3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 3*mm),
     ]))
-    story += [rot_table, Spacer(1, 5*mm), _p("7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration.", styles["body"], fonts), PageBreak()]
+    story += [rot_table, Spacer(1, 5*mm), _p("7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration.", styles["body"], fonts)]
+    fasting_dates = [str(row.get("date")) for row in rotation if row.get("core_source") == "FASTING"]
+    if fasting_dates:
+        label = "የወቅታዊ ጾም መዋቅር የሚጠቀሙ ቀናት: " if context.normalized_language == "AM" else "Dates using the seasonal fasting core: "
+        story += [Spacer(1, 3*mm), _p(label + ", ".join(fasting_dates), styles["swap"], fonts)]
+    story.append(PageBreak())
 
     # Core days
     for day in plan.get("core_week") or []:
@@ -329,6 +334,17 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         if warnings:
             story.append(_p(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]), styles["swap"], fonts))
         story.append(PageBreak())
+
+    fasting_core = plan.get("fasting_core_week") or []
+    if fasting_core:
+        story += [_p("03F", styles["kicker"], fonts, bold=True), _p(c["fasting_core"], styles["h1"], fonts, bold=True), _p(c["fasting_core_note"], styles["body"], fonts), PageBreak()]
+        for day in fasting_core:
+            story += [_p(f"DAY {int(day.get('day_index', 0))+1:02d}  ·  {day.get('date','')}", styles["kicker"], fonts, bold=True), _p(day_label(str(day.get("day_name") or "Day"), context.normalized_language), styles["h1"], fonts, bold=True), _p(c["fasting_day"], styles["kicker"], fonts, bold=True)]
+            totals = day.get("totals") or {}
+            story += [_p(f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g", styles["body"], fonts), Spacer(1, 2*mm)]
+            for meal in day.get("meals") or []:
+                story += [KeepTogether([_meal_block(meal, context.normalized_language, styles, fonts), Spacer(1, 2.3*mm)])]
+            story.append(PageBreak())
 
     # Grocery
     story += [_p("04", styles["kicker"], fonts, bold=True), _p(c["grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
@@ -348,6 +364,24 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         ("TOPPADDING", (0,0), (-1,-1), 1.5*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 1.5*mm),
     ]))
     story += [grocery, PageBreak()]
+    fasting_grocery = plan.get("fasting_grocery") or []
+    if fasting_grocery:
+        story += [_p("04F", styles["kicker"], fonts, bold=True), _p(c["fasting_grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
+        fasting_rows = [[_p("Item", styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
+        for row in fasting_grocery:
+            fasting_rows.append([
+                _p(local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language), styles["small"], fonts),
+                _p(f"{rounded(row.get('planned_grams'))} g", styles["micro"], fonts),
+                _p(str(row.get("purchase_quantity") or ""), styles["micro"], fonts),
+            ])
+        fasting_table = Table(fasting_rows, colWidths=[90*mm, 35*mm, 46*mm], repeatRows=1)
+        fasting_table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), _hex(ORANGE)), ("ROWBACKGROUNDS", (0,1), (-1,-1), [_hex(PAPER), _hex(IVORY)]),
+            ("GRID", (0,0), (-1,-1), .3, _hex(BORDER)), ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 2.2*mm), ("RIGHTPADDING", (0,0), (-1,-1), 2.2*mm),
+            ("TOPPADDING", (0,0), (-1,-1), 1.5*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 1.5*mm),
+        ]))
+        story += [fasting_table, PageBreak()]
 
     # Portion/hydration
     story += [_p("05", styles["kicker"], fonts, bold=True), _p(c["portion_hydration"], styles["h1"], fonts, bold=True), _p(c["hydration"], styles["h2"], fonts, bold=True)]

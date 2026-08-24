@@ -7,8 +7,9 @@ domain uses separate, immutable, versioned SQL migrations in this directory.
 
 - `0001_meal_plan_core.sql` — isolated order/intake/payment/review/version lifecycle.
 - `0002_hilawe_nutrition_dataset.sql` — isolated Hilawe food/recipe/template/exchange/fasting/settings tables.
+- `0003_verified_fasting_calendar.sql` — rolling verified-year coverage and dated Orthodox fasting occurrences.
 
-Both migrations are additive. They do not alter or delete legacy `users`,
+All migrations are additive. They do not alter or delete legacy `users`,
 `products`, workout `payments`, club, testimonial or financial data.
 
 The runner:

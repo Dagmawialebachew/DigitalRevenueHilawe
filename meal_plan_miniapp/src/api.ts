@@ -122,6 +122,23 @@ export type PriceOption = {
   label: string | null
 }
 
+export type FastingSeasonOverlap = {
+  rule_id: string
+  name: string
+  start_date: string
+  end_date: string
+  overlap_start: string
+  overlap_end: string
+  overlap_days: number
+}
+
+export type FastingCalendarContext = {
+  pattern: string
+  seasonal_selected: boolean
+  coverage_years: number[]
+  overlaps: FastingSeasonOverlap[]
+}
+
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
@@ -219,6 +236,7 @@ export function previewCheckout(
     quote_id?: number
     quote_public_id?: string
     state: string
+    fasting_calendar: FastingCalendarContext
   }>('/api/meal/checkout/preview', { init_data: initData, ...configuration })
 }
 
@@ -312,4 +330,3 @@ export function startRenewal(initData: string) {
     { init_data: initData },
   )
 }
-
