@@ -22,8 +22,17 @@ def meal_plan_enabled() -> bool:
     return env_bool("MEAL_PLAN_ENABLED", False)
 
 
+def meal_plan_public_access_enabled() -> bool:
+    """Public launch is explicit so an omitted flag keeps the RC admin-only."""
+    return env_bool("MEAL_PLAN_PUBLIC_ACCESS", False)
+
+
 def frontend_url() -> str:
     return os.getenv("MEAL_PLAN_FRONTEND_URL", "").strip().rstrip("/")
+
+
+def frontend_origin() -> str:
+    return os.getenv("FRONTEND_ORIGIN", "").strip().rstrip("/")
 
 
 def frontend_url_is_valid(url: str | None = None) -> bool:
@@ -33,6 +42,29 @@ def frontend_url_is_valid(url: str | None = None) -> bool:
     parsed = urlparse(candidate)
     # Telegram Mini Apps require HTTPS outside Telegram's dedicated test environment.
     return parsed.scheme == "https" and bool(parsed.netloc)
+
+
+def loopback_frontend_url_is_valid(url: str) -> bool:
+    """Accept only the two explicit local browser origins used by the RC demo."""
+    candidate = url.strip()
+    if not candidate:
+        return False
+    parsed = urlparse(candidate)
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "http"
+        and (parsed.hostname or "").lower() in {"127.0.0.1", "localhost"}
+        and port == 5173
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 def init_data_max_age_seconds() -> int:
@@ -57,6 +89,14 @@ def _env_int_list(name: str) -> tuple[int, ...]:
     return tuple(values)
 
 
+def admin_ids() -> tuple[int, ...]:
+    return _env_int_list("ADMIN_IDS")
+
+
+def meal_plan_access_allowed(telegram_id: int) -> bool:
+    return meal_plan_public_access_enabled() or int(telegram_id) in set(admin_ids())
+
+
 def review_group_id() -> int:
     raw = os.getenv("MEAL_PLAN_REVIEW_GROUP_ID", "0").strip()
     try:
@@ -70,7 +110,7 @@ def reviewer_ids() -> tuple[int, ...]:
     if explicit:
         return explicit
     # Reuse the existing admin list if a dedicated reviewer list is not set.
-    return _env_int_list("ADMIN_IDS")
+    return admin_ids()
 
 
 def is_reviewer(telegram_id: int) -> bool:
@@ -218,6 +258,16 @@ def followup_auto_revision_enabled() -> bool:
 def demo_mode() -> bool:
     """True only when the explicit local/demo safety flag is enabled."""
     return env_bool("MEAL_PLAN_DEMO_MODE", False)
+
+
+def local_dev_auth_enabled() -> bool:
+    """True only when the dedicated localhost authentication flag is enabled."""
+    return env_bool("MEAL_PLAN_LOCAL_DEV_AUTH", False)
+
+
+def guarded_local_dev_mode() -> bool:
+    """Local browser mode requires both independent safety guards."""
+    return demo_mode() and local_dev_auth_enabled()
 
 
 def demo_bot_id() -> int:

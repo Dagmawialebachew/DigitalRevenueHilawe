@@ -34,5 +34,10 @@ Import-DemoEnv $EnvFile
 
 Write-Host "Demo environment loaded (values hidden)." -ForegroundColor Green
 Write-Host "Starting guarded full demo stack..." -ForegroundColor Cyan
-& python -m scripts.run_meal_plan_demo --full
+$projectPython = Join-Path $PSScriptRoot "env\Scripts\python.exe"
+if (Test-Path -LiteralPath $projectPython) {
+    & $projectPython -m scripts.run_meal_plan_demo --full
+} else {
+    & python -m scripts.run_meal_plan_demo --full
+}
 exit $LASTEXITCODE

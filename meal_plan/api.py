@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 from pathlib import Path
 from decimal import Decimal
@@ -28,7 +29,13 @@ from meal_plan.repository import ConcurrentUpdate
 from meal_plan.repository_factory import get_meal_plan_repository
 from meal_plan.review_repository import MealPlanReviewRepository
 from meal_plan.plan_access import plan_payload, safe_local_pdf_path
-from meal_plan.runtime import business_timezone_name, followup_auto_revision_enabled, init_data_max_age_seconds, meal_plan_enabled
+from meal_plan.runtime import (
+    business_timezone_name,
+    followup_auto_revision_enabled,
+    init_data_max_age_seconds,
+    meal_plan_access_allowed,
+    meal_plan_enabled,
+)
 from meal_plan.states import IntakeState, OrderState
 
 logger = logging.getLogger(__name__)
@@ -59,7 +66,17 @@ async def _authenticate(request: web.Request, payload: dict[str, Any]):
     if not isinstance(init_data, str):
         raise TelegramInitDataError("INIT_DATA_MISSING", "Telegram initData is required")
     bot = request.app["bot"]
-    return validate_telegram_init_data(init_data, bot.token, max_age_seconds=init_data_max_age_seconds())
+    identity = validate_telegram_init_data(init_data, bot.token, max_age_seconds=init_data_max_age_seconds())
+    if not meal_plan_access_allowed(identity.telegram_id):
+        body = {
+            "ok": False,
+            "error": {
+                "code": "MEAL_PLAN_COMING_SOON",
+                "message": "Coach Hilawe Meal Plans are coming soon.",
+            },
+        }
+        raise web.HTTPForbidden(text=json.dumps(body), content_type="application/json")
+    return identity
 
 
 async def _identity_user_intake(request: web.Request, payload: dict[str, Any]):

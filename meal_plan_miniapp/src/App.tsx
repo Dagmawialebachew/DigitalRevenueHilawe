@@ -3,7 +3,7 @@ import { bootstrap, BootstrapResponse, downloadApprovedPlan, FollowUpAnswers, La
 import { copy } from './copy'
 import IntakeFlow from './IntakeFlow'
 import ProfileCheckoutFlow from './ProfileCheckoutFlow'
-import { hapticSelect, initializeTelegramShell } from './telegram'
+import { getTelegramWebApp, hapticSelect, initializeTelegramShell } from './telegram'
 
 const regions = [
   ['ETHIOPIA', '🇪🇹', 'ኢትዮጵያ', 'Ethiopia'],
@@ -16,6 +16,7 @@ const regions = [
 type LoadState =
   | { status: 'loading' }
   | { status: 'outside-telegram' }
+  | { status: 'coming-soon' }
   | { status: 'error'; message: string }
   | { status: 'ready'; data: BootstrapResponse; initData: string }
 
@@ -39,6 +40,11 @@ export default function App() {
       setLanguage(data.user.language)
       setState({ status: 'ready', data, initData: telegram.initData })
     } catch (error) {
+      const code = error instanceof Error ? (error as Error & { code?: string }).code : undefined
+      if (code === 'MEAL_PLAN_COMING_SOON') {
+        setState({ status: 'coming-soon' })
+        return
+      }
       setState({ status: 'error', message: error instanceof Error ? error.message : 'Unable to open Meal Plan' })
     }
   }
@@ -113,6 +119,21 @@ export default function App() {
           <div className="status-orb">TG</div>
           <h1>{text.title}</h1>
           <p>{text.openTelegram}</p>
+        </section>
+      )}
+
+      {state.status === 'coming-soon' && (
+        <section className="center-card compact">
+          <div className="status-orb">H</div>
+          <h1>{language === 'AM' ? 'የCoach Hilawe የምግብ ፕላን በቅርቡ ይመጣል' : 'Coach Hilawe Meal Plans are coming soon'}</h1>
+          <p>
+            {language === 'AM'
+              ? 'ለእርስዎ የተዘጋጀውን የምግብ ፕላን ልምድ የመጨረሻ ዝግጅት ላይ ነን። ዝግጁ ሲሆን በCoach Hilawe Bot እናሳውቃለን።'
+              : "We’re putting the finishing touches on your personalized meal-plan experience. We’ll announce it through Coach Hilawe Bot when it’s ready."}
+          </p>
+          <button className="primary-button" onClick={() => getTelegramWebApp()?.close?.()}>
+            {language === 'AM' ? 'ወደ Coach Hilawe Bot ተመለስ' : 'Return to Coach Hilawe Bot'}
+          </button>
         </section>
       )}
 

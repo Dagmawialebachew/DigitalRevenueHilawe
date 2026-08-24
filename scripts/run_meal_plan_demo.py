@@ -2,7 +2,8 @@
 
 This runner is intentionally impossible to start unless MEAL_PLAN_DEMO_MODE=true.
 It never configures a webhook and never deploys anything. Use --full when testing
-the real Telegram Mini App journey; --full also requires HTTPS + both workers.
+the real Telegram Mini App journey; --full also requires an approved frontend
+(public HTTPS or explicitly guarded loopback HTTP) plus both workers.
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ from meal_plan.runtime import (
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Coach Hilawe Meal Plan local demo stack")
-    parser.add_argument("--full", action="store_true", help="Require HTTPS frontend + both workers before starting")
+    parser.add_argument("--full", action="store_true", help="Require an approved frontend + both workers before starting")
     return parser.parse_args()
 
 
@@ -71,7 +72,7 @@ def _print_gate(full: bool) -> None:
     report = release_report("demo", full_demo=full)
     print("Coach Hilawe Meal Plan demo preflight")
     for item in report.findings:
-        if item.status != "PASS":
+        if item.status != "PASS" or item.code == "LOCAL_DEV_FRONTEND":
             print(f"[{item.status:5}] {item.code}: {item.message}")
     print(f"Preflight: {report.blockers} blocker(s), {report.warnings} warning(s)")
     if not report.ready:

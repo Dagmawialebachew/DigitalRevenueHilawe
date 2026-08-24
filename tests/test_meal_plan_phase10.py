@@ -1,15 +1,54 @@
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from aiohttp import web
+
+from meal_plan.api import _authenticate
 from meal_plan.release_gate import collect_release_findings, release_report
 from meal_plan.runtime import demo_bot_id, demo_mode
 from scripts.meal_plan_acceptance import collect_acceptance
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class Phase10PublicAccessGateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_non_admin_receives_structured_coming_soon_response(self):
+        request = SimpleNamespace(app={"bot": SimpleNamespace(token="placeholder")})
+        identity = SimpleNamespace(telegram_id=303)
+        env = {
+            "MEAL_PLAN_ENABLED": "true",
+            "MEAL_PLAN_PUBLIC_ACCESS": "false",
+            "ADMIN_IDS": "101,202",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "meal_plan.api.validate_telegram_init_data",
+            return_value=identity,
+        ):
+            with self.assertRaises(web.HTTPForbidden) as raised:
+                await _authenticate(request, {"init_data": "signed"})
+        payload = json.loads(raised.exception.text)
+        self.assertEqual(payload["error"]["code"], "MEAL_PLAN_COMING_SOON")
+
+    async def test_admin_continues_through_the_existing_authenticated_path(self):
+        request = SimpleNamespace(app={"bot": SimpleNamespace(token="placeholder")})
+        identity = SimpleNamespace(telegram_id=202)
+        env = {
+            "MEAL_PLAN_ENABLED": "true",
+            "MEAL_PLAN_PUBLIC_ACCESS": "false",
+            "ADMIN_IDS": "101,202",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "meal_plan.api.validate_telegram_init_data",
+            return_value=identity,
+        ):
+            result = await _authenticate(request, {"init_data": "signed"})
+        self.assertIs(result, identity)
 
 
 class Phase10RuntimeSafetyTests(unittest.TestCase):
@@ -42,6 +81,11 @@ class Phase10RuntimeSafetyTests(unittest.TestCase):
         source = (ROOT / "scripts" / "run_meal_plan_demo.py").read_text(encoding="utf-8")
         self.assertLess(source.index("does not match MEAL_PLAN_DEMO_BOT_ID"), source.index("await bot.delete_webhook"))
 
+    def test_powershell_launcher_prefers_project_virtualenv(self):
+        source = (ROOT / "run_full_demo.ps1").read_text(encoding="utf-8")
+        self.assertIn('env\\Scripts\\python.exe', source)
+        self.assertIn("Test-Path -LiteralPath $projectPython", source)
+
 
 class Phase10ReleaseGateTests(unittest.TestCase):
     def base_env(self):
@@ -50,12 +94,14 @@ class Phase10ReleaseGateTests(unittest.TestCase):
             "DATABASE_URL": "postgresql://placeholder/db",
             "MEAL_PLAN_ENABLED": "true",
             "MEAL_PLAN_FRONTEND_URL": "https://meal.example.com",
+            "FRONTEND_ORIGIN": "https://meal.example.com",
             "MEAL_PLAN_REVIEW_GROUP_ID": "-1001234567890",
             "MEAL_PLAN_REVIEWER_IDS": "123456",
             "MEAL_PLAN_GENERATION_WORKER_ENABLED": "true",
             "MEAL_PLAN_LIFECYCLE_WORKER_ENABLED": "true",
             "MEAL_PLAN_AUTO_APPROVE_PAYMENTS": "false",
             "MEAL_PLAN_DEMO_MODE": "true",
+            "MEAL_PLAN_LOCAL_DEV_AUTH": "false",
             "VERIFY_API": "placeholder",
         }
 
@@ -93,6 +139,60 @@ class Phase10ReleaseGateTests(unittest.TestCase):
             text = "\n".join(item.message for item in collect_release_findings("demo"))
         self.assertNotIn("ULTRA_SECRET_TOKEN_SHOULD_NEVER_APPEAR", text)
 
+    def frontend_finding(self, *, mode="demo", demo="false", local_dev="false", url="", origin=None):
+        env = self.base_env()
+        env.update({
+            "MEAL_PLAN_DEMO_MODE": demo,
+            "MEAL_PLAN_LOCAL_DEV_AUTH": local_dev,
+            "MEAL_PLAN_FRONTEND_URL": url,
+            "FRONTEND_ORIGIN": url if origin is None else origin,
+        })
+        with patch.dict(os.environ, env, clear=True):
+            findings = collect_release_findings(mode, full_demo=True)
+        return {item.code: item for item in findings}
+
+    def test_production_localhost_frontend_is_blocked(self):
+        findings = self.frontend_finding(
+            mode="production",
+            demo="true",
+            local_dev="true",
+            url="http://127.0.0.1:5173",
+        )
+        self.assertEqual(findings["PUBLIC_FRONTEND"].status, "BLOCK")
+
+    def test_demo_without_local_dev_auth_localhost_is_blocked(self):
+        findings = self.frontend_finding(demo="true", url="http://localhost:5173")
+        self.assertEqual(findings["PUBLIC_FRONTEND"].status, "BLOCK")
+
+    def test_guarded_local_dev_accepts_127_loopback(self):
+        findings = self.frontend_finding(demo="true", local_dev="true", url="http://127.0.0.1:5173")
+        self.assertEqual(findings["LOCAL_DEV_FRONTEND"].status, "PASS")
+
+    def test_guarded_local_dev_accepts_localhost(self):
+        findings = self.frontend_finding(demo="true", local_dev="true", url="http://localhost:5173")
+        self.assertEqual(findings["LOCAL_DEV_FRONTEND"].status, "PASS")
+
+    def test_guarded_local_dev_rejects_arbitrary_http_host(self):
+        findings = self.frontend_finding(demo="true", local_dev="true", url="http://some-public-host.com:5173")
+        self.assertEqual(findings["LOCAL_DEV_FRONTEND"].status, "BLOCK")
+
+    def test_hosted_https_demo_still_passes(self):
+        findings = self.frontend_finding(demo="true", url="https://meal.example.com")
+        self.assertEqual(findings["PUBLIC_FRONTEND"].status, "PASS")
+
+    def test_local_dev_auth_without_demo_mode_is_blocked(self):
+        findings = self.frontend_finding(local_dev="true", url="https://meal.example.com")
+        self.assertEqual(findings["P9_LOCAL_DEV_AUTH_GUARD"].status, "BLOCK")
+
+    def test_guarded_local_dev_rejects_non_loopback_cors_origin(self):
+        findings = self.frontend_finding(
+            demo="true",
+            local_dev="true",
+            url="http://127.0.0.1:5173",
+            origin="http://some-public-host.com:5173",
+        )
+        self.assertEqual(findings["LOCAL_DEV_FRONTEND"].status, "BLOCK")
+
 
 class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
     def test_acceptance_matrix_runs_without_documents(self):
@@ -118,6 +218,12 @@ class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
     def test_api_health_reports_phase10(self):
         source = (ROOT / "meal_plan" / "api.py").read_text(encoding="utf-8")
         self.assertIn('"phase": 10', source)
+
+    def test_public_access_gate_runs_after_telegram_validation(self):
+        source = (ROOT / "meal_plan" / "api.py").read_text(encoding="utf-8")
+        authenticate = source[source.index("async def _authenticate"):source.index("async def _identity_user_intake")]
+        self.assertLess(authenticate.index("validate_telegram_init_data"), authenticate.index("meal_plan_access_allowed"))
+        self.assertIn("MEAL_PLAN_COMING_SOON", authenticate)
 
     def test_frontend_is_marked_one_point_zero(self):
         package = (ROOT / "meal_plan_miniapp" / "package.json").read_text(encoding="utf-8")

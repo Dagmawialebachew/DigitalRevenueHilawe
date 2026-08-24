@@ -17,10 +17,15 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from meal_plan.runtime import (
     auto_approve_payments,
     business_timezone_name,
+    demo_mode,
+    frontend_origin,
     frontend_url,
     frontend_url_is_valid,
     generation_worker_enabled,
+    guarded_local_dev_mode,
     lifecycle_worker_enabled,
+    local_dev_auth_enabled,
+    loopback_frontend_url_is_valid,
     meal_plan_enabled,
     review_group_id,
     reviewer_ids,
@@ -78,11 +83,31 @@ def collect_checks(mode: str = "demo") -> list[Check]:
         "PASS" if _present("DATABASE_URL") else "BLOCK",
         "Database URL is configured." if _present("DATABASE_URL") else "DATABASE_URL is missing.",
     ))
-    checks.append(Check(
-        "FRONTEND_HTTPS",
-        "PASS" if frontend_url_is_valid(frontend_url()) else ("BLOCK" if production else "WARN"),
-        "Mini App frontend URL is HTTPS." if frontend_url_is_valid(frontend_url()) else "MEAL_PLAN_FRONTEND_URL is missing or is not HTTPS.",
-    ))
+    if local_dev_auth_enabled() and not demo_mode():
+        checks.append(Check(
+            "LOCAL_DEV_AUTH_GUARD",
+            "BLOCK",
+            "MEAL_PLAN_LOCAL_DEV_AUTH requires MEAL_PLAN_DEMO_MODE=true.",
+        ))
+
+    if not production and guarded_local_dev_mode():
+        local_frontend_ok = (
+            loopback_frontend_url_is_valid(frontend_url())
+            and loopback_frontend_url_is_valid(frontend_origin())
+        )
+        checks.append(Check(
+            "LOCAL_DEV_FRONTEND",
+            "PASS" if local_frontend_ok else "BLOCK",
+            "Guarded localhost Mini App frontend enabled."
+            if local_frontend_ok
+            else "Local dev requires HTTP loopback origins on port 5173 for MEAL_PLAN_FRONTEND_URL and FRONTEND_ORIGIN.",
+        ))
+    else:
+        checks.append(Check(
+            "FRONTEND_HTTPS",
+            "PASS" if frontend_url_is_valid(frontend_url()) else ("BLOCK" if production else "WARN"),
+            "Mini App frontend URL is HTTPS." if frontend_url_is_valid(frontend_url()) else "MEAL_PLAN_FRONTEND_URL is missing or is not HTTPS.",
+        ))
     checks.append(Check(
         "REVIEW_GROUP",
         "PASS" if review_group_id() else "BLOCK",

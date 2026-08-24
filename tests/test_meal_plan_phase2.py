@@ -10,7 +10,13 @@ from unittest.mock import patch
 
 from meal_plan.auth import TelegramInitDataError, validate_telegram_init_data
 from meal_plan.countries import country_label, normalize_region, validate_other_country_name
-from meal_plan.runtime import frontend_url_is_valid, init_data_max_age_seconds, meal_plan_enabled
+from meal_plan.runtime import (
+    frontend_url_is_valid,
+    init_data_max_age_seconds,
+    meal_plan_access_allowed,
+    meal_plan_enabled,
+    meal_plan_public_access_enabled,
+)
 
 
 TOKEN = "123456:TEST_TOKEN"
@@ -104,6 +110,25 @@ class RuntimeTests(unittest.TestCase):
     def test_feature_flag_can_enable_demo(self):
         with patch.dict(os.environ, {"MEAL_PLAN_ENABLED": "true"}, clear=True):
             self.assertTrue(meal_plan_enabled())
+
+    def test_meal_plan_public_access_defaults_closed(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(meal_plan_public_access_enabled())
+            self.assertFalse(meal_plan_access_allowed(999999))
+
+    def test_explicit_public_access_allows_every_authenticated_user(self):
+        with patch.dict(os.environ, {"MEAL_PLAN_PUBLIC_ACCESS": "true"}, clear=True):
+            self.assertTrue(meal_plan_access_allowed(999999))
+
+    def test_closed_public_access_allows_existing_admin_ids(self):
+        env = {"MEAL_PLAN_PUBLIC_ACCESS": "false", "ADMIN_IDS": "101, 202"}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertTrue(meal_plan_access_allowed(202))
+            self.assertFalse(meal_plan_access_allowed(303))
+
+    def test_closed_public_access_without_admins_fails_closed(self):
+        with patch.dict(os.environ, {"MEAL_PLAN_PUBLIC_ACCESS": "false"}, clear=True):
+            self.assertFalse(meal_plan_access_allowed(101))
 
     def test_frontend_url_requires_https(self):
         self.assertTrue(frontend_url_is_valid("https://meal.example.com"))

@@ -16,10 +16,13 @@ from meal_plan.runtime import (
     auto_approve_payments,
     demo_bot_id,
     demo_mode,
+    frontend_origin,
     frontend_url,
     frontend_url_is_valid,
     generation_worker_enabled,
+    guarded_local_dev_mode,
     lifecycle_worker_enabled,
+    loopback_frontend_url_is_valid,
     review_group_id,
     reviewer_ids,
 )
@@ -72,7 +75,26 @@ def _frontend_host_is_public_https() -> bool:
     if not frontend_url_is_valid(candidate):
         return False
     host = (urlparse(candidate).hostname or "").lower()
-    return host not in {"localhost", "127.0.0.1", "::1", "example.invalid"} and not host.endswith(".invalid")
+    if host in {"localhost", "127.0.0.1", "::1", "example.invalid"} or host.endswith(".invalid"):
+        return False
+
+    # Preserve the existing optional FRONTEND_ORIGIN contract, but never let a
+    # configured HTTP/loopback CORS origin pass a hosted/public frontend gate.
+    origin = frontend_origin()
+    if origin:
+        if not frontend_url_is_valid(origin):
+            return False
+        origin_host = (urlparse(origin).hostname or "").lower()
+        if origin_host in {"localhost", "127.0.0.1", "::1", "example.invalid"} or origin_host.endswith(".invalid"):
+            return False
+    return True
+
+
+def _local_dev_frontend_is_valid() -> bool:
+    return (
+        loopback_frontend_url_is_valid(frontend_url())
+        and loopback_frontend_url_is_valid(frontend_origin())
+    )
 
 
 def _migration_versions() -> set[str]:
@@ -109,7 +131,7 @@ def collect_release_findings(mode: str = "demo", *, full_demo: bool = False) -> 
     # creating a second contradictory configuration contract.
     for check in collect_checks(mode):
         status = check.status
-        if full_demo and check.code in {"FEATURE_FLAG", "FRONTEND_HTTPS", "GENERATION_WORKER", "LIFECYCLE_WORKER"} and status == "WARN":
+        if full_demo and check.code in {"FEATURE_FLAG", "FRONTEND_HTTPS", "LOCAL_DEV_FRONTEND", "GENERATION_WORKER", "LIFECYCLE_WORKER"} and status == "WARN":
             status = "BLOCK"
         findings.append(ReleaseFinding(f"P9_{check.code}", status, check.message))
 
@@ -150,11 +172,20 @@ def collect_release_findings(mode: str = "demo", *, full_demo: bool = False) -> 
     ))
 
     if production or full_demo:
-        findings.append(ReleaseFinding(
-            "PUBLIC_FRONTEND",
-            _status(_frontend_host_is_public_https()),
-            "Mini App frontend is a public HTTPS URL." if _frontend_host_is_public_https() else "A real public HTTPS MEAL_PLAN_FRONTEND_URL is required for the Telegram Mini App journey.",
-        ))
+        if not production and guarded_local_dev_mode():
+            findings.append(ReleaseFinding(
+                "LOCAL_DEV_FRONTEND",
+                _status(_local_dev_frontend_is_valid()),
+                "Guarded localhost Mini App frontend enabled."
+                if _local_dev_frontend_is_valid()
+                else "Local dev requires HTTP loopback origins on port 5173 for MEAL_PLAN_FRONTEND_URL and FRONTEND_ORIGIN.",
+            ))
+        else:
+            findings.append(ReleaseFinding(
+                "PUBLIC_FRONTEND",
+                _status(_frontend_host_is_public_https()),
+                "Mini App frontend is a public HTTPS URL." if _frontend_host_is_public_https() else "A real public HTTPS MEAL_PLAN_FRONTEND_URL is required for the Telegram Mini App journey.",
+            ))
         findings.append(ReleaseFinding(
             "WORKERS_ON",
             _status(generation_worker_enabled() and lifecycle_worker_enabled()),
