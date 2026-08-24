@@ -9,12 +9,33 @@ from unittest.mock import patch
 
 from aiohttp import web
 
+from database.db import _encode_json, _init_connection
 from meal_plan.api import _authenticate
 from meal_plan.release_gate import collect_release_findings, release_report
 from meal_plan.runtime import demo_bot_id, demo_mode
 from scripts.meal_plan_acceptance import collect_acceptance
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class Phase10DatabaseJsonCodecTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pool_codec_decodes_json_and_jsonb_to_python_values(self):
+        calls = []
+
+        class Connection:
+            async def set_type_codec(self, type_name, **kwargs):
+                calls.append((type_name, kwargs))
+
+        await _init_connection(Connection())
+        self.assertEqual([name for name, _kwargs in calls], ["json", "jsonb"])
+        for _name, kwargs in calls:
+            self.assertEqual(kwargs["decoder"]('{"answers":{"age":30}}'), {"answers": {"age": 30}})
+            self.assertEqual(kwargs["format"], "text")
+
+    def test_json_encoder_preserves_existing_serialized_repository_writes(self):
+        serialized = '{"age":30}'
+        self.assertEqual(_encode_json(serialized), serialized)
+        self.assertEqual(json.loads(_encode_json({"age": 30})), {"age": 30})
 
 
 class Phase10PublicAccessGateTests(unittest.IsolatedAsyncioTestCase):

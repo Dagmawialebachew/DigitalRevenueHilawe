@@ -1,8 +1,29 @@
 # db.py
 import asyncpg
+import json
 import logging
 from typing import Optional, Any, Dict, List
 from asyncpg import Pool
+
+
+def _encode_json(value: Any) -> str:
+    """Support both existing pre-serialized writes and native Python values."""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+async def _init_connection(conn) -> None:
+    # asyncpg returns json/jsonb as strings by default. The application-level
+    # repository contract uses Python dict/list values throughout.
+    for type_name in ("json", "jsonb"):
+        await conn.set_type_codec(
+            type_name,
+            schema="pg_catalog",
+            encoder=_encode_json,
+            decoder=json.loads,
+            format="text",
+        )
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
@@ -241,7 +262,8 @@ class Database:
                 self.dsn,
                 min_size=1,
                 max_size=10,
-                statement_cache_size=0
+                statement_cache_size=0,
+                init=_init_connection,
             )
             logging.info("Connected to PostgreSQL")
 
