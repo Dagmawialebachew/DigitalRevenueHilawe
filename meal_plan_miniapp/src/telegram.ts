@@ -5,7 +5,6 @@ export type TelegramWebApp = {
   close?: () => void
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
-  requestFullscreen?: () => void
   HapticFeedback?: {
     impactOccurred?: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
     selectionChanged?: () => void
@@ -32,11 +31,6 @@ export function initializeTelegramShell(): TelegramWebApp | null {
   app.expand()
   app.setHeaderColor?.('#f7f4ed')
   app.setBackgroundColor?.('#f7f4ed')
-  try {
-    app.requestFullscreen?.()
-  } catch {
-    // Fullscreen availability varies by Telegram client/version. It is optional.
-  }
   return app
 }
 

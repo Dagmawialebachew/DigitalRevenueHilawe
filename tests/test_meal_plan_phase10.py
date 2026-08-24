@@ -250,6 +250,22 @@ class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
         package = (ROOT / "meal_plan_miniapp" / "package.json").read_text(encoding="utf-8")
         self.assertIn('"version": "1.0.0"', package)
 
+    def test_telegram_layout_reserves_content_safe_area_without_forcing_fullscreen(self):
+        telegram = (ROOT / "meal_plan_miniapp" / "src" / "telegram.ts").read_text(encoding="utf-8")
+        styles = (ROOT / "meal_plan_miniapp" / "src" / "styles.css").read_text(encoding="utf-8")
+        self.assertNotIn("requestFullscreen", telegram)
+        self.assertIn("--tg-content-safe-area-inset-top", styles)
+        self.assertIn("top: var(--app-safe-top)", styles)
+
+    def test_mobile_coach_hero_keeps_photo_and_caption_in_separate_flow_blocks(self):
+        styles = (ROOT / "meal_plan_miniapp" / "src" / "styles.css").read_text(encoding="utf-8")
+        image_rule = styles[styles.index(".coach-image-shell {"):styles.index(".coach-image-shell img")]
+        caption_rule = styles[styles.index(".coach-caption {"):styles.index(".coach-caption::before")]
+        self.assertIn("position: relative", image_rule)
+        self.assertIn("position: relative", caption_rule)
+        self.assertNotIn("position: absolute", image_rule)
+        self.assertNotIn("position: absolute", caption_rule)
+
     def test_phase10_adds_no_database_migration(self):
         versions = sorted(path.name for path in (ROOT / "database" / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
         self.assertEqual(versions, ["0001_meal_plan_core.sql", "0002_hilawe_nutrition_dataset.sql"])
