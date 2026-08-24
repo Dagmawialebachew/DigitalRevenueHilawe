@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
 
 from aiohttp import web
 import aiohttp_cors
@@ -11,6 +12,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeCha
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from config import settings
+from database.migrations.runner import apply_migrations
 from app_context import bot, dp, db
 from middlewares.language import LanguageMiddleware
 from middlewares.throttling_middleware import ThrottlingMiddleware
@@ -26,6 +28,15 @@ from Survey.price_results import router as price_survey_router
 from Survey.community_survey import router as community_survey_router
 from community.daily_missions import router as missions_router, daily_mission_loop
 from scheduler.product_feedback import router as product_feedback_router
+from meal_plan.entry import router as meal_plan_entry_router
+from meal_plan.health_review import router as meal_plan_health_review_router
+from meal_plan.payment import router as meal_plan_payment_router
+from meal_plan.review import router as meal_plan_review_router
+from meal_plan.followup import router as meal_plan_followup_router
+from meal_plan.generation.worker import generation_worker_loop
+from meal_plan.lifecycle import meal_plan_lifecycle_worker_loop
+from meal_plan.runtime import generation_worker_enabled, lifecycle_worker_enabled
+from meal_plan.api import setup_meal_plan_routes
 # from community.club_expiry import club_expiry_loop
 
 
@@ -33,6 +44,32 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+
+def _env_true(name: str, default: bool = True) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def run_meal_plan_migrations() -> None:
+    """Apply versioned meal-plan migrations before any future meal routes run.
+
+    Phase 1 migrations are additive-only and do not modify legacy workout,
+    product, payment, or user tables. Set MEAL_PLAN_RUN_MIGRATIONS=false as
+    an emergency deployment escape hatch.
+    """
+    if not _env_true("MEAL_PLAN_RUN_MIGRATIONS", True):
+        logging.warning("Meal-plan DB migrations disabled by environment")
+        return
+
+    migration_dir = Path(__file__).resolve().parent / "database" / "migrations"
+    applied = await apply_migrations(settings.DATABASE_URL, migration_dir)
+    if applied:
+        logging.info("Applied meal-plan DB migrations: %s", ", ".join(applied))
+    else:
+        logging.info("Meal-plan DB migrations already current")
 
 # --- Dispatcher middlewares and routers ---
 dp.message.middleware(ThrottlingMiddleware(message_interval=0.8))
@@ -54,6 +91,11 @@ dp.include_router(broadcast_router)
 dp.include_router(missions_router)
 dp.include_router(one_message_broadcast_router)
 dp.include_router(product_feedback_router)
+dp.include_router(meal_plan_entry_router)
+dp.include_router(meal_plan_health_review_router)
+dp.include_router(meal_plan_payment_router)
+dp.include_router(meal_plan_review_router)
+dp.include_router(meal_plan_followup_router)
 
 
 for c in all_comm_routers:
@@ -100,7 +142,8 @@ async def set_commands(bot: Bot, admin_ids: list[int], lang: str = "EN"):
 async def on_startup(bot: Bot):
     logging.info("🚀 Initializing Coach Hilawe Engine...")
     await db.connect()
-    await db.setup()  # run schema if needed
+    await db.setup()  # legacy schema remains unchanged
+    await run_meal_plan_migrations()
     await set_commands(bot, settings.ADMIN_IDS)
 
 
@@ -161,6 +204,10 @@ async def create_app() -> web.Application:
     # Register admin API routes (aiohttp style)
     setup_admin_routes(app)
 
+    # Meal Plan Mini App bootstrap/auth routes. The endpoints themselves honor
+    # MEAL_PLAN_ENABLED, so adding the routes does not expose the feature when off.
+    setup_meal_plan_routes(app)
+
     # If you have other API groups (like asbeza), register them here:
     # from handlers.asbeza_api import setup_asbeza_routes
     # setup_asbeza_routes(app)
@@ -203,6 +250,10 @@ async def create_app() -> web.Application:
         await on_startup(bot)               # DB connect + setup
         asyncio.create_task(scheduler_loop(bot, db))
         asyncio.create_task(daily_mission_loop(bot, db))
+        if generation_worker_enabled():
+            asyncio.create_task(generation_worker_loop(bot, db))
+        if lifecycle_worker_enabled():
+            asyncio.create_task(meal_plan_lifecycle_worker_loop(bot, db))
 #         asyncio.create_task(
 #     club_expiry_loop(bot, db)
 # )
@@ -219,6 +270,7 @@ async def create_app() -> web.Application:
 async def start_polling():
     await db.connect()
     await db.setup()
+    await run_meal_plan_migrations()
     await set_commands(bot, settings.ADMIN_IDS)
 
     # If you have scheduled jobs, start them here (scheduler.start())
@@ -229,6 +281,10 @@ async def start_polling():
     # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
 
     await bot.delete_webhook(drop_pending_updates=True)
+    if generation_worker_enabled():
+        asyncio.create_task(generation_worker_loop(bot, db))
+    if lifecycle_worker_enabled():
+        asyncio.create_task(meal_plan_lifecycle_worker_loop(bot, db))
     try:
         await dp.start_polling(bot)
     finally:

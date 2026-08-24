@@ -1,5 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from meal_plan.runtime import meal_plan_enabled
 
 def main_menu(lang: str) -> ReplyKeyboardMarkup:
     # Use Builder for better flexibility
@@ -8,6 +9,10 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
     # Primary Actions
     builder.button(text="📦 My Plan" if lang == "EN" else "📦 የእኔ እቅድ")
     builder.button(text="💳 Unlock Plan" if lang == "EN" else "💳 እቅዴን ክፈት")
+
+    # Meal Plan is feature-flagged so the production bot stays unchanged until enabled.
+    if meal_plan_enabled():
+        builder.button(text="🥗 Meal Plan" if lang == "EN" else "🥗 የምግብ ፕላን")
     
     # Secondary Actions
     builder.button(text="⚙️ Settings" if lang == "EN" else "⚙️ ማስተካከያ")

@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     tesseract-ocr \
     tesseract-ocr-eng \
+    fonts-noto-core \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*

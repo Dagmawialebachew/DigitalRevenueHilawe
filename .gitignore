@@ -9,6 +9,7 @@ lerna-debug.log*
 node_modules
 dist
 env
+docs
 dist-ssr
 *.local
 
@@ -22,8 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.demo
 *.db 
 *.sqlite
+.phase_backups/
+__pycache__/
+*.py[cod]
+
 
 # Database
 crushconnect.db
+# Meal Plan generated artifacts
+artifacts/
