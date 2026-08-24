@@ -282,11 +282,12 @@ function ChoiceStep({ title, body, options, selected, onSelect, disabled }: { ti
 
 function AgeStep(ctx: RenderContext) {
   const [age, setAge] = useState(num(ctx.answers.age, 25))
+  const valid = validNumber(age, 10, 100) && Number.isInteger(age)
   return (
     <>
       <QuestionHeader title={ctx.text.ageTitle} body={ctx.text.ageBody} />
       <NumberCard value={age} onChange={(value) => setAge(Math.round(value))} min={10} max={100} suffix={ctx.text.years} />
-      <button className="primary-button tall" disabled={ctx.saving} onClick={() => ctx.commit({ age }, 'SEX')}>{ctx.text.continue} →</button>
+      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ age }, 'SEX')}>{ctx.text.continue} →</button>
     </>
   )
 }
@@ -306,6 +307,7 @@ function SexStep(ctx: RenderContext) {
 function BodyStep(ctx: RenderContext) {
   const [height, setHeight] = useState(num(ctx.answers.height_cm, 170))
   const [weight, setWeight] = useState(num(ctx.answers.current_weight_kg, 70))
+  const valid = validNumber(height, 100, 250) && Number.isInteger(height) && validNumber(weight, 25, 350)
   return (
     <>
       <QuestionHeader title={ctx.text.bodyTitle} body={ctx.text.bodyBody} />
@@ -313,7 +315,7 @@ function BodyStep(ctx: RenderContext) {
         <CompactNumber label={ctx.text.height} value={height} onChange={setHeight} min={100} max={250} suffix="cm" step={1} />
         <CompactNumber label={ctx.text.currentWeight} value={weight} onChange={setWeight} min={25} max={350} suffix="kg" step={0.5} />
       </div>
-      <button className="primary-button tall" disabled={ctx.saving} onClick={() => ctx.commit({ height_cm: height, current_weight_kg: weight }, 'GOAL')}>{ctx.text.continue} →</button>
+      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ height_cm: height, current_weight_kg: weight }, 'GOAL')}>{ctx.text.continue} →</button>
     </>
   )
 }
@@ -321,12 +323,13 @@ function BodyStep(ctx: RenderContext) {
 function TargetStep(ctx: RenderContext) {
   const current = num(ctx.answers.current_weight_kg, 70)
   const [target, setTarget] = useState(num(ctx.answers.target_weight_kg, current))
+  const valid = validNumber(target, 25, 350)
   return (
     <>
       <QuestionHeader title={ctx.text.targetTitle} body={ctx.text.targetBody} />
       <NumberCard value={target} onChange={setTarget} min={25} max={350} suffix="kg" step={0.5} />
       <div className="current-reference"><span>{ctx.text.currentWeight}</span><strong>{current} kg</strong></div>
-      <button className="primary-button tall" disabled={ctx.saving} onClick={() => ctx.commit({ target_weight_kg: target }, 'ACTIVITY')}>{ctx.text.continue} →</button>
+      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ target_weight_kg: target }, 'ACTIVITY')}>{ctx.text.continue} →</button>
     </>
   )
 }
@@ -450,13 +453,48 @@ function YesNo({ value, onChange, text, disabled = false, large = false }: { val
   return <div className={`yes-no ${large ? 'large' : ''}`}><button disabled={disabled} className={value === false ? 'selected' : ''} onClick={() => onChange(false)}>{text.no}</button><button disabled={disabled} className={value === true ? 'selected yes' : ''} onClick={() => onChange(true)}>{text.yes}</button></div>
 }
 
+function validNumber(value: number, min: number, max: number): boolean {
+  return Number.isFinite(value) && value >= min && value <= max
+}
+
+function parseNumberDraft(raw: string): number {
+  const normalized = raw.replace(',', '.')
+  if (!normalized || normalized === '.') return Number.NaN
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
+function useNumberDraft(initialValue: number, onChange: (value: number) => void) {
+  const [draft, setDraft] = useState(String(initialValue))
+
+  function type(raw: string) {
+    if (!/^\d*(?:[.,]\d*)?$/.test(raw)) return
+    setDraft(raw)
+    onChange(parseNumberDraft(raw))
+  }
+
+  function setNumeric(value: number) {
+    const rounded = Math.round(value * 100) / 100
+    setDraft(String(rounded))
+    onChange(rounded)
+  }
+
+  return { draft, type, setNumeric }
+}
+
 function NumberCard({ value, onChange, min, max, suffix, step = 1 }: { value: number; onChange: (value: number) => void; min: number; max: number; suffix: string; step?: number }) {
-  function update(next: number) { onChange(Math.min(max, Math.max(min, Math.round(next * 100) / 100))) }
-  return <div className="number-card"><button onClick={() => update(value - step)}>−</button><label><input type="number" min={min} max={max} step={step} value={value} onChange={(event: { target: { value: string } }) => update(Number(event.target.value || min))} /><span>{suffix}</span></label><button onClick={() => update(value + step)}>+</button></div>
+  const input = useNumberDraft(value, onChange)
+  function update(delta: number) {
+    const current = parseNumberDraft(input.draft)
+    const base = Number.isFinite(current) ? current : min
+    input.setNumeric(Math.min(max, Math.max(min, base + delta)))
+  }
+  return <div className="number-card"><button type="button" onClick={() => update(-step)}>−</button><label><input type="text" inputMode={step < 1 ? 'decimal' : 'numeric'} pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'} value={input.draft} onFocus={(event) => event.currentTarget.select()} onChange={(event) => input.type(event.target.value)} /><span>{suffix}</span></label><button type="button" onClick={() => update(step)}>+</button></div>
 }
 
 function CompactNumber({ label, value, onChange, min, max, suffix, step }: { label: string; value: number; onChange: (value: number) => void; min: number; max: number; suffix: string; step: number }) {
-  return <label className="compact-number"><span>{label}</span><div><input type="number" min={min} max={max} step={step} value={value} onChange={(event: { target: { value: string } }) => onChange(Math.min(max, Math.max(min, Number(event.target.value || min))))} /><small>{suffix}</small></div></label>
+  const input = useNumberDraft(value, onChange)
+  return <label className="compact-number"><span>{label}</span><div><input type="text" inputMode={step < 1 ? 'decimal' : 'numeric'} pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'} value={input.draft} onFocus={(event) => event.currentTarget.select()} onChange={(event) => input.type(event.target.value)} /><small>{suffix}</small></div></label>
 }
 
 function chapterIndex(step: Step): number {

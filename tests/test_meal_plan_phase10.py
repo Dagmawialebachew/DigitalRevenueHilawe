@@ -266,6 +266,17 @@ class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
         self.assertNotIn("position: absolute", image_rule)
         self.assertNotIn("position: absolute", caption_rule)
 
+    def test_language_switch_does_not_remount_active_intake_flows(self):
+        app = (ROOT / "meal_plan_miniapp" / "src" / "App.tsx").read_text(encoding="utf-8")
+        self.assertIn("key={state.data.intake.public_id}", app)
+        self.assertNotIn("public_id}-${language}", app)
+
+    def test_measurement_inputs_keep_a_text_draft_instead_of_clamping_each_keystroke(self):
+        intake = (ROOT / "meal_plan_miniapp" / "src" / "IntakeFlow.tsx").read_text(encoding="utf-8")
+        self.assertIn("function useNumberDraft", intake)
+        self.assertIn('inputMode={step < 1 ? \'decimal\' : \'numeric\'}', intake)
+        self.assertNotIn("Number(event.target.value || min)", intake)
+
     def test_phase10_adds_no_database_migration(self):
         versions = sorted(path.name for path in (ROOT / "database" / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
         self.assertEqual(versions, ["0001_meal_plan_core.sql", "0002_hilawe_nutrition_dataset.sql"])

@@ -181,7 +181,7 @@ export default function App() {
 
       {state.status === 'ready' && !state.data.order && !state.data.intake.country_required && ['COUNTRY_REQUIRED','INTAKE_IN_PROGRESS'].includes(state.data.intake.state) && (
         <IntakeFlow
-          key={`${state.data.intake.public_id}-${language}`}
+          key={state.data.intake.public_id}
           initData={state.initData}
           language={language}
           firstName={state.data.user.first_name}
@@ -202,7 +202,7 @@ export default function App() {
 
       {state.status === 'ready' && !state.data.order && ['PROFILE_READY','CHECKOUT_READY'].includes(state.data.intake.state) && (
         <ProfileCheckoutFlow
-          key={`${state.data.intake.public_id}-${language}-phase4`}
+          key={`${state.data.intake.public_id}-phase4`}
           initData={state.initData}
           language={language}
           firstName={state.data.user.first_name}
