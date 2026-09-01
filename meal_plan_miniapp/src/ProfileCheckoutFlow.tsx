@@ -44,8 +44,10 @@ const text = {
     startBody: 'እያንዳንዱ ፕላን ከመላኩ በፊት ይገመገማል። ስለዚህ የመጀመሪያው ቀን ከነገ ጀምሮ ሊሆን ይችላል።',
     tomorrow: 'ነገ', nextMonday: 'ቀጣይ ሰኞ', chooseDate: 'ሌላ ቀን ይምረጡ',
     durationTitle: 'ፕላኑን ለስንት ቀን ይፈልጋሉ?',
-    durationBody: 'ሁሉም አማራጮች በእርስዎ መረጃ ላይ የተመሰረቱ ናቸው። 14 እና 30 ቀን እቅዶች የ7 ቀን ዋና መዋቅሩን ከተዘጋጁ የምግብ ለውጦች (swaps) ጋር ይዞራሉ።',
-    d7: '7 ቀን', d14: '14 ቀን', d30: '30 ቀን',
+    durationBody: 'ሁሉም አማራጮች በእርስዎ መረጃ ላይ የተመሰረቱ ናቸው። 14 እና 30 ቀን እቅዶች የ7 ቀን ዋና መዋቅሩን ከተዘጋጁ የምግብ ለውጦች (swaps) እና የወቅታዊ ጾም ድጋፍ ጋር በተዋቀረ መንገድ ያዞራሉ።',
+    d7: '7 ቀን', d7Sub: 'የ1 ሳምንት ዋና መዋቅር',
+    d14: '14 ቀን', d14Sub: 'የ2 ሳምንት ተዘዋዋሪ + Swaps',
+    d30: '30 ቀን', d30Sub: 'የ4 ሳምንት ሙሉ ስርዓት + ጾም',
     serviceTitle: 'የ30 ቀን ፕላንዎን እንዴት ይፈልጋሉ?',
     serviceBody: 'መደበኛው ፕላን አንድ የተገመገመ የ30 ቀን ስርዓት ይሰጣል። Follow-Up ደግሞ በየሳምንቱ አጭር check-in እና አስፈላጊ ሲሆን ማስተካከያ ያካትታል።',
     planOnly: 'Meal Plan', followUp: 'Meal Plan + Follow-Up',
@@ -71,8 +73,10 @@ const text = {
     startBody: 'Every plan is reviewed before release, so the earliest selectable start is tomorrow.',
     tomorrow: 'Tomorrow', nextMonday: 'Next Monday', chooseDate: 'Choose another date',
     durationTitle: 'How long should we prepare your plan for?',
-    durationBody: 'Every option is personalized. The 14- and 30-day products rotate the core 7-day structure with planned swaps rather than pretending every day must be completely unrelated.',
-    d7: '7 days', d14: '14 days', d30: '30 days',
+    durationBody: 'Every option is fully personalized. The 14- and 30-day systems use a structured rotation with smart swaps and seasonal fasting support rather than unguided guesswork.',
+    d7: '7 days', d7Sub: '1-Week Foundation',
+    d14: '14 days', d14Sub: '2-Week Rotation + Swaps',
+    d30: '30 days', d30Sub: '4-Week System + Fasting Support',
     serviceTitle: 'How would you like your 30-day plan?',
     serviceBody: 'The standard plan gives you one reviewed 30-day system. Follow-Up adds short weekly check-ins and adjustments when needed.',
     planOnly: 'Meal Plan', followUp: 'Meal Plan + Follow-Up',
@@ -300,7 +304,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       <div className="duration-grid">{([7,14,30] as const).map((days) => {
         const p = prices.find((item) => item.duration_days === days && item.service_type === 'PLAN')
         return <button key={days} className={config.duration_days === days ? 'selected featured' : ''} onClick={() => setConfig({ ...config, duration_days: days, service_type: 'PLAN' })}>
-          <span>{days === 7 ? t.d7 : days === 14 ? t.d14 : t.d30}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(p)}</strong><small>{days === 7 ? 'CORE WEEK' : days === 14 ? '2-WEEK ROTATION' : 'FULL MONTH SYSTEM'}</small>
+          <span>{days === 7 ? t.d7 : days === 14 ? t.d14 : t.d30}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(p)}</strong><small>{days === 7 ? t.d7Sub : days === 14 ? t.d14Sub : t.d30Sub}</small>
         </button>
       })}</div>
       <FlowButtons back={() => go('START')} next={() => go(config.duration_days === 30 ? 'SERVICE' : 'SUMMARY')} backText={t.back} nextText={t.continue} />

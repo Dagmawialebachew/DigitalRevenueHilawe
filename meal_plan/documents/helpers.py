@@ -20,6 +20,13 @@ def artifact_basename(plan_public_id: str, client_name: str, version_number: int
     return f"{plan}-{client}-V{int(version_number)}"
 
 
+def client_artifact_filename(client_name: str, duration_days: int, version_number: int, ext: str = "pdf") -> str:
+    cleaned_name = re.sub(r"[^\w]+", "_", str(client_name).strip()).strip("_")
+    safe_name = cleaned_name or "Client"
+    clean_ext = ext.lstrip(".")
+    return f"{safe_name}_Meal_Plan_{int(duration_days)}_Days_V{int(version_number)}.{clean_ext}"
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -29,13 +36,18 @@ def sha256_file(path: Path) -> str:
 
 
 def local_food_name(food_id: str, default_name: str, language: str) -> str:
-    if str(language).upper() != "AM" or not food_id:
-        return default_name
-    row = load_dataset().food_by_id.get(food_id)
-    if not row:
-        return default_name
-    local = str(row.get("Local / Amharic") or "").strip()
-    return local or default_name
+    from meal_plan.glossary import get_food_name
+    return get_food_name(food_id, default_name, language)
+
+
+def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
+    from meal_plan.glossary import get_recipe_name
+    return get_recipe_name(recipe_id, default_name, language)
+
+
+def local_category_name(category: str, language: str) -> str:
+    from meal_plan.glossary import get_category_name
+    return get_category_name(category, language)
 
 
 def rounded(value: Any, digits: int = 0) -> str:

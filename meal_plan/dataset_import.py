@@ -4,7 +4,9 @@ import json
 from datetime import date
 from typing import Any
 
+from meal_plan.calibration import RECIPE_CALIBRATIONS
 from meal_plan.generation.dataset import HilaweDataset, load_dataset
+from meal_plan.glossary import get_category_name, get_food_name, get_recipe_name, get_slot_name
 
 
 def _b(v: Any) -> bool:
@@ -33,15 +35,20 @@ async def import_hilawe_dataset(pool, dataset: HilaweDataset | None = None) -> d
     async with pool.acquire() as conn:
         async with conn.transaction():
             for r in ds.foods:
+                fid = str(r.get("Food ID") or "")
+                name_en = get_food_name(fid, str(r.get("Food Name") or ""), "EN")
+                name_am = get_food_name(fid, str(r.get("Local / Amharic") or ""), "AM")
+                cat_am = get_category_name(str(r.get("Category") or ""), "AM")
                 await conn.execute("""
                     INSERT INTO nutrition_foods(
-                      food_id,food_name,local_name,category,fasting_allowed,fish_item,availability,budget_level,
+                      food_id,food_name,local_name,food_name_en,food_name_am,category,category_am,fasting_allowed,fish_item,availability,budget_level,
                       standard_portion_g,unit,familiar_measure,kcal_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,
                       fibre_per_100g,exchange_group,allergen_tags,source_method,source_url,data_quality,active,yield_conversion,
                       dataset_version,source_payload,updated_at)
-                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,NOW())
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb,NOW())
                     ON CONFLICT(food_id) DO UPDATE SET
-                      food_name=EXCLUDED.food_name,local_name=EXCLUDED.local_name,category=EXCLUDED.category,
+                      food_name=EXCLUDED.food_name,local_name=EXCLUDED.local_name,food_name_en=EXCLUDED.food_name_en,food_name_am=EXCLUDED.food_name_am,
+                      category=EXCLUDED.category,category_am=EXCLUDED.category_am,
                       fasting_allowed=EXCLUDED.fasting_allowed,fish_item=EXCLUDED.fish_item,availability=EXCLUDED.availability,
                       budget_level=EXCLUDED.budget_level,standard_portion_g=EXCLUDED.standard_portion_g,unit=EXCLUDED.unit,
                       familiar_measure=EXCLUDED.familiar_measure,kcal_per_100g=EXCLUDED.kcal_per_100g,
@@ -51,30 +58,38 @@ async def import_hilawe_dataset(pool, dataset: HilaweDataset | None = None) -> d
                       source_url=EXCLUDED.source_url,data_quality=EXCLUDED.data_quality,active=EXCLUDED.active,
                       yield_conversion=EXCLUDED.yield_conversion,dataset_version=EXCLUDED.dataset_version,
                       source_payload=EXCLUDED.source_payload,updated_at=NOW()
-                """, r.get("Food ID"),r.get("Food Name"),r.get("Local / Amharic"),r.get("Category"),_b(r.get("Fasting Allowed")),
-                    _b(r.get("Fish Item")),r.get("Availability"),r.get("Budget Level"),r.get("Standard Portion g"),r.get("Unit"),
-                    r.get("Familiar Measure"),r.get("kcal / 100 g"),r.get("Protein / 100 g"),r.get("Carbs / 100 g"),r.get("Fat / 100 g"),
-                    r.get("Fibre / 100 g"),r.get("Exchange Group"),r.get("Allergen Tags"),r.get("Source / Method"),r.get("Source URL"),
-                    r.get("Data Quality"),_b(r.get("Active")),r.get("Yield Conversion") or 1,version,_payload(r))
+                """, fid, name_en, name_am, name_en, name_am, r.get("Category"), cat_am, _b(r.get("Fasting Allowed")),
+                    _b(r.get("Fish Item")), r.get("Availability"), r.get("Budget Level"), r.get("Standard Portion g"), r.get("Unit"),
+                    r.get("Familiar Measure"), r.get("kcal / 100 g"), r.get("Protein / 100 g"), r.get("Carbs / 100 g"), r.get("Fat / 100 g"),
+                    r.get("Fibre / 100 g"), r.get("Exchange Group"), r.get("Allergen Tags"), r.get("Source / Method"), r.get("Source URL"),
+                    r.get("Data Quality"), _b(r.get("Active")), r.get("Yield Conversion") or 1, version, _payload(r))
             counts["foods"] = len(ds.foods)
 
             for r in ds.recipes:
+                rid = str(r.get("Recipe ID") or "")
+                rec_en = get_recipe_name(rid, str(r.get("Recipe Name") or ""), "EN")
+                rec_am = get_recipe_name(rid, str(r.get("Local Name") or ""), "AM")
+                cal = RECIPE_CALIBRATIONS.get(rid, {})
+                status = cal.get("calibration_status") or r.get("Calibration Status") or "CALIBRATED"
+                src_method = cal.get("source_method") or r.get("Source / Method") or "HILAWE_KITCHEN_CALIBRATION_V2"
                 await conn.execute("""
-                  INSERT INTO nutrition_recipes(recipe_id,recipe_name,local_name,fasting,fish,meal_role,yield_g,serving_g,kcal_per_serving,
-                    protein_g,carbs_g,fat_g,fibre_g,ingredients_summary,method,allergens,source_method,calibration_status,recipe_version,
+                  INSERT INTO nutrition_recipes(recipe_id,recipe_name,local_name,recipe_name_en,recipe_name_am,fasting,fish,meal_role,yield_g,serving_g,kcal_per_serving,
+                    protein_g,carbs_g,fat_g,fibre_g,ingredients_summary,method,allergens,source_method,calibration_status,calibration_data,recipe_version,
                     active,dataset_version,source_payload,updated_at)
-                  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,NOW())
+                  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23,$24,$25::jsonb,NOW())
                   ON CONFLICT(recipe_id) DO UPDATE SET recipe_name=EXCLUDED.recipe_name,local_name=EXCLUDED.local_name,
+                    recipe_name_en=EXCLUDED.recipe_name_en,recipe_name_am=EXCLUDED.recipe_name_am,
                     fasting=EXCLUDED.fasting,fish=EXCLUDED.fish,meal_role=EXCLUDED.meal_role,yield_g=EXCLUDED.yield_g,
                     serving_g=EXCLUDED.serving_g,kcal_per_serving=EXCLUDED.kcal_per_serving,protein_g=EXCLUDED.protein_g,
                     carbs_g=EXCLUDED.carbs_g,fat_g=EXCLUDED.fat_g,fibre_g=EXCLUDED.fibre_g,ingredients_summary=EXCLUDED.ingredients_summary,
                     method=EXCLUDED.method,allergens=EXCLUDED.allergens,source_method=EXCLUDED.source_method,
-                    calibration_status=EXCLUDED.calibration_status,recipe_version=EXCLUDED.recipe_version,active=EXCLUDED.active,
+                    calibration_status=EXCLUDED.calibration_status,calibration_data=EXCLUDED.calibration_data,
+                    recipe_version=EXCLUDED.recipe_version,active=EXCLUDED.active,
                     dataset_version=EXCLUDED.dataset_version,source_payload=EXCLUDED.source_payload,updated_at=NOW()
-                """, r.get("Recipe ID"),r.get("Recipe Name"),r.get("Local Name"),_b(r.get("Fasting")),_b(r.get("Fish")),r.get("Meal Role"),
-                    r.get("Yield g") or 1,r.get("Serving g"),r.get("kcal / Serving"),r.get("Protein g"),r.get("Carbs g"),r.get("Fat g"),
-                    r.get("Fibre g"),r.get("Ingredients Summary"),r.get("Method"),r.get("Allergens"),r.get("Source / Method"),
-                    r.get("Calibration Status"),r.get("Version"),_b(r.get("Active")),version,_payload(r))
+                """, rid, rec_en, rec_am, rec_en, rec_am, _b(r.get("Fasting")), _b(r.get("Fish")), r.get("Meal Role"),
+                    r.get("Yield g") or 1, r.get("Serving g"), r.get("kcal / Serving"), r.get("Protein g"), r.get("Carbs g"), r.get("Fat g"),
+                    r.get("Fibre g"), r.get("Ingredients Summary"), r.get("Method"), r.get("Allergens"), src_method,
+                    status, json.dumps(cal, ensure_ascii=False), r.get("Version") or "2.0", _b(r.get("Active")), version, _payload(r))
             counts["recipes"] = len(ds.recipes)
 
             for r in ds.recipe_ingredients:
@@ -158,3 +173,34 @@ async def import_hilawe_dataset(pool, dataset: HilaweDataset | None = None) -> d
                     r.get("Owner"),r.get("Notes"),version,_payload(r))
             counts["settings"] = len(ds.settings_rows)
     return counts
+
+
+async def _main() -> None:
+    import argparse
+    import os
+    import asyncpg
+
+    parser = argparse.ArgumentParser(description="Import Coach Hilawe nutrition dataset into PostgreSQL")
+    parser.add_argument("--dsn", default=None, help="PostgreSQL DSN; defaults to DATABASE_URL")
+    args = parser.parse_args()
+
+    dsn = args.dsn or os.getenv("DATABASE_URL", "")
+    if not dsn:
+        print("Error: DATABASE_URL environment variable or --dsn argument is required.")
+        return
+
+    print(f"Connecting to database...")
+    pool = await asyncpg.create_pool(dsn)
+    try:
+        print("Importing bilingual foods, calibrated recipes, templates, and fasting rules...")
+        counts = await import_hilawe_dataset(pool)
+        print("Import complete! Summary:")
+        for table, count in counts.items():
+            print(f"  • {table}: {count} records")
+    finally:
+        await pool.close()
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(_main())

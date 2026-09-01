@@ -240,19 +240,34 @@ class DaySolver:
                 energy[spec.label]=[candidate("T004",30),candidate("T003",30)] if spec.source_slot=="Snack" else [candidate("T001",14),candidate("V020",100)]
             fill("kcal",energy,1.0)
 
-        warnings=[]
-        variances={
-            "kcal":(totals["kcal"]-target["kcal"])/target["kcal"],
-            "protein":(totals["protein"]-target["protein"])/target["protein"],
-            "carbs":(totals["carbs"]-target["carbs"])/target["carbs"],
-            "fat":(totals["fat"]-target["fat"])/target["fat"],
+        warnings = []
+        variances = {
+            "kcal": (totals["kcal"] - target["kcal"]) / target["kcal"],
+            "protein": (totals["protein"] - target["protein"]) / target["protein"],
+            "carbs": (totals["carbs"] - target["carbs"]) / target["carbs"],
+            "fat": (totals["fat"] - target["fat"]) / target["fat"],
         }
-        if not (abs(variances["kcal"])<=0.03 and abs(variances["protein"])<=0.10 and abs(variances["carbs"])<=0.10 and abs(variances["fat"])<=0.15):
+        if totals["protein"] < target["protein"] * 0.95:
+            warnings.append(
+                f"Daily protein ({totals['protein']:.1f}g) fell below 95% floor target ({target['protein']:.1f}g)."
+            )
+        legume_ids = {"P001", "P002", "P003", "P004", "P005", "P006", "P007", "P008"}
+        daily_legume_g = sum(v.get(fid, 0.0) for fid in legume_ids for v in food_by_slot.values())
+        if daily_legume_g > 550.0:
+            warnings.append(
+                f"High daily legume volume ({daily_legume_g:.0f}g cooked); balance with grains/tubers recommended for digestive comfort."
+            )
+        if totals["fibre"] > 65.0:
+            warnings.append(
+                f"High daily fiber volume ({totals['fibre']:.1f}g); balance with lower-fiber starches recommended for GI tolerance."
+            )
+
+        if not (abs(variances["kcal"]) <= 0.03 and abs(variances["protein"]) <= 0.10 and abs(variances["carbs"]) <= 0.10 and abs(variances["fat"]) <= 0.15):
             warnings.append("Daily targets were not reached within practical portion caps; coach review/tuning required.")
-        for spec,_ in selected:
-            if meal_state[spec.label]["kcal"] > target["kcal"]*spec.kcal_cap_fraction+1:
+        for spec, _ in selected:
+            if meal_state[spec.label]["kcal"] > target["kcal"] * spec.kcal_cap_fraction + 1:
                 warnings.append(f"{spec.label} exceeds the practical energy cap.")
-            if mass_by_slot[spec.label] > spec.mass_cap_g+1:
+            if mass_by_slot[spec.label] > spec.mass_cap_g + 1:
                 warnings.append(f"{spec.label} exceeds the practical food-volume cap.")
         return DaySolution(
             scale=scale, extras=extras, warnings=list(dict.fromkeys(warnings)),

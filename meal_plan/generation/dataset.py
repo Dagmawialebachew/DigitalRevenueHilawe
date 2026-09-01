@@ -76,7 +76,7 @@ class HilaweDataset:
         }
 
 
-def load_dataset(path: str | Path | None = None) -> HilaweDataset:
+def load_dataset(path: str | Path | None = None, *, apply_calibration: bool = False) -> HilaweDataset:
     source = Path(path) if path else DATASET_PATH
     raw = json.loads(source.read_text(encoding="utf-8"))
     required = {
@@ -90,10 +90,54 @@ def load_dataset(path: str | Path | None = None) -> HilaweDataset:
     for key in ("foods", "recipes", "recipe_ingredients", "templates", "template_components", "exchange_groups"):
         if key in expected and int(expected[key]) != len(raw[key]):
             raise ValueError(f"Hilawe dataset count mismatch for {key}")
+
+    if not apply_calibration:
+        return HilaweDataset(
+            meta=raw["meta"],
+            foods=tuple(raw["foods"]),
+            recipes=tuple(raw["recipes"]),
+            recipe_ingredients=tuple(raw["recipe_ingredients"]),
+            templates=tuple(raw["templates"]),
+            template_components=tuple(raw["template_components"]),
+            exchange_groups=tuple(raw["exchange_groups"]),
+            fasting_calendar=tuple(raw["fasting_calendar"]),
+            settings_rows=tuple(raw["settings"]),
+        )
+
+    from meal_plan.calibration import RECIPE_CALIBRATIONS
+    from meal_plan.glossary import FOOD_GLOSSARY, RECIPE_GLOSSARY
+
+    enriched_foods = []
+    for f in raw["foods"]:
+        fid = str(f.get("Food ID") or "")
+        if fid in FOOD_GLOSSARY:
+            en, am = FOOD_GLOSSARY[fid]
+            row = dict(f)
+            row["Food Name"] = en
+            row["Local / Amharic"] = am
+            enriched_foods.append(row)
+        else:
+            enriched_foods.append(f)
+
+    enriched_recipes = []
+    for r in raw["recipes"]:
+        rid = str(r.get("Recipe ID") or "")
+        row = dict(r)
+        if rid in RECIPE_GLOSSARY:
+            en, am = RECIPE_GLOSSARY[rid]
+            row["Recipe Name"] = en
+            row["Local Name"] = am
+        if rid in RECIPE_CALIBRATIONS:
+            cal = RECIPE_CALIBRATIONS[rid]
+            row["Calibration Status"] = cal.get("calibration_status", "CALIBRATED")
+            row["Source / Method"] = cal.get("source_method", "HILAWE_KITCHEN_CALIBRATION_V2")
+            row["Version"] = cal.get("recipe_version", "2.0")
+        enriched_recipes.append(row)
+
     return HilaweDataset(
         meta=raw["meta"],
-        foods=tuple(raw["foods"]),
-        recipes=tuple(raw["recipes"]),
+        foods=tuple(enriched_foods),
+        recipes=tuple(enriched_recipes),
         recipe_ingredients=tuple(raw["recipe_ingredients"]),
         templates=tuple(raw["templates"]),
         template_components=tuple(raw["template_components"]),

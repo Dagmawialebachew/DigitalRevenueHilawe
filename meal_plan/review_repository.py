@@ -5,6 +5,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from meal_plan.documents import DocumentContext, render_client_pdf
+from meal_plan.documents.helpers import client_artifact_filename, review_warning_lines, sha256_file
+from meal_plan.documents.storage import version_output_dir
 from meal_plan.repository import ConcurrentUpdate, RecordNotFound
 from meal_plan.followup_policy import decide_revision
 
@@ -324,10 +327,29 @@ class MealPlanReviewRepository:
                 json.dumps(metadata or {}, ensure_ascii=False, separators=(",", ":")),
             )
 
-    async def approve_version(self, plan_version_id: int, reviewer_id: int):
+    async def approve_version(
+        self,
+        plan_version_id: int,
+        reviewer_id: int,
+        override_reason: str | None = None,
+    ):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                version = await conn.fetchrow("SELECT * FROM meal_plan_versions WHERE id=$1 FOR UPDATE", plan_version_id)
+                version = await conn.fetchrow(
+                    """
+                    SELECT v.*, o.user_id, o.public_id AS order_public_id, o.state AS order_state,
+                           o.duration_days, o.service_type, o.meals_per_day, o.start_date, o.ends_on,
+                           o.region, o.country_name, o.currency, o.amount,
+                           i.language, i.answers, i.nutrition_profile, u.full_name, u.username
+                    FROM meal_plan_versions v
+                    JOIN meal_orders o ON o.id=v.order_id
+                    JOIN meal_intakes i ON i.id=o.intake_id
+                    LEFT JOIN users u ON u.telegram_id=o.user_id
+                    WHERE v.id=$1
+                    FOR UPDATE OF v, o
+                    """,
+                    plan_version_id,
+                )
                 if not version:
                     raise RecordNotFound("Plan version not found")
                 order = await conn.fetchrow("SELECT * FROM meal_orders WHERE id=$1 FOR UPDATE", version["order_id"])
@@ -348,6 +370,61 @@ class MealPlanReviewRepository:
                 )
                 if int(artifact_count or 0) != 2:
                     raise ConcurrentUpdate("Both DOCX and PDF artifacts are required before approval")
+
+                plan_json = version.get("plan_json")
+                if isinstance(plan_json, str):
+                    plan_json = json.loads(plan_json)
+                elif not isinstance(plan_json, dict):
+                    plan_json = {}
+
+                # Check for blocking review warnings (e.g. uncalibrated recipes, practical warnings)
+                warnings = review_warning_lines(plan_json) if plan_json else []
+                if warnings and not (override_reason and str(override_reason).strip()):
+                    warning_summary = " | ".join(warnings[:3])
+                    raise ValueError(
+                        f"Cannot approve plan with unresolved review warnings without an explicit override reason: {warning_summary}"
+                    )
+
+                # Option A: Compile clean client PDF upon approval (for generated plans)
+                if plan_json and version.get("source") != "MANUAL_REPLACEMENT":
+                    name = str(version.get("full_name") or "Meal Plan Client")
+                    plan_public_id = f"MP-{version['order_id']:06d}"
+                    duration_days = int(version.get("duration_days") or 7)
+                    version_num = int(version["version_number"])
+                    answers = dict(version.get("answers") or {})
+                    nutrition_profile = dict(version.get("nutrition_profile") or {})
+                    doc_context = DocumentContext(
+                        client_name=name,
+                        plan_public_id=plan_public_id,
+                        version_number=version_num,
+                        language=str(version.get("language") or "AM"),
+                        status="APPROVED",
+                        client_profile={
+                            "current_weight_kg": answers.get("current_weight_kg"),
+                            "target_weight_kg": answers.get("target_weight_kg"),
+                            "goal": answers.get("primary_goal"),
+                        },
+                        hydration_target_l=nutrition_profile.get("hydration_target_l"),
+                    )
+                    out_dir = version_output_dir(plan_public_id, version_num)
+                    client_filename = client_artifact_filename(name, duration_days, version_num, "pdf")
+                    client_pdf_path = out_dir / client_filename
+                    render_client_pdf(plan_json, doc_context, client_pdf_path)
+
+                    clean_sha256 = sha256_file(client_pdf_path)
+                    clean_size = client_pdf_path.stat().st_size
+                    await conn.execute(
+                        """
+                        UPDATE meal_plan_artifacts
+                        SET storage_key=$2, original_filename=$3, content_sha256=$4, byte_size=$5, telegram_file_id=NULL
+                        WHERE plan_version_id=$1 AND artifact_type='PDF'
+                        """,
+                        plan_version_id,
+                        str(client_pdf_path.resolve()),
+                        client_filename,
+                        clean_sha256,
+                        clean_size,
+                    )
 
                 previous_current = order.get("current_plan_version_id")
                 version = await conn.fetchrow(
@@ -390,13 +467,20 @@ class MealPlanReviewRepository:
                         """,
                         order["id"], plan_version_id,
                     )
+
+                review_metadata: dict[str, Any] = {"in_place_revision": in_place_revision}
+                if override_reason:
+                    review_metadata["override_reason"] = str(override_reason).strip()
+                    review_metadata["overridden_warnings"] = warnings
+
                 await conn.execute(
                     """
-                    INSERT INTO meal_plan_reviews(plan_version_id,reviewer_telegram_id,action,metadata)
-                    VALUES($1,$2,'APPROVE',$3::jsonb)
+                    INSERT INTO meal_plan_reviews(plan_version_id,reviewer_telegram_id,action,notes,metadata)
+                    VALUES($1,$2,'APPROVE',$3,$4::jsonb)
                     """,
                     plan_version_id, reviewer_id,
-                    json.dumps({"in_place_revision": in_place_revision}),
+                    override_reason if override_reason else None,
+                    json.dumps(review_metadata, ensure_ascii=False, separators=(",", ":")),
                 )
                 return version, order
 

@@ -26,7 +26,7 @@ from reportlab.platypus import (
 )
 
 from .copy import copy_for, slot_label, day_label
-from .helpers import local_food_name, rounded, review_warning_lines
+from .helpers import local_food_name, local_category_name, local_recipe_name, rounded, review_warning_lines
 from .models import DocumentContext
 from .theme import BORDER, GRAPHITE, INK, IVORY, MUTED, ORANGE, ORANGE_SOFT, PAPER, resolve_pdf_fonts
 
@@ -114,7 +114,7 @@ def _p(text: Any, style: ParagraphStyle, fonts: dict[str, str], *, bold: bool = 
     return Paragraph(_fontify(text, fonts, bold=bold), style)
 
 
-def _footer_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str]):
+def _footer_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str], is_client_delivery: bool = False):
     canvas.saveState()
     canvas.setFillColor(_hex(IVORY))
     canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
@@ -122,13 +122,16 @@ def _footer_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, st
     canvas.rect(MARGIN_X, PAGE_H - 10.5 * mm, 18 * mm, 1.6 * mm, fill=1, stroke=0)
     canvas.setFillColor(_hex(GRAPHITE))
     canvas.setFont(fonts["latin_regular"], 6.4)
-    canvas.drawString(MARGIN_X, 8.5 * mm, f"HILAWE  ·  {context.plan_public_id}  ·  V{context.version_number}")
+    if is_client_delivery:
+        canvas.drawString(MARGIN_X, 8.5 * mm, f"COACH HILAWE  ·  V{context.version_number}")
+    else:
+        canvas.drawString(MARGIN_X, 8.5 * mm, f"HILAWE  ·  {context.plan_public_id}  ·  V{context.version_number}")
     canvas.setFont(fonts["latin_bold"], 6.4)
     canvas.drawRightString(PAGE_W - MARGIN_X, 8.5 * mm, f"{doc.page}")
     canvas.restoreState()
 
 
-def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str]):
+def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str], is_client_delivery: bool = False):
     canvas.saveState()
     canvas.setFillColor(_hex(IVORY))
     canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
@@ -155,7 +158,10 @@ def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str
         canvas.drawCentredString(155 * mm, 80 * mm, "H")
     canvas.setFillColor(_hex(GRAPHITE))
     canvas.setFont(fonts["latin_regular"], 6.5)
-    canvas.drawString(18 * mm, 12 * mm, f"{context.plan_public_id}  ·  V{context.version_number}")
+    if is_client_delivery:
+        canvas.drawString(18 * mm, 12 * mm, f"COACH HILAWE  ·  V{context.version_number}")
+    else:
+        canvas.drawString(18 * mm, 12 * mm, f"{context.plan_public_id}  ·  V{context.version_number}")
     canvas.restoreState()
 
 
@@ -178,9 +184,20 @@ def _metric_card(label: str, value: str, styles, fonts):
 
 def _meal_block(meal: dict[str, Any], language: str, styles, fonts):
     macros = meal.get("macros") or {}
+    c = copy_for(language)
+    meal_title = str(meal.get("meal_name") or "Meal")
+    recipe_ids = meal.get("recipe_ids") or []
+    if str(language).upper() == "AM":
+        if recipe_ids:
+            meal_title = local_recipe_name(recipe_ids[0], meal_title, language)
+        else:
+            items = meal.get("items") or []
+            if items:
+                meal_title = local_food_name(str(items[0].get("food_id") or ""), meal_title, language)
+
     content = [
         [_p(slot_label(str(meal.get("slot") or "Meal"), language).upper(), styles["slot"], fonts, bold=True)],
-        [_p(str(meal.get("meal_name") or "Meal"), styles["meal_title"], fonts, bold=True)],
+        [_p(meal_title, styles["meal_title"], fonts, bold=True)],
         [_p(
             f"{rounded(macros.get('kcal'))} kcal  ·  P {rounded(macros.get('protein'))}g  ·  C {rounded(macros.get('carbs'))}g  ·  F {rounded(macros.get('fat'))}g",
             styles["small"], fonts,
@@ -197,7 +214,8 @@ def _meal_block(meal: dict[str, Any], language: str, styles, fonts):
     if exchanges and exchanges[0].get("options"):
         opt = exchanges[0]["options"][0]
         swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), language)
-        content.append([_p(f"SWAP  ·  {swap_name}  ·  {rounded(opt.get('exchange_weight_g'))} g", styles["swap"], fonts, bold=False)])
+        swap_label = c.get("swap", "SWAP")
+        content.append([_p(f"{swap_label}  ·  {swap_name}  ·  {rounded(opt.get('exchange_weight_g'))} g", styles["swap"], fonts, bold=False)])
     table = Table(content, colWidths=[171 * mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), _hex(PAPER)),
@@ -210,7 +228,13 @@ def _meal_block(meal: dict[str, Any], language: str, styles, fonts):
     return table
 
 
-def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str | Path) -> Path:
+def render_pdf(
+    plan: dict[str, Any],
+    context: DocumentContext,
+    output_path: str | Path,
+    *,
+    is_client_delivery: bool = False,
+) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fonts = _register_fonts()
@@ -225,8 +249,8 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
     frame = Frame(MARGIN_X, BOTTOM, PAGE_W - 2 * MARGIN_X, PAGE_H - TOP - BOTTOM, id="body")
     cover_frame = Frame(18 * mm, 22 * mm, 90 * mm, PAGE_H - 44 * mm, id="cover")
     doc.addPageTemplates([
-        PageTemplate("cover", [cover_frame], onPage=lambda can, d: _cover_canvas(can, d, context=context, fonts=fonts)),
-        PageTemplate("body", [frame], onPage=lambda can, d: _footer_canvas(can, d, context=context, fonts=fonts)),
+        PageTemplate("cover", [cover_frame], onPage=lambda can, d: _cover_canvas(can, d, context=context, fonts=fonts, is_client_delivery=is_client_delivery)),
+        PageTemplate("body", [frame], onPage=lambda can, d: _footer_canvas(can, d, context=context, fonts=fonts, is_client_delivery=is_client_delivery)),
     ])
 
     story = []
@@ -244,7 +268,10 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         _p(context.client_name, client_style, fonts, bold=True),
         _p(str((plan.get("profile_summary") or {}).get("goal") or "").replace("_", " ").title(), goal_style, fonts, bold=True),
         Spacer(1, 38 * mm),
-        _p(c["draft_banner"] if context.status != "APPROVED" else "APPROVED", styles["kicker"], fonts, bold=True),
+    ])
+    if not is_client_delivery:
+        story.append(_p(c["draft_banner"] if context.status != "APPROVED" else "APPROVED", styles["kicker"], fonts, bold=True))
+    story.extend([
         NextPageTemplate("body"),
         PageBreak(),
     ])
@@ -314,7 +341,10 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         ("LEFTPADDING", (0,0), (-1,-1), 4*mm), ("RIGHTPADDING", (0,0), (-1,-1), 4*mm),
         ("TOPPADDING", (0,0), (-1,-1), 3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 3*mm),
     ]))
-    story += [rot_table, Spacer(1, 5*mm), _p("7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration.", styles["body"], fonts)]
+    if not is_client_delivery:
+        story += [rot_table, Spacer(1, 5*mm), _p("7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration.", styles["body"], fonts)]
+    else:
+        story += [rot_table]
     fasting_dates = [str(row.get("date")) for row in rotation if row.get("core_source") == "FASTING"]
     if fasting_dates:
         label = "የወቅታዊ ጾም መዋቅር የሚጠቀሙ ቀናት: " if context.normalized_language == "AM" else "Dates using the seasonal fasting core: "
@@ -330,9 +360,10 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
         story += [_p(f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g", styles["body"], fonts), Spacer(1, 2*mm)]
         for meal in day.get("meals") or []:
             story += [KeepTogether([_meal_block(meal, context.normalized_language, styles, fonts), Spacer(1, 2.3*mm)])]
-        warnings = day.get("warnings") or []
-        if warnings:
-            story.append(_p(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]), styles["swap"], fonts))
+        if not is_client_delivery:
+            warnings = day.get("warnings") or []
+            if warnings:
+                story.append(_p(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]), styles["swap"], fonts))
         story.append(PageBreak())
 
     fasting_core = plan.get("fasting_core_week") or []
@@ -348,11 +379,13 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
 
     # Grocery
     story += [_p("04", styles["kicker"], fonts, bold=True), _p(c["grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
-    grocery_rows = [[_p("Item", styles["white"], fonts, bold=True), _p("Category", styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
+    item_header = c.get("item", "Item")
+    cat_header = c.get("category", "Category")
+    grocery_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(cat_header, styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
     for row in plan.get("grocery") or []:
         grocery_rows.append([
             _p(local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language), styles["small"], fonts),
-            _p(str(row.get("category") or ""), styles["micro"], fonts),
+            _p(local_category_name(str(row.get("category") or ""), context.normalized_language), styles["micro"], fonts),
             _p(f"{rounded(row.get('planned_grams'))} g", styles["micro"], fonts),
             _p(str(row.get("purchase_quantity") or ""), styles["micro"], fonts),
         ])
@@ -367,7 +400,7 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
     fasting_grocery = plan.get("fasting_grocery") or []
     if fasting_grocery:
         story += [_p("04F", styles["kicker"], fonts, bold=True), _p(c["fasting_grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
-        fasting_rows = [[_p("Item", styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
+        fasting_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
         for row in fasting_grocery:
             fasting_rows.append([
                 _p(local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language), styles["small"], fonts),
@@ -388,28 +421,30 @@ def render_pdf(plan: dict[str, Any], context: DocumentContext, output_path: str 
     if context.hydration_target_l:
         hydration_style = ParagraphStyle("hydr", fontName=fonts["latin_bold"], fontSize=25, leading=28, textColor=_hex(ORANGE), spaceAfter=5)
         story.append(_p(f"{context.hydration_target_l:.1f} L / day", hydration_style, fonts, bold=True))
-    story += [_p(c["hydration_general"], styles["body"], fonts), Spacer(1, 5*mm), _p(c["exact"] + " + " + c["familiar"], styles["h2"], fonts, bold=True), _p(c["portion_note"], styles["body"], fonts), Spacer(1, 8*mm), _p(c["coach_note"], styles["kicker"], fonts, bold=True), _p(c["coach_text"], ParagraphStyle("coach", fontName=fonts["latin_bold"], fontSize=11.5, leading=16, textColor=_hex(INK)), fonts, bold=True), PageBreak()]
+    story += [_p(c["hydration_general"], styles["body"], fonts), Spacer(1, 5*mm), _p(c["exact"] + " + " + c["familiar"], styles["h2"], fonts, bold=True), _p(c["portion_note"], styles["body"], fonts), Spacer(1, 8*mm), _p(c["coach_note"], styles["kicker"], fonts, bold=True), _p(c["coach_text"], ParagraphStyle("coach", fontName=fonts["latin_bold"], fontSize=11.5, leading=16, textColor=_hex(INK)), fonts, bold=True)]
 
-    # Review page
-    story += [_p("06", styles["kicker"], fonts, bold=True), _p(c["review"], styles["h1"], fonts, bold=True), _p(c["review_required"], ParagraphStyle("reviewwarn", fontName=fonts["latin_bold"], fontSize=9.5, leading=12, textColor=_hex(ORANGE), spaceAfter=8), fonts, bold=True)]
-    values = [[c["plan_id"], context.plan_public_id], [c["version"], f"V{context.version_number}"], [c["status"], context.status], [c["engine"], str(plan.get("engine_version") or "-")], [c["dataset"], str(plan.get("dataset_version") or "-")]]
-    if context.approved_by:
-        values.append([c["approved_by"], context.approved_by])
-    if context.approved_at:
-        values.append([c["approved_at"], context.approved_at])
-    review_table = Table([[_p(a, styles["small"], fonts, bold=True), _p(b, styles["small"], fonts)] for a,b in values], colWidths=[45*mm, 126*mm])
-    review_table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (0,-1), _hex(ORANGE_SOFT)), ("BACKGROUND", (1,0), (1,-1), _hex(PAPER)),
-        ("BOX", (0,0), (-1,-1), .5, _hex(BORDER)), ("INNERGRID", (0,0), (-1,-1), .35, _hex(BORDER)),
-        ("LEFTPADDING", (0,0), (-1,-1), 3*mm), ("RIGHTPADDING", (0,0), (-1,-1), 3*mm),
-        ("TOPPADDING", (0,0), (-1,-1), 2.3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 2.3*mm),
-    ]))
-    story.append(review_table)
-    warnings = review_warning_lines(plan)
-    if warnings:
-        story += [Spacer(1, 6*mm), _p(c["warning"], styles["kicker"], fonts, bold=True)]
-        for warning in warnings:
-            story.append(_p("• " + warning, styles["small"], fonts))
+    if not is_client_delivery:
+        story.append(PageBreak())
+        # Review page
+        story += [_p("06", styles["kicker"], fonts, bold=True), _p(c["review"], styles["h1"], fonts, bold=True), _p(c["review_required"], ParagraphStyle("reviewwarn", fontName=fonts["latin_bold"], fontSize=9.5, leading=12, textColor=_hex(ORANGE), spaceAfter=8), fonts, bold=True)]
+        values = [[c["plan_id"], context.plan_public_id], [c["version"], f"V{context.version_number}"], [c["status"], context.status], [c["engine"], str(plan.get("engine_version") or "-")], [c["dataset"], str(plan.get("dataset_version") or "-")]]
+        if context.approved_by:
+            values.append([c["approved_by"], context.approved_by])
+        if context.approved_at:
+            values.append([c["approved_at"], context.approved_at])
+        review_table = Table([[_p(a, styles["small"], fonts, bold=True), _p(b, styles["small"], fonts)] for a,b in values], colWidths=[45*mm, 126*mm])
+        review_table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (0,-1), _hex(ORANGE_SOFT)), ("BACKGROUND", (1,0), (1,-1), _hex(PAPER)),
+            ("BOX", (0,0), (-1,-1), .5, _hex(BORDER)), ("INNERGRID", (0,0), (-1,-1), .35, _hex(BORDER)),
+            ("LEFTPADDING", (0,0), (-1,-1), 3*mm), ("RIGHTPADDING", (0,0), (-1,-1), 3*mm),
+            ("TOPPADDING", (0,0), (-1,-1), 2.3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 2.3*mm),
+        ]))
+        story.append(review_table)
+        warnings = review_warning_lines(plan)
+        if warnings:
+            story += [Spacer(1, 6*mm), _p(c["warning"], styles["kicker"], fonts, bold=True)]
+            for warning in warnings:
+                story.append(_p("• " + warning, styles["small"], fonts))
 
     doc.build(story)
     return path

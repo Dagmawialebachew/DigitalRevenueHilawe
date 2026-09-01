@@ -118,7 +118,22 @@ async def review_action(callback: types.CallbackQuery, db: Database):
 
         if action in {"approve", "deliver"}:
             if action == "approve":
-                version, order = await repo.approve_version(plan_version_id, callback.from_user.id)
+                try:
+                    version, order = await repo.approve_version(plan_version_id, callback.from_user.id)
+                except ValueError as exc:
+                    await callback.answer(str(exc)[:200], show_alert=True)
+                    try:
+                        await callback.message.reply(
+                            f"⚠️ <b>Approval Blocked:</b>\n{html.escape(str(exc))}\n\n"
+                            "To proceed:\n"
+                            "• Click <b>🔁 Generate Again</b> to regenerate\n"
+                            "• Click <b>📎 Replace Files</b> to upload corrected .docx and .pdf\n",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
+                    return
+
                 await callback.answer("Approved. Delivering to client…")
                 try:
                     await callback.message.edit_reply_markup(reply_markup=approved_keyboard(plan_version_id))

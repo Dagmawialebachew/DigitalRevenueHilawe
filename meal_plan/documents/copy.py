@@ -66,6 +66,8 @@ COPY = {
         "diet": "Dietary pattern",
         "fasting": "Fasting",
         "not_provided": "Not provided",
+        "item": "Item",
+        "category": "Category",
     },
     "AM": {
         "personalized": "የግል የምግብ ፕላን",
@@ -102,6 +104,8 @@ COPY = {
         "grocery_intro": "የግዢ መጠኖቹ የፕላን ግምቶች ናቸው። እንደ ፓኬጅ መጠን፣ የቤት አጠቃቀም እና ምርጫዎ ያስተካክሉ።",
         "buy": "የሚገዛ",
         "planned": "በፕላኑ",
+        "item": "የምግብ አይነት",
+        "category": "ምድብ",
         "portion_hydration": "የመጠን እና የውሃ መመሪያ",
         "hydration": "የቀን የውሃ መመሪያ",
         "hydration_general": "የአሰልጣኝ ህላዌ አሁን ያለው መመሪያ፦ በቀን 2-4 ሊትር ውሃ፤ እንደ አየር ሁኔታ፣ ልምምድ እና የግል ፍላጎት ይስተካከላል።",

@@ -187,14 +187,20 @@ def _generate_core_week(
         fish_slot = "Lunch" if fish_permitted and fasting_ordinal % 2 == 0 else ("Dinner" if fish_permitted else "")
         selected: list[tuple[SlotSpec, dict[str, Any]]] = []
         used_today: set[str] = set()
+        used_recipes_today: set[str] = set()
         for spec in slots:
             prefer_fish = spec.source_slot == fish_slot
             avoid_fish = fish_permitted and spec.source_slot in {"Lunch", "Dinner"} and spec.source_slot != fish_slot
             template = selector.choose(
-                fasting=template_fasting_mode, source_slot=spec.source_slot, day_index=d, exclude_today=used_today,
+                fasting=template_fasting_mode, source_slot=spec.source_slot, day_index=d,
+                exclude_today=used_today, exclude_recipes=used_recipes_today,
                 prefer_fish=prefer_fish, avoid_fish=avoid_fish, whole_food_first=fasting,
             )
-            used_today.add(str(template.get("Template ID")))
+            tid = str(template.get("Template ID"))
+            used_today.add(tid)
+            for comp in dataset.components_by_template.get(tid, []):
+                if str(comp.get("Item Type")) == "Recipe":
+                    used_recipes_today.add(str(comp.get("Item ID")))
             selected.append((spec, template))
         if fasting:
             fasting_ordinal += 1

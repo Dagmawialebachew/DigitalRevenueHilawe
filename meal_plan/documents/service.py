@@ -53,3 +53,12 @@ def render_plan_artifacts(
     })
     write_json(manifest_path, manifest)
     return RenderedArtifactSet(docx=docx_artifact, pdf=pdf_artifact, manifest_path=manifest_path)
+
+
+def render_client_pdf(
+    plan: dict[str, Any],
+    context: DocumentContext,
+    output_path: str | Path,
+) -> Path:
+    """Render an approved, clean client-facing PDF artifact."""
+    return render_pdf(plan, context, output_path, is_client_delivery=True)

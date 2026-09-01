@@ -60,6 +60,7 @@ class TemplateSelector:
         source_slot: str,
         day_index: int,
         exclude_today: set[str] | None = None,
+        exclude_recipes: set[str] | None = None,
         prefer_fish: bool = False,
         avoid_fish: bool = False,
         whole_food_first: bool = False,
@@ -77,6 +78,17 @@ class TemplateSelector:
             candidates = [t for t in candidates if str(t.get("Template ID")) not in exclude_today]
         if not candidates:
             raise ValueError(f"No safe {'fasting ' if fasting else ''}{source_slot} template matches this client")
+
+        if exclude_recipes:
+            non_duplicate = []
+            for t in candidates:
+                tid = str(t.get("Template ID") or "")
+                comps = self.dataset.components_by_template.get(tid, [])
+                recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
+                if not recipe_ids.intersection(exclude_recipes):
+                    non_duplicate.append(t)
+            if non_duplicate:
+                candidates = non_duplicate
 
         if prefer_fish:
             fish = [t for t in candidates if str(t.get("Fish Required")) == "Yes"]

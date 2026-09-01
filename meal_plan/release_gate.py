@@ -30,7 +30,7 @@ from scripts.meal_plan_readiness import collect_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_DATASET_VERSION = "HILAWE_MEAL_OS_V1.3_2026-08-17"
-EXPECTED_ENGINE_MIGRATIONS = {"0001", "0002", "0003"}
+EXPECTED_ENGINE_MIGRATIONS = {"0001", "0002", "0003", "0004"}
 
 
 @dataclass(frozen=True)
