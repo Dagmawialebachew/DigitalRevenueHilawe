@@ -3,16 +3,16 @@
 -- This migration records the fact that the manual naming cleanup was already applied
 -- directly in the Neon SQL editor for Coach Hilawe / Amharic strings.
 -- The SQL below is intentionally idempotent and safe to re-run.
-
 UPDATE nutrition_foods
-SET food_name_en = COALESCE(food_name_en, food_name_en),
-    food_name_am = COALESCE(food_name_am, food_name_am)
-WHERE 1 = 0;
+SET    food_name_en = COALESCE (food_name_en, food_name_en),
+       food_name_am = COALESCE (food_name_am, food_name_am)
+WHERE  1 = 0;
 
 UPDATE nutrition_recipes
-SET recipe_name_en = COALESCE(recipe_name_en, recipe_name_en),
-    recipe_name_am = COALESCE(recipe_name_am, recipe_name_am)
-WHERE 1 = 0;
+SET    recipe_name_en = COALESCE (recipe_name_en, recipe_name_en),
+       recipe_name_am = COALESCE (recipe_name_am, recipe_name_am)
+WHERE  1 = 0;
+
 
 -- The live DB fix for checksum drift must be done in Neon itself:
 -- UPDATE schema_migrations
