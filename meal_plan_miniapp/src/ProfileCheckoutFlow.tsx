@@ -153,7 +153,7 @@ function CalendarPicker({ value, min, language, onChange }: { value: string; min
       <button type="button" className={calendar === 'GREGORIAN' ? 'selected' : ''} onClick={() => setCalendar('GREGORIAN')}>Gregorian</button>
     </div>
     {calendar === 'ETHIOPIAN'
-      ? <EthiopicDayPicker {...common} numerals={language === 'AM' ? 'geez' : 'latn'} />
+      ? <EthiopicDayPicker {...common} numerals="latn" />
       : <GregorianDayPicker {...common} />}
     <div className="calendar-selection"><small>{language === 'AM' ? 'የተመረጠው ቀን' : 'SELECTED DATE'}</small><DualDate value={value} language={language} /></div>
   </div>
@@ -236,7 +236,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     return <section className="phase5-payment-stage">
       <div className="completion-mark">✓</div>
       <p className="eyebrow">PAYMENT · READY</p>
-      <h1>{language === 'AM' ? 'የክፍያ መመሪያዎ ወደ Telegram ተልኳል' : 'Your payment instructions are ready in Telegram'}</h1>
+      <h1>{language === 'AM' ? 'የክፍያ መመሪያዎ ወደ Telegram bot(@CoachHilaweBot) ተልኳል' : 'Your payment instructions are ready in Telegram'}</h1>
       <p className="lead">{language === 'AM' ? 'ከታች ካሉት CBE ወይም Abyssinia አካውንቶች ወደ አንዱ የተጠቀሰውን መጠን ያስተላልፉ። ከዚያ Telegram ውስጥ “Send receipt” ቁልፍን ተጭነው screenshot ይላኩ።' : 'Transfer the amount below to either CBE or Bank of Abyssinia. Then return to Telegram, tap “Send receipt,” and send a clear screenshot.'}</p>
       <div className="payment-amount-card"><small>{language === 'AM' ? 'የሚልኩት መጠን' : 'AMOUNT TO TRANSFER'}</small><strong>{settlement}</strong></div>
       <div className="bank-stack">{paymentResult.payment_accounts.map((bank) => <div className="bank-card" key={bank.code}><div><small>{bank.code}</small><strong>{bank.name}</strong></div><code>{bank.account}</code><span>{bank.holder}</span></div>)}</div>
