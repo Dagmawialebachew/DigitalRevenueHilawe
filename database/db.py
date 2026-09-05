@@ -180,7 +180,13 @@ CREATE TABLE IF NOT EXISTS system_metadata (
 
 ALTER TABLE payout_history 
 ADD COLUMN IF NOT EXISTS expense_note TEXT,
-ADD COLUMN IF NOT EXISTS entry_type TEXT DEFAULT 'payout';
+ADD COLUMN IF NOT EXISTS entry_type TEXT DEFAULT 'payout',
+ADD COLUMN IF NOT EXISTS products_gross NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS club_gross NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS club_stage VARCHAR(50) DEFAULT 'initial_60_40',
+ADD COLUMN IF NOT EXISTS club_cumulative_at_payout NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS infra_deductions NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS production_deductions NUMERIC DEFAULT 0;
 
 
 -- Table 1: Detailed ledger of club-specific billing transactions
@@ -374,6 +380,13 @@ class Database:
                 
                 if not row:
                     return None
+                
+                # Atomically flag the user as a paying customer
+                await conn.execute("""
+                    UPDATE users
+                    SET has_paid = TRUE
+                    WHERE telegram_id = $1
+                """, row['user_id'])
                 
                 # Get the PDF and User Language
                 return await conn.fetchrow("""

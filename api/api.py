@@ -463,184 +463,333 @@ async def get_user_testimonials(request: web.Request) -> web.Response:
         return web.json_response({"error": "internal_error"}, status=500)
 
 
-# --- Payouts & Separate Stream Financial Core -------------------------------
+# --- Payouts & Dual-Stream Financial Core (Contract Date: 2026-08-10) --------
 
 async def get_pending_payout_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/payouts/pending
-    Calculates operational trends while distinguishing between product collections and recurring club runs.
+    Calculates dual-stream settlement status governed by the Signed Partnership Agreement:
+      - Stream A (Digital Products): Fixed 70% Coach Hilawe / 30% Dagmawi Tewodros
+      - Stream B (Hilawe Transformation Club): 
+          * Initial Stage (< 50,000 ETB cumulative gross): 60% Coach / 40% Dagmawi
+          * Mature Stage (>= 50,000 ETB cumulative gross): 65% Coach / 35% Dagmawi
+      - Infrastructure Cap: 5,000 ETB/month (Section 5.1)
+      - Apportionment: Pro-rata deduction across active streams
     """
     db = request.app["db"]
     try:
-        # 1. Fetch payout reference checkpoint
+        # 1. Fetch latest payout reference checkpoint
         last_payout_ts = await db.fetchval(
             "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
         )
         last_payout_ts = last_payout_ts or datetime.min
 
-        # 2. Extract itemized Pending Balances (Product vs Club streams)
+        # 2. Extract itemized Pending Balances (Product vs Club streams) since checkpoint
         pending_row = await db.fetchrow("""
-    SELECT 
-        COALESCE((
-            SELECT SUM(amount) FROM payments 
-            WHERE status = 'approved' AND approved_at > $1
-        ), 0) as products_total,
-        COALESCE((
-            SELECT SUM(amount) FROM club_payments 
-            WHERE status = 'approved' AND processed_at > $1
-        ), 0) as club_total
-""", last_payout_ts)
+            SELECT 
+                COALESCE((
+                    SELECT SUM(amount) FROM payments 
+                    WHERE status = 'approved' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                ), 0) as products_total,
+                COALESCE((
+                    SELECT COUNT(*) FROM payments 
+                    WHERE status = 'approved' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                ), 0) as products_count,
+                COALESCE((
+                    SELECT SUM(amount) FROM club_payments 
+                    WHERE status = 'approved' AND (processed_at > $1 OR (processed_at IS NULL AND created_at > $1))
+                ), 0) as club_total,
+                COALESCE((
+                    SELECT COUNT(*) FROM club_payments 
+                    WHERE status = 'approved' AND (processed_at > $1 OR (processed_at IS NULL AND created_at > $1))
+                ), 0) as club_count
+        """, last_payout_ts)
         
         pending_products = Decimal(str(pending_row['products_total']))
+        pending_products_count = int(pending_row['products_count'])
         pending_club = Decimal(str(pending_row['club_total']))
-        pending_revenue_total = pending_products + pending_club
+        pending_club_count = int(pending_row['club_count'])
+        pending_gross_total = pending_products + pending_club
 
-        # 3. Calculate Itemized Lifetime KPIs
-        stats = await db.fetchrow("""
-    SELECT 
-        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_products_gross,
-        (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') as lt_club_gross,
-        (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
-        (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
-""")
-        
-        lt_products_gross = Decimal(str(stats['lt_products_gross']))
-        lt_club_gross = Decimal(str(stats['lt_club_gross']))
-        lt_gross_total = lt_products_gross + lt_club_gross
-        lt_burn = Decimal(str(stats['lt_burn']))
-        lt_paid = Decimal(str(stats['lt_paid']))
+        # 3. Cumulative All-Time Club Metrics for 50,000 ETB Milestone (Section 6.2)
+        club_stats = await db.fetchrow("""
+            SELECT 
+                COALESCE(SUM(amount), 0) as cumulative_gross,
+                COALESCE(COUNT(*), 0) as total_subscriptions
+            FROM club_payments 
+            WHERE status = 'approved'
+        """)
+        club_cumulative_all_time = Decimal(str(club_stats['cumulative_gross']))
+        club_target_milestone = Decimal('50000.00')
+        club_is_mature = club_cumulative_all_time >= club_target_milestone
+        club_stage = "mature_65_35" if club_is_mature else "initial_60_40"
+        club_coach_rate = Decimal('0.65') if club_is_mature else Decimal('0.60')
+        club_dag_rate = Decimal('0.35') if club_is_mature else Decimal('0.40')
+        club_progress_pct = min(Decimal('100'), (club_cumulative_all_time / club_target_milestone * 100)) if club_cumulative_all_time > 0 else Decimal('0')
 
-        # Compute accurate remaining cash reserves
-        net_profit_to_date = lt_gross_total - lt_burn - lt_paid
-
-        # 4. Tier System Verification (Based on combined cumulative efficiency volume)
-        cumulative_efficiency_net = lt_gross_total - lt_burn
-        tier_goal = Decimal('500000')
-        current_tier = 2 if cumulative_efficiency_net >= tier_goal else 1
-        tier_progress = min(Decimal('100'), (cumulative_efficiency_net / tier_goal * 100)) if cumulative_efficiency_net > 0 else Decimal('0')
-
-        # 5. Profit Performance Efficiency
-        efficiency = (cumulative_efficiency_net / lt_gross_total * 100) if lt_gross_total > 0 else 0
-
-        # 6. Gather Historical Data Coordinates
-        history_points = await db.fetch("""
-            SELECT net_profit, payout_date 
+        # 4. Monthly Operating Deductions Tracking (Uncapped actuals: servers, USD rates, product costs)
+        infra_stats = await db.fetchrow("""
+            SELECT 
+                COALESCE(SUM(operational_deductions), 0) as current_month_burn
             FROM payout_history 
+            WHERE entry_type = 'expense_only' 
+              AND payout_date >= DATE_TRUNC('month', NOW())
+        """)
+        current_month_burn = Decimal(str(infra_stats['current_month_burn']))
+
+        # 5. Unsettled Expenses logged since last payout
+        unsettled_burn_row = await db.fetchrow("""
+            SELECT COALESCE(SUM(operational_deductions), 0) as pending_burn
+            FROM payout_history
+            WHERE entry_type = 'expense_only' AND payout_date > $1
+        """, last_payout_ts)
+        pending_deductions = Decimal(str(unsettled_burn_row['pending_burn']))
+
+        # 6. Pro-Rata Apportionment of Pending Deductions
+        if pending_gross_total > 0 and pending_deductions > 0:
+            prod_ratio = pending_products / pending_gross_total
+            products_deductions = round(pending_deductions * prod_ratio, 2)
+            club_deductions = pending_deductions - products_deductions
+        else:
+            products_deductions = Decimal('0')
+            club_deductions = Decimal('0')
+
+        net_products = max(Decimal('0'), pending_products - products_deductions)
+        net_club = max(Decimal('0'), pending_club - club_deductions)
+
+        # 7. Exact Partner Splits (Digital Products: 70/30 | Club: 60/40 or 65/35)
+        prod_coach_share = round(net_products * Decimal('0.70'), 2)
+        prod_dag_share = net_products - prod_coach_share
+
+        club_coach_share = round(net_club * club_coach_rate, 2)
+        club_dag_share = net_club - club_coach_share
+
+        total_coach_payout = prod_coach_share + club_coach_share
+        total_dag_payout = prod_dag_share + club_dag_share
+        net_distributable_total = net_products + net_club
+
+        # 8. Lifetime Aggregates
+        lifetime_stats = await db.fetchrow("""
+            SELECT 
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_products_gross,
+                (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') as lt_club_gross,
+                (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
+                (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
+        """)
+        lt_products_gross = Decimal(str(lifetime_stats['lt_products_gross']))
+        lt_club_gross = Decimal(str(lifetime_stats['lt_club_gross']))
+        lt_gross_total = lt_products_gross + lt_club_gross
+        lt_burn = Decimal(str(lifetime_stats['lt_burn']))
+        lt_paid = Decimal(str(lifetime_stats['lt_paid']))
+        reserve_balance = lt_gross_total - lt_burn - lt_paid
+
+        # 9. Recent settlement trend points
+        history_points = await db.fetch("""
+            SELECT net_profit, coach_share, dagmawi_share, payout_date 
+            FROM payout_history 
+            WHERE entry_type = 'payout'
             ORDER BY payout_date DESC LIMIT 15
         """)
 
         return web.json_response({
-            "pending_revenue": float(pending_revenue_total),
-            "pending_products_revenue": float(pending_products),
-            "pending_club_revenue": float(pending_club),
-            "cumulative_profit": float(net_profit_to_date), 
+            # Unified Summary
+            "pending_revenue": float(pending_gross_total),
+            "pending_deductions": float(pending_deductions),
+            "net_distributable": float(net_distributable_total),
+            "coach_total_payout": float(total_coach_payout),
+            "dagmawi_total_payout": float(total_dag_payout),
+            "last_payout_at": last_payout_ts.isoformat() if isinstance(last_payout_ts, datetime) else str(last_payout_ts),
+
+            # Stream A: Digital Products (Fixed 70/30)
+            "products_stream": {
+                "gross": float(pending_products),
+                "count": pending_products_count,
+                "deductions": float(products_deductions),
+                "net": float(net_products),
+                "coach_rate": 0.70,
+                "dagmawi_rate": 0.30,
+                "coach_share": float(prod_coach_share),
+                "dagmawi_share": float(prod_dag_share),
+                "clause": "Section 6.1 (Fixed 70/30)"
+            },
+
+            # Stream B: Transformation Club (Community 60/40 -> 65/35)
+            "club_stream": {
+                "gross": float(pending_club),
+                "count": pending_club_count,
+                "deductions": float(club_deductions),
+                "net": float(net_club),
+                "stage": club_stage,
+                "coach_rate": float(club_coach_rate),
+                "dagmawi_rate": float(club_dag_rate),
+                "coach_share": float(club_coach_share),
+                "dagmawi_share": float(club_dag_share),
+                "cumulative_all_time": float(club_cumulative_all_time),
+                "target_milestone": float(club_target_milestone),
+                "progress_pct": float(round(club_progress_pct, 1)),
+                "clause": "Section 6.2 (Initial 60/40 until 50k ETB, then 65/35)"
+            },
+
+            # Operating Expenses (Uncapped actuals: servers, USD rates, product costs)
+            "operating_expenses": {
+                "current_month_burn": float(current_month_burn),
+                "pending_burn": float(pending_deductions),
+            },
+
+            # Lifetime Financial Health
             "lifetime_gross": float(lt_gross_total),
             "lifetime_products_gross": float(lt_products_gross),
             "lifetime_club_gross": float(lt_club_gross),
             "lifetime_burn": float(lt_burn),
-            "efficiency": float(round(efficiency, 1)),
-            "current_tier": current_tier,
-            "tier_progress": float(round(tier_progress, 1)),
-            "trend_data": [float(row['net_profit']) for row in reversed(history_points)],
+            "reserve_balance": float(reserve_balance),
+            "trend_data": [float(row['coach_share'] + row['dagmawi_share']) for row in reversed(history_points)],
             "trend_labels": [row['payout_date'].strftime('%m/%d') for row in reversed(history_points)]
         })
     except Exception:
-        LOG.exception("KPI Stats Logic Failure")
+        LOG.exception("Dual-Stream KPI Logic Failure")
         return web.json_response({"error": "sync_error"}, status=500)
 
 
 async def confirm_payout(request: web.Request) -> web.Response:
     """
     POST /api/admin/payouts/confirm
-    Processes distributions while distinctly auditing product vs club cashflow properties.
+    Settles distributions according to the August 10, 2026 Partnership Agreement:
+      - Accepts entry_type: 'payout' or 'expense_only'
+      - Validates monthly infrastructure cap (5,000 ETB) and 50/50 video production costs
+      - Records exact stream metrics (products_gross, club_gross, club_stage, club_cumulative_at_payout)
+      - Advances system_metadata 'last_payout_at' to NOW()
     """
     db = request.app["db"]
     try:
         data = await request.json()
         entry_type = data.get('entry_type', 'payout')
-        note = data.get('note', 'N/A')
-
-        # Accept isolated incoming values or fallback safely to uniform values
-        req_products = data.get('products_amount')
-        req_club = data.get('club_amount')
-        
-        if req_products is not None or req_club is not None:
-            products_amount = Decimal(str(req_products or 0))
-            club_amount = Decimal(str(req_club or 0))
-            total_gross_input = products_amount + club_amount
-        else:
-            total_gross_input = Decimal(str(data.get('amount', 0)))
-            # If uniform amount came through, treat it as general distribution
-            products_amount = total_gross_input 
-            club_amount = Decimal('0')
-
-        # 1. Access latest balancing context
-        stats = await db.fetchrow("""
-            SELECT 
-                (SELECT net_profit FROM payout_history ORDER BY payout_date DESC, id DESC LIMIT 1) as last_balance,
-                (SELECT COALESCE(SUM(gross_revenue), 0) FROM payout_history) as lifetime_gross
-        """)
-        
-        current_balance = Decimal(str(stats['last_balance'] or 0))
-        lifetime_gross = Decimal(str(stats['lifetime_gross'] or 0))
-
-        # 2. Dynamic Profit Distribution Ratios
-        tier = 2 if lifetime_gross >= 500000 else 1
-        coach_ratio = Decimal('0.70') if tier == 2 else Decimal('0.60')
-        dag_ratio = Decimal('0.30') if tier == 2 else Decimal('0.40')
+        note = data.get('note', 'Partnership Settlement')
 
         if entry_type == 'payout':
-            deductions_val = data.get('deductions') or 0
-            deductions = Decimal(str(deductions_val))
-            
-            gross_revenue = total_gross_input
-            operational_deductions = deductions
-            
-            # Divide net distributable amounts via calculated tier weights
-            distributable = gross_revenue - operational_deductions
-            coach_share = max(Decimal('0'), distributable * coach_ratio)
-            dag_share = max(Decimal('0'), distributable * dag_ratio)
-            
-            transaction_impact = -gross_revenue
-        else:
-            # Operational Expense
-            gross_revenue = Decimal('0')
-            products_amount = Decimal('0')
-            club_amount = Decimal('0')
-            operational_deductions = Decimal(str(data.get('amount', 0)))
-            coach_share = Decimal('0')
-            dag_share = Decimal('0')
-            
-            transaction_impact = -operational_deductions
+            last_payout_ts = await db.fetchval(
+                "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
+            )
+            last_payout_ts = last_payout_ts or datetime.min
 
-        # 3. Calculate target ledger change
-        new_running_balance = current_balance + transaction_impact
+            # Query unsettled approved amounts
+            pending_row = await db.fetchrow("""
+                SELECT 
+                    COALESCE((
+                        SELECT SUM(amount) FROM payments 
+                        WHERE status = 'approved' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                    ), 0) as products_total,
+                    COALESCE((
+                        SELECT SUM(amount) FROM club_payments 
+                        WHERE status = 'approved' AND (processed_at > $1 OR (processed_at IS NULL AND created_at > $1))
+                    ), 0) as club_total
+            """, last_payout_ts)
 
-        # 4. Write verified state changes to storage
-        # Note: If your payout_history table contains products_revenue and club_revenue columns, 
-        # append them directly to your insert instruction below.
-        async with db._pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute("""
-                    INSERT INTO payout_history 
-                    (gross_revenue, operational_deductions, net_profit, 
-                     coach_share, dagmawi_share, tier_applied, expense_note, entry_type)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                """, gross_revenue, operational_deductions, new_running_balance, 
-                    coach_share, dag_share, tier, note, entry_type)
-                
-                if entry_type == 'payout':
+            products_gross = Decimal(str(data.get('products_amount') if data.get('products_amount') is not None else pending_row['products_total']))
+            club_gross = Decimal(str(data.get('club_amount') if data.get('club_amount') is not None else pending_row['club_total']))
+            total_gross = products_gross + club_gross
+
+            deductions = Decimal(str(data.get('deductions', 0) or 0))
+
+            # Cumulative Club Milestone Check (Section 6.2)
+            club_stats = await db.fetchval("SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved'")
+            club_cumulative = Decimal(str(club_stats or 0))
+            is_mature = club_cumulative >= Decimal('50000.00')
+            club_stage = "mature_65_35" if is_mature else "initial_60_40"
+            club_coach_rate = Decimal('0.65') if is_mature else Decimal('0.60')
+            club_dag_rate = Decimal('0.35') if is_mature else Decimal('0.40')
+
+            # Pro-rata deduction distribution
+            if total_gross > 0 and deductions > 0:
+                prod_weight = products_gross / total_gross
+                prod_deduct = round(deductions * prod_weight, 2)
+                club_deduct = deductions - prod_deduct
+            else:
+                prod_deduct = Decimal('0')
+                club_deduct = Decimal('0')
+
+            net_products = max(Decimal('0'), products_gross - prod_deduct)
+            net_club = max(Decimal('0'), club_gross - club_deduct)
+
+            prod_coach_share = round(net_products * Decimal('0.70'), 2)
+            prod_dag_share = net_products - prod_coach_share
+
+            club_coach_share = round(net_club * club_coach_rate, 2)
+            club_dag_share = net_club - club_coach_share
+
+            coach_total_share = prod_coach_share + club_coach_share
+            dag_total_share = prod_dag_share + club_dag_share
+            net_distributable = net_products + net_club
+
+            async with db._pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("""
+                        INSERT INTO payout_history 
+                        (gross_revenue, operational_deductions, net_profit, 
+                         coach_share, dagmawi_share, tier_applied, expense_note, entry_type,
+                         products_gross, club_gross, club_stage, club_cumulative_at_payout,
+                         infra_deductions, production_deductions)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    """, total_gross, deductions, net_distributable,
+                        coach_total_share, dag_total_share, 2 if is_mature else 1,
+                        note, 'payout',
+                        products_gross, club_gross, club_stage, club_cumulative,
+                        deductions, Decimal('0'))
+
                     await conn.execute("""
                         INSERT INTO system_metadata (key, value_timestamp) 
                         VALUES ('last_payout_at', NOW())
                         ON CONFLICT (key) DO UPDATE SET value_timestamp = NOW()
                     """)
 
-        return web.json_response({
-            "status": "success", 
-            "new_balance": str(new_running_balance),
-            "impact": str(transaction_impact)
-        })
+            return web.json_response({
+                "status": "success",
+                "entry_type": "payout",
+                "gross_revenue": float(total_gross),
+                "deductions": float(deductions),
+                "net_distributable": float(net_distributable),
+                "coach_share": float(coach_total_share),
+                "dagmawi_share": float(dag_total_share),
+                "products_gross": float(products_gross),
+                "club_gross": float(club_gross),
+                "club_stage": club_stage
+            })
+
+        else:
+            # Operational Expense Logging (Section 5.1 / 5.2)
+            expense_category = data.get('category', 'infra')
+            raw_amount = Decimal(str(data.get('amount', 0)))
+
+            if expense_category == 'video_production':
+                # Section 5.2: 2,500 ETB per video, 50% (1,250 ETB) partnership, 50% Coach personal
+                partnership_deduction = round(raw_amount * Decimal('0.50'), 2)
+                note_suffix = f" [Video Production: {partnership_deduction} ETB from partnership, {raw_amount - partnership_deduction} ETB Coach personal]"
+                final_note = note + note_suffix
+            else:
+                partnership_deduction = raw_amount
+                final_note = note
+
+            async with db._pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("""
+                        INSERT INTO payout_history 
+                        (gross_revenue, operational_deductions, net_profit, 
+                         coach_share, dagmawi_share, tier_applied, expense_note, entry_type,
+                         products_gross, club_gross, club_stage, club_cumulative_at_payout,
+                         infra_deductions, production_deductions)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    """, Decimal('0'), partnership_deduction, Decimal('0'),
+                        Decimal('0'), Decimal('0'), 1,
+                        final_note, 'expense_only',
+                        Decimal('0'), Decimal('0'), 'initial_60_40', Decimal('0'),
+                        partnership_deduction if expense_category != 'video_production' else Decimal('0'),
+                        partnership_deduction if expense_category == 'video_production' else Decimal('0'))
+
+            return web.json_response({
+                "status": "success",
+                "entry_type": "expense_only",
+                "deduction_recorded": float(partnership_deduction),
+                "note": final_note
+            })
 
     except Exception:
         LOG.exception("CRITICAL_FINANCIAL_SYNC_ERROR")
@@ -651,7 +800,21 @@ async def get_payout_history(request: web.Request) -> web.Response:
     """GET /api/admin/payouts/history"""
     db = request.app["db"]
     try:
-        rows = await db.fetch("SELECT * FROM payout_history ORDER BY payout_date DESC LIMIT 50")
+        rows = await db.fetch("""
+            SELECT 
+                id, gross_revenue, operational_deductions, net_profit, 
+                coach_share, dagmawi_share, tier_applied, cumulative_profit_at_time, 
+                payout_date, expense_note, entry_type,
+                COALESCE(products_gross, 0) as products_gross,
+                COALESCE(club_gross, 0) as club_gross,
+                COALESCE(club_stage, 'initial_60_40') as club_stage,
+                COALESCE(club_cumulative_at_payout, 0) as club_cumulative_at_payout,
+                COALESCE(infra_deductions, 0) as infra_deductions,
+                COALESCE(production_deductions, 0) as production_deductions
+            FROM payout_history 
+            ORDER BY payout_date DESC, id DESC 
+            LIMIT 50
+        """)
         return web.json_response(records_to_list(rows))
     except Exception:
         LOG.exception("get_payout_history failed")
