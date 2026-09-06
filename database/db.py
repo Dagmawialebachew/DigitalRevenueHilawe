@@ -255,6 +255,9 @@ ON club_payments(payment_type);
 CREATE INDEX IF NOT EXISTS idx_club_subscriptions_renewal
 ON club_subscriptions(is_active, expires_at);
 
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS claimed_new_year_2019 BOOLEAN DEFAULT FALSE;
+
 """
 
 def _normalize_neon_dsn(dsn: str) -> str:
@@ -888,4 +891,23 @@ class Database:
 
     async def update_broadcast_stats(self, broadcast_id: int, sent: int, failed: int):
         await self._pool.execute("UPDATE broadcasts SET sent_count = $1, failed_count = $2 WHERE id = $3", sent, failed, broadcast_id)
+
+    async def record_new_year_claim(self, telegram_id: int, full_name: str = "", username: str = ""):
+        """Record that a user has claimed the 2019 New Year free transformation guide."""
+        if not self._pool:
+            return
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO users (telegram_id, full_name, username, claimed_new_year_2019)
+                VALUES ($1, $2, $3, TRUE)
+                ON CONFLICT (telegram_id) DO UPDATE
+                SET claimed_new_year_2019 = TRUE,
+                    full_name = CASE WHEN users.full_name IS NULL OR users.full_name = '' THEN EXCLUDED.full_name ELSE users.full_name END,
+                    username = CASE WHEN users.username IS NULL OR users.username = '' THEN EXCLUDED.username ELSE users.username END
+                """,
+                int(telegram_id),
+                full_name or "",
+                username or "",
+            )
 

@@ -132,9 +132,33 @@ async def process_language(callback: types.CallbackQuery, state: FSMContext, db:
     # Brief pause for dramatic effect
     await asyncio.sleep(0.3)
     
-    # 4. Move to the actual assessment (Gender Selection)
-    text = get_text(lang, "ask_gender")
-    await loading_msg.edit_text(text, reply_markup=kb.gender_markup(lang))
+    # 4. New Year 2019 Hook + Assessment Launch (Gender Selection)
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+
+    if lang == "AM":
+        welcome_text = (
+            "🇪🇹 <b>እንኳን ለ2019 አዲሱ ዓመት በሰላም አደረሳችሁ!</b> 🤝\n\n"
+            "ለ2019 አዲስ ዓመት ያዘጋጀሁላችሁን ልዩ የለውጥ መመሪያ ስጦታ አሁኑኑ ለመውሰድ <b>2019</b> ብለው ይጻፉ ወይም ከታች ያለውን ቁልፍ ይጫኑ👇\n\n"
+            "ወይም በቀጥታ ወደ ግል የ8-ሳምንት ስልጠና ምዘናዎ ይለፉ፦\n"
+            "<b>ጾታዎን ይምረጡ፦</b>"
+        )
+        builder.button(text="🎁 የ2019 ነፃ ስጦታዬን አሁኑኑ ላክልኝ", callback_data="claim_new_year_2019")
+        builder.button(text="👨 ወንድ", callback_data="gender_MALE")
+        builder.button(text="👩 ሴት", callback_data="gender_FEMALE")
+    else:
+        welcome_text = (
+            "🇪🇹 <b>Happy 2019 Ethiopian New Year!</b> 🤝\n\n"
+            "To claim your exclusive 2019 Transformation Guide gift, type <b>2019</b> or tap the button below👇\n\n"
+            "Or continue directly to your personalized 8-week assessment:\n"
+            "<b>Select your gender:</b>"
+        )
+        builder.button(text="🎁 Claim 2019 New Year Gift", callback_data="claim_new_year_2019")
+        builder.button(text="👨 Male", callback_data="gender_MALE")
+        builder.button(text="👩 Female", callback_data="gender_FEMALE")
+
+    builder.adjust(1, 2)
+    await loading_msg.edit_text(welcome_text, reply_markup=builder.as_markup(), parse_mode="HTML")
     await state.set_state(OnboardingStepping.gender)
     
     

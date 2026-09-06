@@ -1,3 +1,4 @@
+from .new_year import router as new_year
 from .onboarding import router as onboarding
 from .payment import router as payment
 from .dashboard import router as dashboard
@@ -8,6 +9,7 @@ from .verify import router as verify
 # The order here is critical for the Dispatcher
 all_routers = [
     admin,       # Admin first (highest priority)
+    new_year,    # New Year 2019 trigger (universal across all states)
     verify,
     onboarding,
     dashboard,
