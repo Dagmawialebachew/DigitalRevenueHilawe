@@ -36,3 +36,4 @@ crushconnect.db
 # Meal Plan generated artifacts
 artifacts/
 env_broken_backup/
+downloads/
