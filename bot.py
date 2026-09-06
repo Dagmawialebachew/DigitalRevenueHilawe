@@ -33,6 +33,7 @@ from meal_plan.health_review import router as meal_plan_health_review_router
 from meal_plan.payment import router as meal_plan_payment_router
 from meal_plan.review import router as meal_plan_review_router
 from meal_plan.followup import router as meal_plan_followup_router
+from meal_plan.admin_reset import router as meal_plan_admin_reset_router
 from meal_plan.generation.worker import generation_worker_loop
 from meal_plan.lifecycle import meal_plan_lifecycle_worker_loop
 from meal_plan.runtime import generation_worker_enabled, lifecycle_worker_enabled
@@ -96,6 +97,7 @@ dp.include_router(meal_plan_health_review_router)
 dp.include_router(meal_plan_payment_router)
 dp.include_router(meal_plan_review_router)
 dp.include_router(meal_plan_followup_router)
+dp.include_router(meal_plan_admin_reset_router)
 
 
 for c in all_comm_routers:
@@ -116,6 +118,7 @@ async def set_commands(bot: Bot, admin_ids: list[int], lang: str = "EN"):
     ]
     admin_commands_en = user_commands_en + [
         BotCommand(command="admin", description="🔐 Admin Panel"),
+        BotCommand(command="reset", description="🧹 Reset My Meal Plan Data (Test Fresh)"),
     ]
 
     user_commands_am = [
@@ -124,6 +127,7 @@ async def set_commands(bot: Bot, admin_ids: list[int], lang: str = "EN"):
     ]
     admin_commands_am = user_commands_am + [
         BotCommand(command="admin", description="🔐 የአስተዳደር ፓነል"),
+        BotCommand(command="reset", description="🧹 የምግብ ፕላን ዳታዬን አጥፋ (እንደ አዲስ ለመሞከር)"),
     ]
 
     try:
