@@ -35,21 +35,37 @@ PDF_PATH = ROOT / "assets" / "new_year_2019_guide.pdf"
 _CACHED_NEW_YEAR_FILE_ID: str | None = os.getenv("NEW_YEAR_FREE_PDF_FILE_ID")
 
 
-def get_new_year_caption(lang: str = "AM") -> str:
+def get_new_year_caption(lang: str = "AM", gender: str | None = None) -> str:
     if lang == "EN":
         return (
             "🇪🇹 <b>Happy 2019 Ethiopian New Year!</b>\n\n"
             "<i>“A new year isn't just about changing the calendar; it's about taking true ownership of your body and health.”</i> — <b>Coach Hilawe</b> 🤝\n\n"
             "🎁 Here is your exclusive <b>2019 Transformation Action Guide</b>. Download it below and start reading!"
         )
+    
+    gender_upper = (gender or "").upper()
+    if gender_upper == "FEMALE":
+        return (
+            "🇪🇹 <b>እንኳን ለ2019 አዲሱ ዓመት በሰላም አደረሰሽ!</b>\n\n"
+            "<i>“አዲስ ዓመት ማለት የቀን መቁጠሪያ መቀየር ብቻ አይደለም፤ ራስሽን የምትቀይሪበት እና ጤናሽን የምትረከቢበት ትክክለኛ ውሳኔ ነው።”</i> — <b>ኮች ህላዌ</b> 🤝\n\n"
+            "🎁 ለአዲሱ ዓመት በልዩ ሁኔታ ያዘጋጀሁልሽ <b>የ2019 የለውጥ መመሪያ</b> ይኸው ተልኮልሻል፤ አሁኑኑ አውርደሽ አንብቢው!"
+        )
+    elif gender_upper == "MALE":
+        return (
+            "🇪🇹 <b>እንኳን ለ2019 አዲሱ ዓመት በሰላም አደረሰህ!</b>\n\n"
+            "<i>“አዲስ ዓመት ማለት የቀን መቁጠሪያ መቀየር ብቻ አይደለም፤ ራስህን የምትቀይርበት እና ጤናህን የምትረከብበት ትክክለኛ ውሳኔ ነው።”</i> — <b>ኮች ህላዌ</b> 🤝\n\n"
+            "🎁 ለአዲሱ ዓመት በልዩ ሁኔታ ያዘጋጀሁልህ <b>የ2019 የለውጥ መመሪያ</b> ይኸው ተልኮልሃል፤ አሁኑኑ አውርደህ አንብበው!"
+        )
+    
+    # Polite / formal / gender-neutral honorific (respectful to all)
     return (
         "🇪🇹 <b>እንኳን ለ2019 አዲሱ ዓመት በሰላም አደረሳችሁ!</b>\n\n"
-        "<i>“አዲስ ዓመት ማለት የቀን መቁጠሪያ መቀየር ብቻ አይደለም፤ ራስህን የምትቀይርበት እና ጤናህን የምትረከብበት ትክክለኛ ውሳኔ ነው።”</i> — <b>ኮች ህላዌ</b> 🤝\n\n"
+        "<i>“አዲስ ዓመት ማለት የቀን መቁጠሪያ መቀየር ብቻ አይደለም፤ ራስዎን የሚቀይሩበት እና ጤናዎን የሚረከቡበት ትክክለኛ ውሳኔ ነው።”</i> — <b>ኮች ህላዌ</b> 🤝\n\n"
         "🎁 ለአዲሱ ዓመት በልዩ ሁኔታ ያዘጋጀሁላችሁ <b>የ2019 የለውጥ መመሪያ</b> ይኸው ተልኮልዎታል፤ አሁኑኑ አውርደው ያንብቡት!"
     )
 
 
-def get_bridge_text(lang: str = "AM") -> str:
+def get_bridge_text(lang: str = "AM", gender: str | None = None) -> str:
     if lang == "EN":
         return (
             "⚔️ <b>Now champion... let's speak truth:</b>\n\n"
@@ -57,10 +73,30 @@ def get_bridge_text(lang: str = "AM") -> str:
             "Let's make 2019 the year of actual action, not empty resolutions.\n\n"
             "<b>Shall we assess your body and build your custom 8-week program right now?</b>"
         )
+    
+    gender_upper = (gender or "").upper()
+    if gender_upper == "FEMALE":
+        return (
+            "⚔️ <b>ነገር ግን ሻምፒዮን... አንድ እውነት እንነጋገር፦</b>\n\n"
+            "ይህ መመሪያ የመንገዱን መነሻ ያሳይሻል። ነገር ግን እውነተኛውና ፈጣኑ ለውጥ የሚመጣው "
+            "<b>ለአንቺ የሰውነት ሁኔታ፣ ክብደትና የሳምንት ቀናት በተዘጋጀው የ8-ሳምንት እቅድ</b> ስትመሪ ብቻ ነው። 🏆\n\n"
+            "2019 ዓ.ምን በባዶ ተስፋ ሳይሆን በተግባር የምንቀይርበት ዓመት እናድርገው።\n\n"
+            "<b>የአካልሽን ሁኔታ መዝነን የ8-ሳምንት ፕሮግራምሽን አሁኑኑ እናዘጋጅ?</b>"
+        )
+    elif gender_upper == "MALE":
+        return (
+            "⚔️ <b>ነገር ግን ሻምፒዮን... አንድ እውነት እንነጋገር፦</b>\n\n"
+            "ይህ መመሪያ የመንገዱን መነሻ ያሳይሃል። ነገር ግን እውነተኛውና ፈጣኑ ለውጥ የሚመጣው "
+            "<b>ለአንተ የሰውነት ሁኔታ፣ ክብደትና የሳምንት ቀናት በተዘጋጀው የ8-ሳምንት እቅድ</b> ስትመራ ብቻ ነው። 🏆\n\n"
+            "2019 ዓ.ምን በባዶ ተስፋ ሳይሆን በተግባር የምንቀይርበት ዓመት እናድርገው።\n\n"
+            "<b>የአካልህን ሁኔታ መዝነን የ8-ሳምንት ፕሮግራምህን አሁኑኑ እናዘጋጅ?</b>"
+        )
+
+    # Polite / formal / gender-neutral address (respectful 'እርስዎ/አለብዎት')
     return (
         "⚔️ <b>ነገር ግን ሻምፒዮን... አንድ እውነት እንነጋገር፦</b>\n\n"
         "ይህ መመሪያ የመንገዱን መነሻ ያሳይዎታል። ነገር ግን እውነተኛውና ፈጣኑ ለውጥ የሚመጣው "
-        "<b>ለእርስዎ የሰውነት ሁኔታ፣ ክብደትና የሳምንት ቀናት በተዘጋጀው የ8-ሳምንት እቅድ</b> ስትመሩ ብቻ ነው። 🏆\n\n"
+        "<b>ለእርስዎ የሰውነት ሁኔታ፣ ክብደትና የሳምንት ቀናት በተዘጋጀው የ8-ሳምንት እቅድ</b> ሲመሩ ብቻ ነው። 🏆\n\n"
         "2019 ዓ.ምን በባዶ ተስፋ ሳይሆን በተግባር የምንቀይርበት ዓመት እናድርገው።\n\n"
         "<b>የአካልዎን ሁኔታ መዝነን የ8-ሳምንት ፕሮግራምዎን አሁኑኑ እናዘጋጅ?</b>"
     )
@@ -75,9 +111,15 @@ async def send_new_year_bundle(
 ) -> None:
     global _CACHED_NEW_YEAR_FILE_ID
 
-    # 1. Look up user language preference
-    user_row = await db.get_user(user.id)
-    lang = (user_row.get("language") if user_row else None) or "AM"
+    # 1. Look up user language preference and gender (from state or DB)
+    state_data = await state.get_data() if state else {}
+    if not isinstance(state_data, dict):
+        state_data = {}
+    user_row = await db.get_user(user.id) if db else None
+    lang = (state_data.get("language") if state_data else None) or (user_row.get("language") if user_row else None) or "AM"
+    gender = (state_data.get("gender") if state_data else None) or (user_row.get("gender") if user_row else None)
+    if not isinstance(gender, str):
+        gender = None
 
     # 2. Record claim in database
     await db.record_new_year_claim(
@@ -86,7 +128,7 @@ async def send_new_year_bundle(
         username=user.username or "",
     )
 
-    caption = get_new_year_caption(lang)
+    caption = get_new_year_caption(lang, gender)
 
     # 3. Deliver document: use cached file_id if present, else upload local PDF
     try:
@@ -145,7 +187,7 @@ async def send_new_year_bundle(
 
     await bot.send_message(
         chat_id=chat_id,
-        text=get_bridge_text(lang),
+        text=get_bridge_text(lang, gender),
         reply_markup=bridge_builder.as_markup(),
         parse_mode="HTML",
     )
