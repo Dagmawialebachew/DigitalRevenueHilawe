@@ -436,6 +436,8 @@ def render_story_card(
             str(chrome_bin),
             "--headless=new",
             "--disable-gpu",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--hide-scrollbars",
             "--window-size=1080,1920",
             f"--screenshot={out_file.resolve()}",

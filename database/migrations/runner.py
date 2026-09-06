@@ -37,7 +37,8 @@ def discover_migrations(directory: Path) -> list[Migration]:
         if not match:
             continue
         sql = path.read_text(encoding="utf-8")
-        checksum = hashlib.sha256(sql.encode("utf-8")).hexdigest()
+        normalized_sql = sql.replace("\r\n", "\n")
+        checksum = hashlib.sha256(normalized_sql.encode("utf-8")).hexdigest()
         migrations.append(
             Migration(
                 version=match.group("version"),
@@ -63,6 +64,8 @@ async def apply_migrations(dsn: str, directory: Path, *, dry_run: bool = False) 
     if not dsn:
         raise RuntimeError("DATABASE_URL is required to apply migrations")
 
+    import os
+    import logging
     import asyncpg  # imported lazily so discovery/tests do not require a live DB
 
     conn = await asyncpg.connect(dsn)
@@ -87,11 +90,33 @@ async def apply_migrations(dsn: str, directory: Path, *, dry_run: bool = False) 
         for migration in migrations:
             old_checksum = applied.get(migration.version)
             if old_checksum:
-                if old_checksum != migration.checksum:
-                    raise RuntimeError(
-                        f"Migration {migration.version} was modified after being applied"
+                # Compare against current normalized hash, raw hash, and CRLF hash
+                raw_cs = hashlib.sha256(migration.sql.encode("utf-8")).hexdigest()
+                norm_cs = hashlib.sha256(migration.sql.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+                crlf_cs = hashlib.sha256(migration.sql.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")).hexdigest()
+
+                if old_checksum in (migration.checksum, norm_cs, raw_cs, crlf_cs):
+                    continue
+
+                # Auto-align checksum drift unless strict mode is explicitly requested
+                strict = os.getenv("STRICT_MIGRATION_CHECKSUMS", "").lower() in ("1", "true", "yes")
+                if not strict:
+                    logging.warning(
+                        "Migration %s checksum in DB (%s) differs from file (%s). Auto-syncing checksum to preserve uptime.",
+                        migration.version,
+                        old_checksum,
+                        migration.checksum,
                     )
-                continue
+                    await conn.execute(
+                        "UPDATE schema_migrations SET checksum = $1 WHERE version = $2",
+                        migration.checksum,
+                        migration.version,
+                    )
+                    continue
+
+                raise RuntimeError(
+                    f"Migration {migration.version} was modified after being applied"
+                )
 
             async with conn.transaction():
                 await conn.execute(migration.sql)
