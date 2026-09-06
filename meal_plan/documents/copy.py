@@ -68,6 +68,20 @@ COPY = {
         "not_provided": "Not provided",
         "item": "Item",
         "category": "Category",
+        "day_prefix": "DAY",
+        "coach_brand": "COACH HILAWE",
+        "day_unit": "DAY",
+        "days_unit": "days",
+        "days_week": "days/week",
+        "g_unit": "g",
+        "kg_unit": "kg",
+        "l_day": "L / day",
+        "macro_kcal": "kcal",
+        "macro_p": "P",
+        "macro_c": "C",
+        "macro_f": "F",
+        "approved": "APPROVED",
+        "core_rotation_note": "7 days = one personalized core week. 14/30-day products use the same reviewed core with the approved rotation and swaps shown above.",
     },
     "AM": {
         "personalized": "የግል የምግብ ፕላን",
@@ -136,7 +150,75 @@ COPY = {
         "diet": "የአመጋገብ አይነት",
         "fasting": "ጾም",
         "not_provided": "አልተሰጠም",
+        "day_prefix": "ቀን",
+        "coach_brand": "አሰልጣኝ ህላዌ",
+        "day_unit": "ቀን",
+        "days_unit": "ቀን",
+        "days_week": "ቀን በሳምንት",
+        "g_unit": "ግ",
+        "kg_unit": "ኪ.ግ",
+        "l_day": "ሊትር / ቀን",
+        "macro_kcal": "ካሎሪ",
+        "macro_p": "ፕሮቲን",
+        "macro_c": "ካርቦሃይድሬት",
+        "macro_f": "ቅባት",
+        "approved": "የጸደቀ",
+        "core_rotation_note": "7 ቀን = አንድ የተስተካከለ ዋና ሳምንት። የ14 እና 30 ቀን ፕላኖች ከላይ በተገለጸው የተቀያሪ ስርዓት መሰረት ይህንኑ ዋና ሳምንት በድጋሚ ይጠቀማሉ።",
     },
+}
+
+_PROFILE_LABELS_AM = {
+    # Goals
+    "fat_loss": "ክብደት መቀነስ (ስብ ማቃጠል)",
+    "weight_loss": "ክብደት መቀነስ",
+    "muscle_gain": "ጡንቻ መገንባት",
+    "maintenance": "ክብደት መጠበቅ",
+    "recomposition": "የሰውነት ቅርጽ ማስተካከል",
+    "general_health": "አጠቃላይ ጤና እና ብቃት",
+
+    # Cuisine styles
+    "ethiopian_traditional": "የሀገር ባህል ምግቦች",
+    "mixed": "የተቀላቀለ (ባህል እና ዘመናዊ)",
+    "western": "ዘመናዊ ምግቦች",
+
+    # Dietary patterns
+    "omnivore": "ሁሉን ተመጋቢ (ስጋ እና አትክልት)",
+    "vegetarian": "የአትክልት ተመጋቢ (ቬጀቴሪያን)",
+    "vegan": "የዕፅዋት ምግቦች ብቻ (ቪጋን)",
+    "fasting_only": "የጾም ምግቦች ብቻ",
+    "pescatarian": "ዓሣ እና አትክልት ተመጋቢ",
+
+    # Grocery budget
+    "low": "ቆጣቢ / ዝቅተኛ",
+    "medium": "መካከለኛ",
+    "high": "ከፍተኛ / የተሟላ",
+    "balanced": "መካከለኛ / ሚዛናዊ",
+    "moderate": "መካከለኛ",
+    "standard": "መደበኛ",
+    "economy": "ቆጣቢ",
+    "premium": "ከፍተኛ / የተሟላ",
+
+    # Training types
+    "strength": "የጥንካሬ ልምምድ (ጂም)",
+    "gym_strength": "የጥንካሬ ልምምድ (ጂም)",
+    "gym": "የጂም ልምምድ",
+    "strength_training": "የጥንካሬ ልምምድ",
+    "cardio": "ካርዲዮ (ሩጫ/ዋና)",
+    "running": "ሩጫ / ካርዲዮ",
+    "aerobic": "ካርዲዮ",
+    "bodyweight": "የሰውነት ክብደት ልምምድ (ካሊስቴኒክስ)",
+    "calisthenics": "የሰውነት ክብደት ልምምድ",
+    "mixed_training": "የተቀላቀለ ልምምድ",
+    "hybrid": "የተቀላቀለ ልምምድ",
+    "endurance": "የጽናት ልምምድ",
+    "none": "የለም",
+
+    # Orthodox Fasting
+    "yes": "አዎ (ይጾማል)",
+    "no": "አይጾምም",
+    "wed_fri": "ረቡዕ እና አርብ",
+    "all_fasts": "ሁሉንም አጽዋማት",
+    "seasonal": "ወቅታዊ አጽዋማት",
 }
 
 
@@ -148,6 +230,7 @@ def slot_label(slot: str, language: str) -> str:
     c = copy_for(language)
     normalized = slot.strip().lower().replace(" ", "_")
     return c.get(normalized, slot)
+
 
 _DAY_AM = {
     "Monday": "ሰኞ",
@@ -164,3 +247,22 @@ def day_label(day_name: str, language: str) -> str:
     if str(language).upper() == "AM":
         return _DAY_AM.get(day_name, day_name)
     return day_name
+
+
+def profile_label(value: Any, language: str = "EN") -> str:
+    if not value or value == "-":
+        return "-"
+    raw = str(value).strip().lower().replace(" ", "_").replace("-", "_")
+    if str(language).upper() == "AM":
+        return _PROFILE_LABELS_AM.get(raw, str(value).replace("_", " ").title())
+    return str(value).replace("_", " ").title()
+
+
+def format_training_summary(days: Any, training_type: Any, language: str = "EN") -> str:
+    c = copy_for(language)
+    days_str = str(days if days is not None else "-")
+    type_str = profile_label(training_type, language)
+    if str(language).upper() == "AM":
+        return f"{days_str} ቀን በሳምንት · {type_str}"
+    return f"{days_str} days/week · {type_str}"
+

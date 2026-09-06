@@ -167,9 +167,10 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 "0002_hilawe_nutrition_dataset.sql",
                 "0003_verified_fasting_calendar.sql",
                 "0004_bilingual_and_calibrated_dataset.sql",
+                "0005_neon_name_cleanup_and_history_repair.sql",
             ],
         )
-        for expected in ("0001", "0002", "0003", "0004"):
+        for expected in ("0001", "0002", "0003", "0004", "0005"):
             self.assertIn(expected, EXPECTED_ENGINE_MIGRATIONS)
 
 

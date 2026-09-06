@@ -1,35 +1,8 @@
-from __future__ import annotations
-
-import math
 import re
-from typing import Any
+import sys
+if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8")
 
-
-def n(value: Any) -> float:
-    try: return float(value or 0)
-    except (TypeError, ValueError): return 0.0
-
-
-def quarter_text(value: float) -> str:
-    rounded=max(0.25,round(float(value)*4)/4)
-    whole=int(math.floor(rounded+1e-8))
-    frac=round((rounded-whole)*4)
-    glyph={1:"¼",2:"½",3:"¾"}.get(frac,"")
-    if whole and glyph: return f"{whole} {glyph}"
-    if whole: return str(whole)
-    return glyph or "¼"
-
-
-def _fraction_num(text: str) -> float:
-    if "/" in text:
-        a,b=text.split("/",1)
-        try:return float(a)/float(b)
-        except (ValueError,ZeroDivisionError):return 0
-    try:return float(text)
-    except ValueError:return 0
-
-
-MEASURE_DICT_AM: dict[str, str] = {
+MEASURE_DICT_AM = {
     "large bowl": "ትልቅ ጎድጓዳ ሳህን",
     "medium bowl": "መካከለኛ ጎድጓዳ ሳህን",
     "bowl": "ጎድጓዳ ሳህን",
@@ -43,7 +16,7 @@ MEASURE_DICT_AM: dict[str, str] = {
     "cup powder": "ሲኒ ዱቄት",
     "cup pieces": "ሲኒ የተከተፈ",
     "cups pieces": "ሲኒ የተከተፈ",
-    "cups shredded": "ሲኒ የተፈጨ/የተከተፈ",
+    "cups shredded": "ሲኒ የተከተፈ",
     "cups": "ሲኒ",
     "cup": "ሲኒ",
     "level tablespoons": "የተስተካከለ የሾርባ ማንኪያ",
@@ -94,75 +67,35 @@ MEASURE_DICT_AM: dict[str, str] = {
     "medium potatoes": "መካከለኛ ድንች",
     "large dates": "ትላልቅ ቴምር",
     "palm-and-a-half": "1 ከግማሽ የእጅ መዳፍ",
-    "palms": "የእጅ መዳፍ",
-    "palm": "የእጅ መዳፍ",
     "standard portion": "መደበኛ መጠን",
     "medium serving": "መካከለኛ መጠን",
 }
 
-
-def _translate_measure_phrase_am(phrase: str) -> str:
+def translate_measure_phrase_am(phrase: str) -> str:
     cleaned = phrase.strip().lower()
     if cleaned in MEASURE_DICT_AM:
         return MEASURE_DICT_AM[cleaned]
+    # Try longest match
     for k in sorted(MEASURE_DICT_AM.keys(), key=len, reverse=True):
         if k in cleaned:
             return MEASURE_DICT_AM[k]
     return cleaned
 
+with open("meal_plan/data/hilawe_v1_3_dataset.json", "r", encoding="utf-8") as f:
+    import json
+    d = json.load(f)
 
-def quarter_text_am(value: float) -> str:
-    rounded = max(0.25, round(float(value) * 4) / 4)
-    whole = int(math.floor(rounded + 1e-8))
-    frac = round((rounded - whole) * 4)
-    if frac == 0:
-        return str(whole) if whole else "1"
-    if whole == 0:
-        return {1: "ሩብ", 2: "ግማሽ", 3: "ሶስት አራተኛ"}.get(frac, "ግማሽ")
-    return {1: f"{whole} ከሩብ", 2: f"{whole} ከግማሽ", 3: f"{whole} ከሶስት አራተኛ"}.get(frac, str(whole))
-
-
-_GLYPH_VALS = {"¼": 0.25, "½": 0.5, "¾": 0.75}
-
-
-def _parse_portion_string(text: str) -> tuple[float, str]:
-    clean = re.sub(r"^about\s+", "", text, flags=re.I).strip()
-    if "palm-and-a-half" in clean.lower():
-        return 1.5, "palm-and-a-half"
-    m = re.match(r"^(\d+)?\s*([¼½¾]|\d+/\d+)?\s*(.+)$", clean)
-    if m:
-        whole = float(m.group(1)) if m.group(1) else 0.0
-        frac_str = m.group(2)
-        frac = 0.0
-        if frac_str:
-            if frac_str in _GLYPH_VALS:
-                frac = _GLYPH_VALS[frac_str]
-            elif "/" in frac_str:
-                a, b = frac_str.split("/", 1)
-                try:
-                    frac = float(a) / float(b)
-                except (ValueError, ZeroDivisionError):
-                    frac = 0.0
-        val = whole + frac if (whole or frac) else 1.0
-        unit = m.group(3).strip()
-        return val, unit
-    return 1.0, clean
-
-
-def familiar_portion(multiplier: float, familiar_measure: str | None, language: str = "EN") -> str:
-    raw = str(familiar_measure or "standard portion").strip()
-    is_am = str(language).upper() == "AM"
-    base_qty, unit = _parse_portion_string(raw)
-    total_qty = max(0.25, round(base_qty * multiplier * 4) / 4)
-    if is_am:
-        trans_unit = _translate_measure_phrase_am(unit)
-        return f"በግምት {quarter_text_am(total_qty)} {trans_unit}"
-    return f"about {quarter_text(total_qty)} {unit}"
-
-
-def grams_text(grams: float, language: str = "EN") -> str:
-    val = f"{round(grams):,}"
-    if str(language).upper() == "AM":
-        return f"{val} ግ"
-    return f"{val} g"
-
+measures = sorted(set(f.get("Familiar Measure") for f in d["foods"] if f.get("Familiar Measure")))
+print(f"Testing {len(measures)} measures:")
+for m in measures:
+    clean = re.sub(r"^about\s+", "", m.strip(), flags=re.I)
+    # Check if starts with number
+    num_match = re.match(r"^(\d+(?:\.\d+)?|\d+/\d+)\s+(.+)$", clean)
+    if num_match:
+        qty = num_match.group(1)
+        rest = num_match.group(2)
+        trans = translate_measure_phrase_am(rest)
+        print(f"  '{m}' -> 'በግምት {qty} {trans}'")
+    else:
+        trans = translate_measure_phrase_am(clean)
+        print(f"  '{m}' -> 'በግምት {trans}'")

@@ -37,7 +37,7 @@ from meal_plan.generation.worker import generation_worker_loop
 from meal_plan.lifecycle import meal_plan_lifecycle_worker_loop
 from meal_plan.runtime import generation_worker_enabled, lifecycle_worker_enabled
 from meal_plan.api import setup_meal_plan_routes
-# from community.club_expiry import club_expiry_loop
+from community.club_renewal import club_expiry_loop
 
 
 logging.basicConfig(
@@ -254,9 +254,7 @@ async def create_app() -> web.Application:
             asyncio.create_task(generation_worker_loop(bot, db))
         if lifecycle_worker_enabled():
             asyncio.create_task(meal_plan_lifecycle_worker_loop(bot, db))
-#         asyncio.create_task(
-#     club_expiry_loop(bot, db)
-# )
+        asyncio.create_task(club_expiry_loop(bot, db))
         # asyncio.create_task(reminder_worker(bot, db))
         # asyncio.create_task(testimonial_scheduler(bot, db, dp.storage))
        

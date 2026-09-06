@@ -25,6 +25,7 @@ def render_plan_artifacts(
     context: DocumentContext,
     *,
     output_root: str | Path | None = None,
+    is_client_delivery: bool = False,
 ) -> RenderedArtifactSet:
     """Render an editable DOCX + client-facing PDF from one immutable plan snapshot.
 
@@ -33,8 +34,8 @@ def render_plan_artifacts(
     """
     out_dir = version_output_dir(context.plan_public_id, context.version_number, output_root)
     basename = artifact_basename(context.plan_public_id, context.client_name, context.version_number)
-    docx_path = render_docx(plan, context, out_dir / f"{basename}.docx")
-    pdf_path = render_pdf(plan, context, out_dir / f"{basename}.pdf")
+    docx_path = render_docx(plan, context, out_dir / f"{basename}.docx", is_client_delivery=is_client_delivery)
+    pdf_path = render_pdf(plan, context, out_dir / f"{basename}.pdf", is_client_delivery=is_client_delivery)
 
     docx_artifact = _artifact("DOCX", docx_path)
     pdf_artifact = _artifact("PDF", pdf_path)

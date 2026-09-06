@@ -284,6 +284,7 @@ class Phase10AcceptanceAndSurfaceTests(unittest.TestCase):
             "0002_hilawe_nutrition_dataset.sql",
             "0003_verified_fasting_calendar.sql",
             "0004_bilingual_and_calibrated_dataset.sql",
+            "0005_neon_name_cleanup_and_history_repair.sql",
         ])
 
     def test_acceptance_script_never_writes_database(self):

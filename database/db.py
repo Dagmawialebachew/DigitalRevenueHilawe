@@ -1,7 +1,10 @@
 # db.py
+import asyncio
 import asyncpg
 import json
 import logging
+import os
+import re
 from typing import Optional, Any, Dict, List
 from asyncpg import Pool
 
@@ -254,24 +257,63 @@ ON club_subscriptions(is_active, expires_at);
 
 """
 
+def _normalize_neon_dsn(dsn: str) -> str:
+    """Normalize Neon PostgreSQL DSN for connection pooling resilience under traffic bursts."""
+    if not dsn or "@" not in dsn:
+        return dsn
+    if os.getenv("DISABLE_NEON_AUTO_POOLER", "").lower() in ("1", "true"):
+        return dsn
+    match = re.search(r"@([^/:]+)(?::(\d+))?(/.*)", dsn)
+    if match:
+        host, port, rest = match.groups()
+        if "neon.tech" in host and "-pooler" not in host:
+            parts = host.split(".")
+            if len(parts) > 1 and not parts[0].endswith("-pooler"):
+                parts[0] = f"{parts[0]}-pooler"
+                pooled_host = ".".join(parts)
+                pooled_port = port or "6543"
+                user_part = dsn[:match.start()]
+                pooled_dsn = f"{user_part}@{pooled_host}:{pooled_port}{rest}"
+                logging.info("Routing Neon PostgreSQL connection to connection pooler endpoint: %s:%s", pooled_host, pooled_port)
+                return pooled_dsn
+    return dsn
+
+
 class Database:
-    
-    
     def __init__(self, dsn: str):
-        self.dsn = dsn
+        self.dsn = _normalize_neon_dsn(dsn)
         self._pool: Optional[Pool] = None
-        
+        self._min_size = int(os.getenv("PG_POOL_MIN_SIZE", "2"))
+        self._max_size = int(os.getenv("PG_POOL_MAX_SIZE", "20"))
+        self._command_timeout = float(os.getenv("PG_COMMAND_TIMEOUT", "60.0"))
 
     async def connect(self):
         if not self._pool:
-            self._pool = await asyncpg.create_pool(
-                self.dsn,
-                min_size=1,
-                max_size=10,
-                statement_cache_size=0,
-                init=_init_connection,
-            )
-            logging.info("Connected to PostgreSQL")
+            attempts = 3
+            for attempt in range(1, attempts + 1):
+                try:
+                    self._pool = await asyncpg.create_pool(
+                        self.dsn,
+                        min_size=self._min_size,
+                        max_size=self._max_size,
+                        command_timeout=self._command_timeout,
+                        statement_cache_size=0,
+                        max_inactive_connection_lifetime=300.0,
+                        init=_init_connection,
+                    )
+                    logging.info(
+                        "Connected to PostgreSQL (pool min=%d, max=%d, timeout=%.1fs)",
+                        self._min_size,
+                        self._max_size,
+                        self._command_timeout,
+                    )
+                    break
+                except Exception as exc:
+                    if attempt == attempts:
+                        logging.error("Failed to connect to PostgreSQL after %d attempts: %s", attempts, exc)
+                        raise
+                    logging.warning("PostgreSQL connection attempt %d/%d failed (%s), retrying in 2s...", attempt, attempts, exc)
+                    await asyncio.sleep(2)
 
     async def setup(self):
         async with self._pool.acquire() as conn:

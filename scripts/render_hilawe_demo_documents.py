@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, ".")
 
 from meal_plan.documents import DocumentContext, render_plan_artifacts
 
@@ -20,6 +23,7 @@ def main() -> int:
     parser.add_argument("--target-weight", type=float, default=72.0)
     parser.add_argument("--hydration", type=float, default=2.6)
     parser.add_argument("--coach-image", default=None)
+    parser.add_argument("--client-delivery", action="store_true", help="Render final clean client delivery document without review banner or debug metadata")
     args = parser.parse_args()
 
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
@@ -35,7 +39,7 @@ def main() -> int:
         hydration_target_l=args.hydration,
         coach_image_path=args.coach_image,
     )
-    result = render_plan_artifacts(plan, context, output_root=args.output_root)
+    result = render_plan_artifacts(plan, context, output_root=args.output_root, is_client_delivery=args.client_delivery)
     print(f"DOCX: {result.docx.path}")
     print(f"PDF:  {result.pdf.path}")
     print(f"Manifest: {result.manifest_path}")

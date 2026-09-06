@@ -11,8 +11,17 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-from .copy import copy_for, slot_label, day_label
-from .helpers import local_food_name, rounded, review_warning_lines
+from .copy import copy_for, slot_label, day_label, profile_label, format_training_summary
+from .helpers import (
+    local_food_name,
+    local_category_name,
+    local_recipe_name,
+    local_template_name,
+    local_purchase_quantity,
+    local_warning,
+    rounded,
+    review_warning_lines,
+)
 from .models import DocumentContext
 from .theme import BORDER, GRAPHITE, INK, IVORY, ORANGE, ORANGE_SOFT, PAPER
 
@@ -99,44 +108,42 @@ def _style_document(doc: Document) -> None:
 
 def _orange_kicker(doc: Document, text: str) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(3)
-    run = p.add_run(text.upper())
-    _set_run_font(run, size=8.5, bold=True, color=ORANGE)
+    p.paragraph_format.space_after = Pt(1)
+    r = p.add_run(text)
+    _set_run_font(r, size=9, bold=True, color=ORANGE)
 
 
-def _section_title(doc: Document, text: str, kicker: str | None = None) -> None:
+def _section_title(doc: Document, title: str, kicker: str = "") -> None:
     if kicker:
         _orange_kicker(doc, kicker)
     p = doc.add_paragraph(style="Heading 1")
-    p.paragraph_format.space_after = Pt(10)
-    run = p.add_run(text)
-    _set_run_font(run, size=18, bold=True, color=INK)
+    r = p.add_run(title)
+    _set_run_font(r, size=18, bold=True, color=INK)
 
 
-def _metric_table(doc: Document, metrics: list[tuple[str, str]]) -> None:
-    cols = 3
+def _metric_table(doc: Document, metrics: list[tuple[str, str]], cols: int = 3) -> None:
     rows = (len(metrics) + cols - 1) // cols
     table = doc.add_table(rows=rows, cols=cols)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = False
-    for idx, (label, value) in enumerate(metrics):
+    for col in table.columns:
+        col.width = Cm(5.2)
+
+    for idx, (label, val) in enumerate(metrics):
         r, c = divmod(idx, cols)
         cell = table.cell(r, c)
-        cell.width = Cm(5.5)
-        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
         _shade_cell(cell, PAPER)
         _set_cell_border(cell)
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
         p = cell.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        p.paragraph_format.space_before = Pt(5)
-        p.paragraph_format.space_after = Pt(0)
-        run = p.add_run(value)
-        _set_run_font(run, size=15, bold=True, color=INK)
+        p.paragraph_format.space_after = Pt(1)
+        r1 = p.add_run(val)
+        _set_run_font(r1, size=14, bold=True, color=INK)
         p2 = cell.add_paragraph()
-        p2.paragraph_format.space_after = Pt(5)
+        p2.paragraph_format.space_after = Pt(0)
         r2 = p2.add_run(label)
-        _set_run_font(r2, size=8.3, bold=False, color=GRAPHITE)
-    # blank cells stay subtle
+        _set_run_font(r2, size=7.5, color=GRAPHITE)
+
     for idx in range(len(metrics), rows * cols):
         r, c = divmod(idx, cols)
         _shade_cell(table.cell(r, c), IVORY)
@@ -158,27 +165,52 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
     r = p.add_run(slot.upper())
     _set_run_font(r, size=8.5, bold=True, color=ORANGE)
 
+    is_am = str(language).upper() == "AM"
+    meal_title = str(meal.get("meal_name") or "Meal")
+    template_id = str(meal.get("template_id") or "")
+    if is_am:
+        if template_id:
+            meal_title = local_template_name(template_id, meal_title, language)
+        elif meal.get("recipe_ids"):
+            meal_title = local_recipe_name(meal["recipe_ids"][0], meal_title, language)
+        else:
+            items = meal.get("items") or []
+            if items:
+                meal_title = local_food_name(str(items[0].get("food_id") or ""), meal_title, language)
+
     p2 = cell.add_paragraph()
     p2.paragraph_format.space_after = Pt(1)
-    r2 = p2.add_run(str(meal.get("meal_name") or "Meal"))
+    r2 = p2.add_run(meal_title)
     _set_run_font(r2, size=12, bold=True, color=INK)
 
     macros = meal.get("macros") or {}
     p3 = cell.add_paragraph()
     p3.paragraph_format.space_after = Pt(5)
-    macro_text = (
-        f"{rounded(macros.get('kcal'))} kcal   |   "
-        f"P {rounded(macros.get('protein'))} g   "
-        f"C {rounded(macros.get('carbs'))} g   "
-        f"F {rounded(macros.get('fat'))} g"
-    )
+    if is_am:
+        macro_text = (
+            f"{rounded(macros.get('kcal'))} ካሎሪ   |   "
+            f"ፕሮቲን {rounded(macros.get('protein'))} ግ   "
+            f"ካርቦሃይድሬት {rounded(macros.get('carbs'))} ግ   "
+            f"ቅባት {rounded(macros.get('fat'))} ግ"
+        )
+    else:
+        macro_text = (
+            f"{rounded(macros.get('kcal'))} kcal   |   "
+            f"P {rounded(macros.get('protein'))} g   "
+            f"C {rounded(macros.get('carbs'))} g   "
+            f"F {rounded(macros.get('fat'))} g"
+        )
     r3 = p3.add_run(macro_text)
     _set_run_font(r3, size=8.5, color=GRAPHITE)
 
+    g_lbl = "ግ" if is_am else "g"
     for item in meal.get("items") or []:
-        food_name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), language)
+        if item.get("recipe_id"):
+            food_name = local_recipe_name(item["recipe_id"], str(item.get("recipe_name") or item.get("food_name") or "Recipe"), language)
+        else:
+            food_name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), language)
         grams = rounded(item.get("grams"), 0)
-        familiar = str(item.get("familiar") or "").strip()
+        familiar_raw = str(item.get("familiar") or "").strip()
         line = cell.add_paragraph(style=None)
         line.paragraph_format.left_indent = Cm(0.15)
         line.paragraph_format.space_after = Pt(1)
@@ -186,8 +218,13 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
         _set_run_font(bullet, size=9, bold=True, color=ORANGE)
         name_run = line.add_run(food_name)
         _set_run_font(name_run, size=9, bold=True, color=INK)
-        detail = f"  {grams} g"
-        if familiar:
+        detail = f"  {grams} {g_lbl}"
+        if familiar_raw:
+            if is_am:
+                from meal_plan.generation.formatting import familiar_portion
+                familiar = familiar_portion(1.0, familiar_raw, language="AM")
+            else:
+                familiar = familiar_raw
             detail += f"  ·  {familiar}"
         detail_run = line.add_run(detail)
         _set_run_font(detail_run, size=8.4, color=GRAPHITE)
@@ -204,8 +241,11 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
             c = copy_for(language)
             rr = p4.add_run(c["swap"] + ": ")
             _set_run_font(rr, size=8.3, bold=True, color=ORANGE)
-            swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), language)
-            rr2 = p4.add_run(f"{swap_name} - {rounded(opt.get('exchange_weight_g'))} g")
+            if opt.get("recipe_id"):
+                swap_name = local_recipe_name(opt["recipe_id"], str(opt.get("recipe_name") or opt.get("food_name") or ""), language)
+            else:
+                swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), language)
+            rr2 = p4.add_run(f"{swap_name} - {rounded(opt.get('exchange_weight_g'))} {g_lbl}")
             _set_run_font(rr2, size=8.3, color=GRAPHITE)
 
     doc.add_paragraph().paragraph_format.space_after = Pt(1)
@@ -216,7 +256,7 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p.paragraph_format.space_before = Pt(20)
-    r = p.add_run("HILAWE")
+    r = p.add_run(c.get("coach_brand", "HILAWE"))
     _set_run_font(r, size=11, bold=True, color=ORANGE)
 
     p2 = doc.add_paragraph()
@@ -228,7 +268,7 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
     duration = int((plan.get("product") or {}).get("duration_days") or 7)
     p3 = doc.add_paragraph()
     p3.paragraph_format.space_after = Pt(24)
-    r3 = p3.add_run(f"{duration} DAY  ·  {c['nutrition_system']}")
+    r3 = p3.add_run(f"{duration} {c.get('day_unit', 'DAY')}  ·  {c['nutrition_system']}")
     _set_run_font(r3, size=10, bold=True, color=GRAPHITE)
 
     line_table = doc.add_table(rows=1, cols=2)
@@ -248,7 +288,7 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
     _set_run_font(rr2, size=21, bold=True, color=INK)
 
     p5 = doc.add_paragraph()
-    goal = str((plan.get("profile_summary") or {}).get("goal") or "-").replace("_", " ").title()
+    goal = profile_label((plan.get("profile_summary") or {}).get("goal") or "", context.normalized_language)
     rr3 = p5.add_run(goal)
     _set_run_font(rr3, size=11, bold=True, color=ORANGE)
 
@@ -263,6 +303,8 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
         _set_run_font(rr5, size=8.5, bold=True, color=ORANGE)
 
     doc.add_page_break()
+
+
 def _plan_glance(doc: Document, plan: dict[str, Any], context: DocumentContext) -> None:
     c = copy_for(context.normalized_language)
     _section_title(doc, c["plan_glance"], "01")
@@ -270,23 +312,26 @@ def _plan_glance(doc: Document, plan: dict[str, Any], context: DocumentContext) 
     product = plan.get("product") or {}
     profile = plan.get("profile_summary") or {}
     client = context.client_profile or {}
+    kg_lbl = c.get("kg_unit", "kg")
+    kcal_lbl = c.get("macro_kcal", "kcal")
+    g_lbl = c.get("g_unit", "g")
     metrics = [
-        (c["current_weight"], f"{rounded(client.get('current_weight_kg'), 1)} kg" if client.get("current_weight_kg") else c["not_provided"]),
-        (c["target_weight"], f"{rounded(client.get('target_weight_kg'), 1)} kg" if client.get("target_weight_kg") else c["not_provided"]),
-        (c["daily_energy"], f"{rounded(targets.get('target_kcal'))} kcal"),
-        (c["protein"], f"{rounded(targets.get('protein_g'))} g"),
+        (c["current_weight"], f"{rounded(client.get('current_weight_kg'), 1)} {kg_lbl}" if client.get("current_weight_kg") else c["not_provided"]),
+        (c["target_weight"], f"{rounded(client.get('target_weight_kg'), 1)} {kg_lbl}" if client.get("target_weight_kg") else c["not_provided"]),
+        (c["daily_energy"], f"{rounded(targets.get('target_kcal'))} {kcal_lbl}"),
+        (c["protein"], f"{rounded(targets.get('protein_g'))} {g_lbl}"),
         (c["meals_day"], str(product.get("meals_per_day") or "-")),
-        (c["food_style"], str(profile.get("cuisine_style") or "-").replace("_", " ").title()),
+        (c["food_style"], profile_label(profile.get("cuisine_style"), context.normalized_language)),
     ]
     _metric_table(doc, metrics)
 
     doc.add_paragraph()
     summary = [
-        (c["goal"], str(profile.get("goal") or "-").replace("_", " ").title()),
-        (c["training"], f"{profile.get('training_days_per_week', '-')} days/week · {str(profile.get('training_type') or '-').replace('_', ' ').title()}"),
-        (c["budget"], str(profile.get("grocery_budget") or "-").title()),
-        (c["diet"], str(profile.get("dietary_pattern") or "-").replace("_", " ").title()),
-        (c["fasting"], str(profile.get("orthodox_fasting") or "-").replace("_", " ").title()),
+        (c["goal"], profile_label(profile.get("goal"), context.normalized_language)),
+        (c["training"], format_training_summary(profile.get("training_days_per_week"), profile.get("training_type"), context.normalized_language)),
+        (c["budget"], profile_label(profile.get("grocery_budget"), context.normalized_language)),
+        (c["diet"], profile_label(profile.get("dietary_pattern"), context.normalized_language)),
+        (c["fasting"], profile_label(profile.get("orthodox_fasting"), context.normalized_language)),
     ]
     table = doc.add_table(rows=len(summary), cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -359,7 +404,7 @@ def _rotation(doc: Document, plan: dict[str, Any], language: str) -> None:
             _set_run_font(r, size=9, bold=True if cell is not d else False, color=INK if cell is not a else ORANGE)
     doc.add_paragraph()
     p = doc.add_paragraph()
-    r = p.add_run(f"7 days = one personalized core week. 14/30-day products use the same reviewed core with the approved rotation and swaps shown above.")
+    r = p.add_run(c.get("core_rotation_note", "7 days = one personalized core week. 14/30-day products use the same reviewed core with the approved rotation and swaps shown above."))
     _set_run_font(r, size=8.8, color=GRAPHITE)
     fasting_dates = [str(row.get("date")) for row in rotation if row.get("core_source") == "FASTING"]
     if fasting_dates:
@@ -369,12 +414,13 @@ def _rotation(doc: Document, plan: dict[str, Any], language: str) -> None:
     doc.add_page_break()
 
 
-def _days(doc: Document, plan: dict[str, Any], language: str) -> None:
+def _days(doc: Document, plan: dict[str, Any], language: str, is_client_delivery: bool = False) -> None:
     c = copy_for(language)
     rows = list(plan.get("core_week") or [])
     fasting_rows = list(plan.get("fasting_core_week") or [])
+    day_prefix = c.get("day_prefix", "DAY")
     for day in rows:
-        _orange_kicker(doc, f"DAY {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
+        _orange_kicker(doc, f"{day_prefix} {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
         p = doc.add_paragraph(style="Heading 1")
         r = p.add_run(day_label(str(day.get("day_name") or "Day"), language))
         _set_run_font(r, size=20, bold=True, color=INK)
@@ -383,18 +429,31 @@ def _days(doc: Document, plan: dict[str, Any], language: str) -> None:
             _set_run_font(rr, size=8.5, bold=True, color=ORANGE)
         totals = day.get("totals") or {}
         p2 = doc.add_paragraph()
-        r2 = p2.add_run(
-            f"{rounded(totals.get('kcal'))} kcal   |   P {rounded(totals.get('protein'))} g   "
-            f"C {rounded(totals.get('carbs'))} g   F {rounded(totals.get('fat'))} g"
-        )
+        if language == "AM":
+            macro_text = (
+                f"{rounded(totals.get('kcal'))} ካሎሪ   |   "
+                f"ፕሮቲን {rounded(totals.get('protein'))} ግ   "
+                f"ካርቦሃይድሬት {rounded(totals.get('carbs'))} ግ   "
+                f"ቅባት {rounded(totals.get('fat'))} ግ"
+            )
+        else:
+            macro_text = (
+                f"{rounded(totals.get('kcal'))} kcal   |   "
+                f"P {rounded(totals.get('protein'))} g   "
+                f"C {rounded(totals.get('carbs'))} g   "
+                f"F {rounded(totals.get('fat'))} g"
+            )
+        r2 = p2.add_run(macro_text)
         _set_run_font(r2, size=8.8, color=GRAPHITE)
         for meal in day.get("meals") or []:
             _meal_card(doc, meal, language)
-        warnings = day.get("warnings") or []
-        if warnings:
-            p3 = doc.add_paragraph()
-            rr = p3.add_run(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]))
-            _set_run_font(rr, size=7.8, color=ORANGE)
+        if not is_client_delivery:
+            warnings = day.get("warnings") or []
+            if warnings:
+                p3 = doc.add_paragraph()
+                localized = [local_warning(str(x), language) for x in warnings[:2]]
+                rr = p3.add_run(c["warning"] + ": " + " | ".join(localized))
+                _set_run_font(rr, size=7.8, color=ORANGE)
         doc.add_page_break()
 
     if fasting_rows:
@@ -402,16 +461,27 @@ def _days(doc: Document, plan: dict[str, Any], language: str) -> None:
         note = doc.add_paragraph()
         _set_run_font(note.add_run(c["fasting_core_note"]), size=8.8, color=GRAPHITE)
         for day in fasting_rows:
-            _orange_kicker(doc, f"DAY {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
+            _orange_kicker(doc, f"{day_prefix} {int(day.get('day_index', 0)) + 1:02d}  ·  {day.get('date', '')}")
             p = doc.add_paragraph(style="Heading 1")
             _set_run_font(p.add_run(day_label(str(day.get("day_name") or "Day"), language)), size=20, bold=True, color=INK)
             _set_run_font(p.add_run("   " + c["fasting_day"]), size=8.5, bold=True, color=ORANGE)
             totals = day.get("totals") or {}
             p2 = doc.add_paragraph()
-            _set_run_font(p2.add_run(
-                f"{rounded(totals.get('kcal'))} kcal   |   P {rounded(totals.get('protein'))} g   "
-                f"C {rounded(totals.get('carbs'))} g   F {rounded(totals.get('fat'))} g"
-            ), size=8.8, color=GRAPHITE)
+            if language == "AM":
+                macro_text = (
+                    f"{rounded(totals.get('kcal'))} ካሎሪ   |   "
+                    f"ፕሮቲን {rounded(totals.get('protein'))} ግ   "
+                    f"ካርቦሃይድሬት {rounded(totals.get('carbs'))} ግ   "
+                    f"ቅባት {rounded(totals.get('fat'))} ግ"
+                )
+            else:
+                macro_text = (
+                    f"{rounded(totals.get('kcal'))} kcal   |   "
+                    f"P {rounded(totals.get('protein'))} g   "
+                    f"C {rounded(totals.get('carbs'))} g   "
+                    f"F {rounded(totals.get('fat'))} g"
+                )
+            _set_run_font(p2.add_run(macro_text), size=8.8, color=GRAPHITE)
             for meal in day.get("meals") or []:
                 _meal_card(doc, meal, language)
             doc.add_page_break()
@@ -427,7 +497,8 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
     table = doc.add_table(rows=1, cols=4)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    headers = ["Item", "Category", c["planned"], c["buy"]]
+    headers = [c.get("item", "Item"), c.get("category", "Category"), c["planned"], c["buy"]]
+    g_lbl = c.get("g_unit", "g")
     for i, text in enumerate(headers):
         cell = table.rows[0].cells[i]
         _shade_cell(cell, ORANGE)
@@ -438,9 +509,9 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
         cells = table.add_row().cells
         values = [
             local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), language),
-            str(row.get("category") or ""),
-            f"{rounded(row.get('planned_grams'))} g",
-            str(row.get("purchase_quantity") or ""),
+            local_category_name(str(row.get("category") or ""), language),
+            f"{rounded(row.get('planned_grams'))} {g_lbl}",
+            local_purchase_quantity(str(row.get("purchase_quantity") or ""), language),
         ]
         for i, (cell, value) in enumerate(zip(cells, values)):
             _shade_cell(cell, PAPER if len(table.rows) % 2 else IVORY)
@@ -454,7 +525,7 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
         _section_title(doc, c["fasting_grocery"], "04F")
         fasting_table = doc.add_table(rows=1, cols=3)
         fasting_table.style = "Table Grid"
-        for i, text in enumerate(("Item", c["planned"], c["buy"])):
+        for i, text in enumerate((c.get("item", "Item"), c["planned"], c["buy"])):
             cell = fasting_table.rows[0].cells[i]
             _shade_cell(cell, ORANGE)
             _set_run_font(cell.paragraphs[0].add_run(text), size=8, bold=True, color="#FFFFFF")
@@ -462,8 +533,8 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
             cells = fasting_table.add_row().cells
             values = (
                 local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), language),
-                f"{rounded(row.get('planned_grams'))} g",
-                str(row.get("purchase_quantity") or ""),
+                f"{rounded(row.get('planned_grams'))} {g_lbl}",
+                local_purchase_quantity(str(row.get("purchase_quantity") or ""), language),
             )
             for i, (cell, value) in enumerate(zip(cells, values)):
                 _set_cell_border(cell)
@@ -479,7 +550,7 @@ def _guides(doc: Document, context: DocumentContext) -> None:
     _set_run_font(r, size=13, bold=True, color=INK)
     if context.hydration_target_l:
         p2 = doc.add_paragraph()
-        rr = p2.add_run(f"{context.hydration_target_l:.1f} L / day")
+        rr = p2.add_run(f"{context.hydration_target_l:.1f} {c.get('l_day', 'L / day')}")
         _set_run_font(rr, size=22, bold=True, color=ORANGE)
     p3 = doc.add_paragraph()
     rr3 = p3.add_run(c["hydration_general"])
@@ -499,6 +570,7 @@ def _guides(doc: Document, context: DocumentContext) -> None:
     rr7 = p7.add_run(c["coach_text"])
     _set_run_font(rr7, size=10, color=INK)
     doc.add_page_break()
+
 
 
 def _review(doc: Document, plan: dict[str, Any], context: DocumentContext) -> None:
@@ -530,7 +602,7 @@ def _review(doc: Document, plan: dict[str, Any], context: DocumentContext) -> No
         _set_run_font(ra, size=8.2, bold=True, color=ORANGE)
         rb = b.paragraphs[0].add_run(value)
         _set_run_font(rb, size=8.2, color=INK)
-    warnings = review_warning_lines(plan)
+    warnings = review_warning_lines(plan, language=context.normalized_language)
     if warnings:
         doc.add_paragraph()
         p2 = doc.add_paragraph()
@@ -542,7 +614,13 @@ def _review(doc: Document, plan: dict[str, Any], context: DocumentContext) -> No
             _set_run_font(rr3, size=8.3, color=GRAPHITE)
 
 
-def render_docx(plan: dict[str, Any], context: DocumentContext, output_path: str | Path) -> Path:
+def render_docx(
+    plan: dict[str, Any],
+    context: DocumentContext,
+    output_path: str | Path,
+    *,
+    is_client_delivery: bool = False,
+) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
@@ -552,9 +630,10 @@ def render_docx(plan: dict[str, Any], context: DocumentContext, output_path: str
     _plan_glance(doc, plan, context)
     _how_to_use(doc, context.normalized_language)
     _rotation(doc, plan, context.normalized_language)
-    _days(doc, plan, context.normalized_language)
+    _days(doc, plan, context.normalized_language, is_client_delivery=is_client_delivery)
     _grocery(doc, plan, context.normalized_language)
     _guides(doc, context)
-    _review(doc, plan, context)
+    if not is_client_delivery:
+        _review(doc, plan, context)
     doc.save(path)
     return path

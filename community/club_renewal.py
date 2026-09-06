@@ -572,110 +572,100 @@ async def enforce_expired_club_members(
     """)
 
     for member in rows:
-
         uid = member["user_id"]
-        lang = member["language"]
+        lang = (member["language"] or "EN").upper()
 
+        # 1. Attempt to remove expired member from the Telegram community group
         try:
             await bot.ban_chat_member(
                 chat_id=settings.CLUB_GROUP_ID,
                 user_id=uid
             )
-
             await bot.unban_chat_member(
                 chat_id=settings.CLUB_GROUP_ID,
                 user_id=uid
             )
-
         except Exception as exc:
             logger.warning(
-                f"Could not remove expired member {uid}: {exc}"
+                f"Could not remove expired member {uid} from group (may have already left): {exc}"
             )
-            continue   # retry next hourly cycle
 
+        # 2. Mark subscription inactive in database
+        try:
+            await db._pool.execute("""
+                UPDATE club_subscriptions
+                SET
+                    is_active = FALSE,
+                    expired_notice_sent_at = NOW(),
+                    updated_at = NOW()
+                WHERE user_id = $1
+                AND is_active = TRUE
+            """, uid)
+        except Exception as exc:
+            logger.error(f"Failed to update subscription status for {uid}: {exc}")
+            continue
 
-    # Only mark inactive AFTER successful removal
-    await db._pool.execute("""
-        UPDATE club_subscriptions
-        SET
-            is_active = FALSE,
-            expired_notice_sent_at = NOW(),
-            updated_at = NOW()
-        WHERE user_id = $1
-        AND is_active = TRUE
-    """, uid)
+        # 3. Deliver win-back renewal message
+        builder = InlineKeyboardBuilder()
 
-    builder = InlineKeyboardBuilder()
+        if lang == "AM":
+            text = (
+                "⛔ <b>የክለብ አባልነትዎ አብቅቷል</b>\n\n"
+                "የ30 ቀን Hilawe Transformation Club "
+                "አባልነትዎ ተጠናቋል።\n\n"
+                "እንደገና ወደ community ለመመለስ፣ "
+                "Live sessions፣ የአባላት ድጋፍና "
+                "accountability ለማግኘት አባልነትዎን "
+                "ለሌላ 30 ቀን ማደስ ይችላሉ።\n\n"
+                "💳 <b>299 ብር / 30 ቀን</b>"
+            )
+            button = "🔄 አባልነቴን አድስ — 299 ብር"
+        else:
+            text = (
+                "⛔ <b>YOUR CLUB MEMBERSHIP HAS EXPIRED</b>\n\n"
+                "Your 30-day Hilawe Transformation Club "
+                "membership has ended.\n\n"
+                "Renew to return to the community, weekly "
+                "live sessions, accountability and member support.\n\n"
+                "💳 <b>299 ETB / 30 days</b>"
+            )
+            button = "🔄 Restore My Membership — 299 ETB"
 
-    if lang.upper() == "AM":
-
-        text = (
-            "⛔ <b>የክለብ አባልነትዎ አብቅቷል</b>\n\n"
-            "የ30 ቀን Hilawe Transformation Club "
-            "አባልነትዎ ተጠናቋል።\n\n"
-            "እንደገና ወደ community ለመመለስ፣ "
-            "Live sessions፣ የአባላት ድጋፍና "
-            "accountability ለማግኘት አባልነትዎን "
-            "ለሌላ 30 ቀን ማደስ ይችላሉ።\n\n"
-            "💳 <b>299 ብር / 30 ቀን</b>"
+        builder.button(
+            text=button,
+            callback_data="renew_club_subscription"
         )
 
-        button = "🔄 አባልነቴን አድስ — 299 ብር"
+        try:
+            await bot.send_message(
+                chat_id=uid,
+                text=text,
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML"
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Expiry notice failed for {uid}: {exc}"
+            )
 
-    else:
-
-        text = (
-            "⛔ <b>YOUR CLUB MEMBERSHIP HAS EXPIRED</b>\n\n"
-            "Your 30-day Hilawe Transformation Club "
-            "membership has ended.\n\n"
-            "Renew to return to the community, weekly "
-            "live sessions, accountability and member support.\n\n"
-            "💳 <b>299 ETB / 30 days</b>"
-        )
-
-        button = "🔄 Restore My Membership — 299 ETB"
-
-    builder.button(
-        text=button,
-        callback_data="renew_club_subscription"
-    )
-
-    try:
-
-        await bot.send_message(
-            chat_id=uid,
-            text=text,
-            reply_markup=builder.as_markup(),
-            parse_mode="HTML"
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            f"Expiry notice failed for {uid}: {exc}"
-        )
-
-    await asyncio.sleep(0.07)
-    
-        
+        await asyncio.sleep(0.07)
 
 
-# async def club_expiry_loop(
-#     bot: Bot,
-#     db: Database
-# ):
-#     while True:
+async def club_expiry_loop(
+    bot: Bot,
+    db: Database
+):
+    """Hourly background worker enforcing club subscription expiration."""
+    while True:
+        try:
+            await enforce_expired_club_members(
+                bot,
+                db
+            )
+        except Exception as exc:
+            logger.exception(
+                f"Club expiry engine error: {exc}"
+            )
 
-#         try:
-#             await enforce_expired_club_members(
-#                 bot,
-#                 db
-#             )
-
-#         except Exception as exc:
-#             logger.exception(
-#                 f"Club expiry engine error: {exc}"
-#             )
-
-#         # Once per hour
-#         await asyncio.sleep(3600)
+        # Once per hour
+        await asyncio.sleep(3600)

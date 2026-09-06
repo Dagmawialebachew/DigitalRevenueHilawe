@@ -45,9 +45,32 @@ def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
     return get_recipe_name(recipe_id, default_name, language)
 
 
+def local_template_name(template_id: str, default_name: str, language: str) -> str:
+    from meal_plan.glossary import get_template_name
+    return get_template_name(template_id, default_name, language)
+
+
 def local_category_name(category: str, language: str) -> str:
     from meal_plan.glossary import get_category_name
     return get_category_name(category, language)
+
+
+def local_purchase_quantity(quantity: str, language: str) -> str:
+    if str(language).upper() != "AM":
+        return quantity
+    raw = str(quantity or "").strip()
+    # Replace kg dry, g dry, kg, g
+    res = re.sub(r"\bkg\s+dry\b", "ኪ.ግ ጥሬ", raw, flags=re.I)
+    res = re.sub(r"\bg\s+dry\b", "ግ ጥሬ", res, flags=re.I)
+    res = re.sub(r"\bkg\b", "ኪ.ግ", res, flags=re.I)
+    res = re.sub(r"\bg\b", "ግ", res, flags=re.I)
+    return res
+
+
+def local_portion(multiplier: float, familiar: str, language: str) -> str:
+    from meal_plan.generation.formatting import familiar_portion
+    return familiar_portion(multiplier, familiar, language)
+
 
 
 def rounded(value: Any, digits: int = 0) -> str:
@@ -78,7 +101,26 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def review_warning_lines(plan: dict[str, Any]) -> list[str]:
+def local_warning(warning_text: str, language: str = "EN") -> str:
+    if str(language).upper() != "AM":
+        return warning_text
+    text = str(warning_text).strip()
+    m_calib = re.match(r"^Recipe calibration required before final approval:\s*(.+)$", text, re.IGNORECASE)
+    if m_calib:
+        name = m_calib.group(1).strip()
+        from meal_plan.glossary import get_recipe_name
+        am_name = get_recipe_name("", name, "AM")
+        return f"የምግብ አሰራር ምርመራ ያስፈልጋል፦ {am_name}"
+
+    m_fiber = re.search(r"High daily fiber volume\s*\(([^)]+)\);\s*balance with lower-fiber starches recommended for GI tolerance\.?", text, re.IGNORECASE)
+    if m_fiber:
+        qty = m_fiber.group(1).replace("g", "ግ").replace("G", "ግ")
+        return f"ከፍተኛ የቀን የፋይበር መጠን ({qty})፤ ለሆድ ምቾት ከዝቅተኛ ፋይበር ካርቦሃይድሬት ጋር ሚዛን እንዲጠበቅ ይመከራል።"
+
+    return text
+
+
+def review_warning_lines(plan: dict[str, Any], language: str = "EN") -> list[str]:
     review = plan.get("review") or {}
     candidates: list[str] = []
     for warning in review.get("practical_warnings") or []:
@@ -95,7 +137,8 @@ def review_warning_lines(plan: dict[str, Any]) -> list[str]:
     seen: set[str] = set()
     output: list[str] = []
     for text in candidates:
-        normalized = " ".join(text.split())
+        loc = local_warning(text, language)
+        normalized = " ".join(loc.split())
         if normalized.lower() in seen:
             continue
         seen.add(normalized.lower())

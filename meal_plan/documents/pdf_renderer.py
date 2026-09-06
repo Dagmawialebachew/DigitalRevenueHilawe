@@ -25,10 +25,20 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from .copy import copy_for, slot_label, day_label
-from .helpers import local_food_name, local_category_name, local_recipe_name, rounded, review_warning_lines
+from .copy import copy_for, slot_label, day_label, profile_label, format_training_summary
+from .helpers import (
+    local_food_name,
+    local_category_name,
+    local_recipe_name,
+    local_template_name,
+    local_purchase_quantity,
+    local_warning,
+    rounded,
+    review_warning_lines,
+)
 from .models import DocumentContext
 from .theme import BORDER, GRAPHITE, INK, IVORY, MUTED, ORANGE, ORANGE_SOFT, PAPER, resolve_pdf_fonts
+
 
 PAGE_W, PAGE_H = A4
 MARGIN_X = 16 * mm
@@ -121,11 +131,14 @@ def _footer_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, st
     canvas.setFillColor(_hex(ORANGE))
     canvas.rect(MARGIN_X, PAGE_H - 10.5 * mm, 18 * mm, 1.6 * mm, fill=1, stroke=0)
     canvas.setFillColor(_hex(GRAPHITE))
-    canvas.setFont(fonts["latin_regular"], 6.4)
+    is_am = context.normalized_language == "AM"
+    brand = "አሰልጣኝ ህላዌ" if is_am else "COACH HILAWE"
+    canvas.setFont(fonts["eth_regular"] if is_am else fonts["latin_regular"], 6.4)
     if is_client_delivery:
-        canvas.drawString(MARGIN_X, 8.5 * mm, f"COACH HILAWE  ·  V{context.version_number}")
+        canvas.drawString(MARGIN_X, 8.5 * mm, f"{brand}  ·  V{context.version_number}")
     else:
-        canvas.drawString(MARGIN_X, 8.5 * mm, f"HILAWE  ·  {context.plan_public_id}  ·  V{context.version_number}")
+        prefix = "ህላዌ" if is_am else "HILAWE"
+        canvas.drawString(MARGIN_X, 8.5 * mm, f"{prefix}  ·  {context.plan_public_id}  ·  V{context.version_number}")
     canvas.setFont(fonts["latin_bold"], 6.4)
     canvas.drawRightString(PAGE_W - MARGIN_X, 8.5 * mm, f"{doc.page}")
     canvas.restoreState()
@@ -157,12 +170,15 @@ def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str
         canvas.setFont(fonts["latin_bold"], 19)
         canvas.drawCentredString(155 * mm, 80 * mm, "H")
     canvas.setFillColor(_hex(GRAPHITE))
-    canvas.setFont(fonts["latin_regular"], 6.5)
+    is_am = context.normalized_language == "AM"
+    brand = "አሰልጣኝ ህላዌ" if is_am else "COACH HILAWE"
+    canvas.setFont(fonts["eth_regular"] if is_am else fonts["latin_regular"], 6.5)
     if is_client_delivery:
-        canvas.drawString(18 * mm, 12 * mm, f"COACH HILAWE  ·  V{context.version_number}")
+        canvas.drawString(18 * mm, 12 * mm, f"{brand}  ·  V{context.version_number}")
     else:
         canvas.drawString(18 * mm, 12 * mm, f"{context.plan_public_id}  ·  V{context.version_number}")
     canvas.restoreState()
+
 
 
 def _metric_card(label: str, value: str, styles, fonts):
@@ -185,37 +201,64 @@ def _metric_card(label: str, value: str, styles, fonts):
 def _meal_block(meal: dict[str, Any], language: str, styles, fonts):
     macros = meal.get("macros") or {}
     c = copy_for(language)
+    is_am = str(language).upper() == "AM"
     meal_title = str(meal.get("meal_name") or "Meal")
-    recipe_ids = meal.get("recipe_ids") or []
-    if str(language).upper() == "AM":
-        if recipe_ids:
-            meal_title = local_recipe_name(recipe_ids[0], meal_title, language)
+    template_id = str(meal.get("template_id") or "")
+    if is_am:
+        if template_id:
+            meal_title = local_template_name(template_id, meal_title, language)
+        elif meal.get("recipe_ids"):
+            meal_title = local_recipe_name(meal["recipe_ids"][0], meal_title, language)
         else:
             items = meal.get("items") or []
             if items:
                 meal_title = local_food_name(str(items[0].get("food_id") or ""), meal_title, language)
 
+    if is_am:
+        macro_text = (
+            f"{rounded(macros.get('kcal'))} ካሎሪ  ·  "
+            f"ፕሮቲን {rounded(macros.get('protein'))}ግ  ·  "
+            f"ካርቦሃይድሬት {rounded(macros.get('carbs'))}ግ  ·  "
+            f"ቅባት {rounded(macros.get('fat'))}ግ"
+        )
+    else:
+        macro_text = (
+            f"{rounded(macros.get('kcal'))} kcal  ·  "
+            f"P {rounded(macros.get('protein'))}g  ·  "
+            f"C {rounded(macros.get('carbs'))}g  ·  "
+            f"F {rounded(macros.get('fat'))}g"
+        )
+
     content = [
         [_p(slot_label(str(meal.get("slot") or "Meal"), language).upper(), styles["slot"], fonts, bold=True)],
         [_p(meal_title, styles["meal_title"], fonts, bold=True)],
-        [_p(
-            f"{rounded(macros.get('kcal'))} kcal  ·  P {rounded(macros.get('protein'))}g  ·  C {rounded(macros.get('carbs'))}g  ·  F {rounded(macros.get('fat'))}g",
-            styles["small"], fonts,
-        )],
+        [_p(macro_text, styles["small"], fonts)],
     ]
+    g_lbl = "ግ" if is_am else "g"
     for item in meal.get("items") or []:
-        name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), language)
-        familiar = str(item.get("familiar") or "").strip()
-        details = f"{name}  ·  {rounded(item.get('grams'))} g"
-        if familiar:
+        if item.get("recipe_id"):
+            name = local_recipe_name(item["recipe_id"], str(item.get("recipe_name") or item.get("food_name") or "Recipe"), language)
+        else:
+            name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), language)
+        familiar_raw = str(item.get("familiar") or "").strip()
+        details = f"{name}  ·  {rounded(item.get('grams'))} {g_lbl}"
+        if familiar_raw:
+            if is_am:
+                from meal_plan.generation.formatting import familiar_portion
+                familiar = familiar_portion(1.0, familiar_raw, language="AM")
+            else:
+                familiar = familiar_raw
             details += f"  ·  {familiar}"
         content.append([_p(details, styles["small"], fonts)])
     exchanges = meal.get("exchange_options") or []
     if exchanges and exchanges[0].get("options"):
         opt = exchanges[0]["options"][0]
-        swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), language)
+        if opt.get("recipe_id"):
+            swap_name = local_recipe_name(opt["recipe_id"], str(opt.get("recipe_name") or opt.get("food_name") or ""), language)
+        else:
+            swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), language)
         swap_label = c.get("swap", "SWAP")
-        content.append([_p(f"{swap_label}  ·  {swap_name}  ·  {rounded(opt.get('exchange_weight_g'))} g", styles["swap"], fonts, bold=False)])
+        content.append([_p(f"{swap_label}  ·  {swap_name}  ·  {rounded(opt.get('exchange_weight_g'))} {g_lbl}", styles["swap"], fonts, bold=False)])
     table = Table(content, colWidths=[171 * mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), _hex(PAPER)),
@@ -228,7 +271,7 @@ def _meal_block(meal: dict[str, Any], language: str, styles, fonts):
     return table
 
 
-def render_pdf(
+def _render_pdf_reportlab(
     plan: dict[str, Any],
     context: DocumentContext,
     output_path: str | Path,
@@ -261,16 +304,16 @@ def render_pdf(
     goal_style = ParagraphStyle("goal", fontName=fonts["latin_bold"], fontSize=10, leading=12, textColor=_hex(ORANGE))
     story.extend([
         Spacer(1, 29 * mm),
-        _p("HILAWE", styles["kicker"], fonts, bold=True),
+        _p(c.get("coach_brand", "HILAWE"), styles["kicker"], fonts, bold=True),
         _p(c["personalized"], cover_title, fonts, bold=True),
-        _p(f"{duration} DAY  ·  {c['nutrition_system']}", cover_sub, fonts, bold=True),
+        _p(f"{duration} {c.get('day_unit', 'DAY')}  ·  {c['nutrition_system']}", cover_sub, fonts, bold=True),
         _p(c["prepared_for"], styles["small"], fonts),
         _p(context.client_name, client_style, fonts, bold=True),
-        _p(str((plan.get("profile_summary") or {}).get("goal") or "").replace("_", " ").title(), goal_style, fonts, bold=True),
+        _p(profile_label((plan.get("profile_summary") or {}).get("goal") or "", context.normalized_language), goal_style, fonts, bold=True),
         Spacer(1, 38 * mm),
     ])
     if not is_client_delivery:
-        story.append(_p(c["draft_banner"] if context.status != "APPROVED" else "APPROVED", styles["kicker"], fonts, bold=True))
+        story.append(_p(c["draft_banner"] if context.status != "APPROVED" else c.get("approved", "APPROVED"), styles["kicker"], fonts, bold=True))
     story.extend([
         NextPageTemplate("body"),
         PageBreak(),
@@ -282,23 +325,26 @@ def render_pdf(
     product = plan.get("product") or {}
     profile = plan.get("profile_summary") or {}
     client = context.client_profile or {}
+    kg_lbl = c.get("kg_unit", "kg")
+    kcal_lbl = c.get("macro_kcal", "kcal")
+    g_lbl = c.get("g_unit", "g")
     metrics = [
-        (c["current_weight"], f"{rounded(client.get('current_weight_kg'), 1)} kg" if client.get("current_weight_kg") else c["not_provided"]),
-        (c["target_weight"], f"{rounded(client.get('target_weight_kg'), 1)} kg" if client.get("target_weight_kg") else c["not_provided"]),
-        (c["daily_energy"], f"{rounded(targets.get('target_kcal'))} kcal"),
-        (c["protein"], f"{rounded(targets.get('protein_g'))} g"),
+        (c["current_weight"], f"{rounded(client.get('current_weight_kg'), 1)} {kg_lbl}" if client.get("current_weight_kg") else c["not_provided"]),
+        (c["target_weight"], f"{rounded(client.get('target_weight_kg'), 1)} {kg_lbl}" if client.get("target_weight_kg") else c["not_provided"]),
+        (c["daily_energy"], f"{rounded(targets.get('target_kcal'))} {kcal_lbl}"),
+        (c["protein"], f"{rounded(targets.get('protein_g'))} {g_lbl}"),
         (c["meals_day"], str(product.get("meals_per_day") or "-")),
-        (c["food_style"], str(profile.get("cuisine_style") or "-").replace("_", " ").title()),
+        (c["food_style"], profile_label(profile.get("cuisine_style"), context.normalized_language)),
     ]
     metric_rows = [[_metric_card(label, value, styles, fonts) for label, value in metrics[i:i+3]] for i in range(0, len(metrics), 3)]
     story.append(Table(metric_rows, colWidths=[57 * mm] * 3, style=TableStyle([("VALIGN", (0,0), (-1,-1), "TOP"), ("LEFTPADDING", (0,0), (-1,-1), 0), ("RIGHTPADDING", (0,0), (-1,-1), 2*mm), ("TOPPADDING", (0,0), (-1,-1), 1*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 1*mm)])))
     story += [Spacer(1, 5 * mm)]
     summary_rows = [
-        [c["goal"], str(profile.get("goal") or "-").replace("_", " ").title()],
-        [c["training"], f"{profile.get('training_days_per_week', '-')} days/week · {str(profile.get('training_type') or '-').replace('_', ' ').title()}"],
-        [c["budget"], str(profile.get("grocery_budget") or "-").title()],
-        [c["diet"], str(profile.get("dietary_pattern") or "-").replace("_", " ").title()],
-        [c["fasting"], str(profile.get("orthodox_fasting") or "-").replace("_", " ").title()],
+        [c["goal"], profile_label(profile.get("goal"), context.normalized_language)],
+        [c["training"], format_training_summary(profile.get("training_days_per_week"), profile.get("training_type"), context.normalized_language)],
+        [c["budget"], profile_label(profile.get("grocery_budget"), context.normalized_language)],
+        [c["diet"], profile_label(profile.get("dietary_pattern"), context.normalized_language)],
+        [c["fasting"], profile_label(profile.get("orthodox_fasting"), context.normalized_language)],
     ]
     summary_table = Table([[_p(a, styles["small"], fonts, bold=True), _p(b, styles["small"], fonts)] for a,b in summary_rows], colWidths=[45*mm, 126*mm])
     summary_table.setStyle(TableStyle([
@@ -342,7 +388,7 @@ def render_pdf(
         ("TOPPADDING", (0,0), (-1,-1), 3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 3*mm),
     ]))
     if not is_client_delivery:
-        story += [rot_table, Spacer(1, 5*mm), _p("7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration.", styles["body"], fonts)]
+        story += [rot_table, Spacer(1, 5*mm), _p(c.get("core_rotation_note", "7-day core + controlled swap rotation. The detailed meal pages below are the reviewed core used across the purchased duration."), styles["body"], fonts)]
     else:
         story += [rot_table]
     fasting_dates = [str(row.get("date")) for row in rotation if row.get("core_source") == "FASTING"]
@@ -352,27 +398,47 @@ def render_pdf(
     story.append(PageBreak())
 
     # Core days
+    day_prefix = c.get("day_prefix", "DAY")
     for day in plan.get("core_week") or []:
-        story += [_p(f"DAY {int(day.get('day_index', 0))+1:02d}  ·  {day.get('date','')}", styles["kicker"], fonts, bold=True), _p(day_label(str(day.get("day_name") or "Day"), context.normalized_language), styles["h1"], fonts, bold=True)]
+        story += [_p(f"{day_prefix} {int(day.get('day_index', 0))+1:02d}  ·  {day.get('date','')}", styles["kicker"], fonts, bold=True), _p(day_label(str(day.get("day_name") or "Day"), context.normalized_language), styles["h1"], fonts, bold=True)]
         if day.get("fasting"):
             story.append(_p(c["fasting_day"], styles["kicker"], fonts, bold=True))
         totals = day.get("totals") or {}
-        story += [_p(f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g", styles["body"], fonts), Spacer(1, 2*mm)]
+        if context.normalized_language == "AM":
+            macro_day = (
+                f"{rounded(totals.get('kcal'))} ካሎሪ  ·  "
+                f"ፕሮቲን {rounded(totals.get('protein'))}ግ  ·  "
+                f"ካርቦሃይድሬት {rounded(totals.get('carbs'))}ግ  ·  "
+                f"ቅባት {rounded(totals.get('fat'))}ግ"
+            )
+        else:
+            macro_day = f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g"
+        story += [_p(macro_day, styles["body"], fonts), Spacer(1, 2*mm)]
         for meal in day.get("meals") or []:
             story += [KeepTogether([_meal_block(meal, context.normalized_language, styles, fonts), Spacer(1, 2.3*mm)])]
         if not is_client_delivery:
             warnings = day.get("warnings") or []
             if warnings:
-                story.append(_p(c["warning"] + ": " + " | ".join(str(x) for x in warnings[:2]), styles["swap"], fonts))
+                localized = [local_warning(str(x), context.normalized_language) for x in warnings[:2]]
+                story.append(_p(c["warning"] + ": " + " | ".join(localized), styles["swap"], fonts))
         story.append(PageBreak())
 
     fasting_core = plan.get("fasting_core_week") or []
     if fasting_core:
         story += [_p("03F", styles["kicker"], fonts, bold=True), _p(c["fasting_core"], styles["h1"], fonts, bold=True), _p(c["fasting_core_note"], styles["body"], fonts), PageBreak()]
         for day in fasting_core:
-            story += [_p(f"DAY {int(day.get('day_index', 0))+1:02d}  ·  {day.get('date','')}", styles["kicker"], fonts, bold=True), _p(day_label(str(day.get("day_name") or "Day"), context.normalized_language), styles["h1"], fonts, bold=True), _p(c["fasting_day"], styles["kicker"], fonts, bold=True)]
+            story += [_p(f"{day_prefix} {int(day.get('day_index', 0))+1:02d}  ·  {day.get('date','')}", styles["kicker"], fonts, bold=True), _p(day_label(str(day.get("day_name") or "Day"), context.normalized_language), styles["h1"], fonts, bold=True), _p(c["fasting_day"], styles["kicker"], fonts, bold=True)]
             totals = day.get("totals") or {}
-            story += [_p(f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g", styles["body"], fonts), Spacer(1, 2*mm)]
+            if context.normalized_language == "AM":
+                macro_day = (
+                    f"{rounded(totals.get('kcal'))} ካሎሪ  ·  "
+                    f"ፕሮቲን {rounded(totals.get('protein'))}ግ  ·  "
+                    f"ካርቦሃይድሬት {rounded(totals.get('carbs'))}ግ  ·  "
+                    f"ቅባት {rounded(totals.get('fat'))}ግ"
+                )
+            else:
+                macro_day = f"{rounded(totals.get('kcal'))} kcal  ·  P {rounded(totals.get('protein'))}g  ·  C {rounded(totals.get('carbs'))}g  ·  F {rounded(totals.get('fat'))}g"
+            story += [_p(macro_day, styles["body"], fonts), Spacer(1, 2*mm)]
             for meal in day.get("meals") or []:
                 story += [KeepTogether([_meal_block(meal, context.normalized_language, styles, fonts), Spacer(1, 2.3*mm)])]
             story.append(PageBreak())
@@ -381,13 +447,15 @@ def render_pdf(
     story += [_p("04", styles["kicker"], fonts, bold=True), _p(c["grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
     item_header = c.get("item", "Item")
     cat_header = c.get("category", "Category")
-    grocery_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(cat_header, styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
+    planned_header = c.get("planned", "Planned")
+    buy_header = c.get("buy", "Buy")
+    grocery_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(cat_header, styles["white"], fonts, bold=True), _p(planned_header, styles["white"], fonts, bold=True), _p(buy_header, styles["white"], fonts, bold=True)]]
     for row in plan.get("grocery") or []:
         grocery_rows.append([
             _p(local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language), styles["small"], fonts),
             _p(local_category_name(str(row.get("category") or ""), context.normalized_language), styles["micro"], fonts),
-            _p(f"{rounded(row.get('planned_grams'))} g", styles["micro"], fonts),
-            _p(str(row.get("purchase_quantity") or ""), styles["micro"], fonts),
+            _p(f"{rounded(row.get('planned_grams'))} {g_lbl}", styles["micro"], fonts),
+            _p(local_purchase_quantity(str(row.get("purchase_quantity") or ""), context.normalized_language), styles["micro"], fonts),
         ])
     grocery = Table(grocery_rows, colWidths=[67*mm, 40*mm, 30*mm, 34*mm], repeatRows=1)
     grocery.setStyle(TableStyle([
@@ -400,12 +468,12 @@ def render_pdf(
     fasting_grocery = plan.get("fasting_grocery") or []
     if fasting_grocery:
         story += [_p("04F", styles["kicker"], fonts, bold=True), _p(c["fasting_grocery"], styles["h1"], fonts, bold=True), _p(c["grocery_intro"], styles["body"], fonts), Spacer(1, 2*mm)]
-        fasting_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(c["planned"], styles["white"], fonts, bold=True), _p(c["buy"], styles["white"], fonts, bold=True)]]
+        fasting_rows = [[_p(item_header, styles["white"], fonts, bold=True), _p(planned_header, styles["white"], fonts, bold=True), _p(buy_header, styles["white"], fonts, bold=True)]]
         for row in fasting_grocery:
             fasting_rows.append([
                 _p(local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language), styles["small"], fonts),
-                _p(f"{rounded(row.get('planned_grams'))} g", styles["micro"], fonts),
-                _p(str(row.get("purchase_quantity") or ""), styles["micro"], fonts),
+                _p(f"{rounded(row.get('planned_grams'))} {g_lbl}", styles["micro"], fonts),
+                _p(local_purchase_quantity(str(row.get("purchase_quantity") or ""), context.normalized_language), styles["micro"], fonts),
             ])
         fasting_table = Table(fasting_rows, colWidths=[90*mm, 35*mm, 46*mm], repeatRows=1)
         fasting_table.setStyle(TableStyle([
@@ -416,11 +484,12 @@ def render_pdf(
         ]))
         story += [fasting_table, PageBreak()]
 
+
     # Portion/hydration
     story += [_p("05", styles["kicker"], fonts, bold=True), _p(c["portion_hydration"], styles["h1"], fonts, bold=True), _p(c["hydration"], styles["h2"], fonts, bold=True)]
     if context.hydration_target_l:
         hydration_style = ParagraphStyle("hydr", fontName=fonts["latin_bold"], fontSize=25, leading=28, textColor=_hex(ORANGE), spaceAfter=5)
-        story.append(_p(f"{context.hydration_target_l:.1f} L / day", hydration_style, fonts, bold=True))
+        story.append(_p(f"{context.hydration_target_l:.1f} {c.get('l_day', 'L / day')}", hydration_style, fonts, bold=True))
     story += [_p(c["hydration_general"], styles["body"], fonts), Spacer(1, 5*mm), _p(c["exact"] + " + " + c["familiar"], styles["h2"], fonts, bold=True), _p(c["portion_note"], styles["body"], fonts), Spacer(1, 8*mm), _p(c["coach_note"], styles["kicker"], fonts, bold=True), _p(c["coach_text"], ParagraphStyle("coach", fontName=fonts["latin_bold"], fontSize=11.5, leading=16, textColor=_hex(INK)), fonts, bold=True)]
 
     if not is_client_delivery:
@@ -440,7 +509,7 @@ def render_pdf(
             ("TOPPADDING", (0,0), (-1,-1), 2.3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 2.3*mm),
         ]))
         story.append(review_table)
-        warnings = review_warning_lines(plan)
+        warnings = review_warning_lines(plan, language=context.normalized_language)
         if warnings:
             story += [Spacer(1, 6*mm), _p(c["warning"], styles["kicker"], fonts, bold=True)]
             for warning in warnings:
@@ -448,3 +517,32 @@ def render_pdf(
 
     doc.build(story)
     return path
+
+
+def render_pdf(
+    plan: dict[str, Any],
+    context: DocumentContext,
+    output_path: str | Path,
+    *,
+    is_client_delivery: bool = False,
+    keep_html: bool = True,
+) -> Path:
+    """Render ultra-modern HTML-to-PDF document via Chromium with ReportLab fallback."""
+    try:
+        from .html_pdf_renderer import render_html_pdf
+        return render_html_pdf(
+            plan,
+            context,
+            output_path,
+            is_client_delivery=is_client_delivery,
+            keep_html=keep_html,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("HTML-to-PDF engine unavailable, falling back to ReportLab: %s", exc)
+        return _render_pdf_reportlab(
+            plan,
+            context,
+            output_path,
+            is_client_delivery=is_client_delivery,
+        )

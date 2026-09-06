@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, ".")
 
 from meal_plan.generation.engine import generate_plan
 from meal_plan.nutrition_targets import calculate_nutrition_profile
