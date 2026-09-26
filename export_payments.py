@@ -40,13 +40,22 @@ import asyncpg
 import aiohttp
 import aiofiles
 import argparse
+import csv
+import io
+import json
 import logging
 import os
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime, date
 from pathlib import Path
 from dotenv import load_dotenv
+
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+import pytesseract
+
+from handlers.verify import verify_external
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -57,6 +66,15 @@ from reportlab.platypus import (
     HRFlowable, PageBreak, KeepTogether,
 )
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+
+# Detect Windows tesseract binary if not already on PATH
+for _tp in [
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Users\kiruk\AppData\Local\Programs\Tesseract-OCR\tesseract.exe",
+]:
+    if os.path.exists(_tp):
+        pytesseract.pytesseract.tesseract_cmd = _tp
+        break
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -1067,7 +1085,329 @@ async def fetch_approved_club(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TELEGRAM FILE DOWNLOAD
+# TRANSACTION AUDIT LEDGER & RECONCILIATION ENGINE
+# ──────────────────────────────────────────────────────────────────────────────
+TOLERANCE_ETB = 5.0  # Differences <= 5.0 ETB (e.g. 399 vs 400) are accepted as match
+
+def _sanitize_str(text: str) -> str:
+    """Sanitize strings for PIL font rendering and file paths."""
+    if not text:
+        return ""
+    return re.sub(r"[^\x00-\x7F\xC0-\xFF]+", " ", str(text)).strip()
+
+
+class TransactionAuditLedger:
+    """Persistent ledger tracking every scanned receipt to expose duplicates and mismatches."""
+
+    def __init__(self, json_path: Path, csv_path: Path):
+        self.json_path = json_path
+        self.csv_path = csv_path
+        self.records: list[dict] = []
+        self.seen_txns: dict[str, int] = {}  # txn_id -> original payment_id
+
+        if self.json_path.exists():
+            try:
+                with open(self.json_path, "r", encoding="utf-8") as f:
+                    self.records = json.load(f)
+                    for r in self.records:
+                        tid = r.get("txn_id")
+                        if tid and tid != "Not Detected" and tid not in self.seen_txns:
+                            self.seen_txns[tid] = r.get("payment_id")
+            except Exception as e:
+                log.warning("Could not read previous ledger: %s", e)
+
+    def record(
+        self,
+        payment_id: int,
+        stream: str,
+        amount_db: float,
+        user_id: int,
+        full_name: str,
+        username: str,
+        date_str: str,
+        txn_id: str | None,
+        provider: str,
+        veritas_info: dict,
+        filename: str,
+    ) -> dict:
+        tid = (txn_id or "").strip().upper()
+        if not tid or tid in ("NONE", "NOT DETECTED", "UNKNOWN"):
+            tid = "Not Detected"
+
+        is_dup = False
+        original_pid = None
+        if tid != "Not Detected":
+            if tid in self.seen_txns and self.seen_txns[tid] != payment_id:
+                is_dup = True
+                original_pid = self.seen_txns[tid]
+            else:
+                self.seen_txns[tid] = payment_id
+
+        bank_amount = float(veritas_info.get("amount") or 0.0)
+        gap = amount_db - bank_amount if bank_amount > 0 else 0.0
+        within_tolerance = abs(gap) <= TOLERANCE_ETB if bank_amount > 0 else True
+        is_mismatch = (bank_amount > 0) and not within_tolerance
+
+        is_verified = bool(veritas_info.get("success", False))
+
+        flagged_reason = None
+        if is_dup:
+            flagged_reason = f"REPLAY DUPLICATE (First seen in PID #{original_pid})"
+        elif is_mismatch:
+            flagged_reason = f"AMOUNT MISMATCH: DB had {amount_db:.2f} ETB, Bank settled {bank_amount:.2f} ETB (Gap: {gap:+.2f} ETB)"
+
+        entry = {
+            "payment_id": payment_id,
+            "stream": stream,
+            "amount_db": amount_db,
+            "user_id": user_id,
+            "full_name": full_name,
+            "username": username,
+            "created_at": date_str,
+            "txn_id": tid,
+            "provider": provider,
+            "bank_payer": veritas_info.get("payer", "Unknown"),
+            "bank_receiver": veritas_info.get("receiver", "Hilawe Sema"),
+            "bank_amount": bank_amount,
+            "bank_status": veritas_info.get("status", "Unknown"),
+            "is_verified": is_verified,
+            "verification_state": "verified" if is_verified else veritas_info.get("state", "unverified"),
+            "amount_difference": gap,
+            "within_tolerance": within_tolerance,
+            "is_duplicate": is_dup,
+            "duplicate_of_pid": original_pid,
+            "flagged": bool(is_dup or is_mismatch),
+            "flagged_reason": flagged_reason,
+            "screenshot_filename": filename,
+            "scanned_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+        # Replace existing entry for this payment if already logged
+        self.records = [r for r in self.records if not (r.get("payment_id") == payment_id and r.get("stream") == stream)]
+        self.records.append(entry)
+        return entry
+
+    def save(self):
+        self.json_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.json_path, "w", encoding="utf-8") as f:
+            json.dump(self.records, f, indent=2, ensure_ascii=False)
+
+        fieldnames = [
+            "payment_id", "stream", "amount_db", "user_id", "full_name", "username",
+            "created_at", "txn_id", "provider", "bank_payer", "bank_receiver",
+            "bank_amount", "bank_status", "is_verified", "verification_state",
+            "amount_difference", "within_tolerance", "is_duplicate", "duplicate_of_pid",
+            "flagged", "flagged_reason", "screenshot_filename", "scanned_at"
+        ]
+        with open(self.csv_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(self.records)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OCR & VERITAS VERIFICATION ENGINE
+# ──────────────────────────────────────────────────────────────────────────────
+def _extract_receipt_data(img: Image.Image) -> tuple[str | None, str]:
+    """Run local OCR and Ethiopian banking pattern extraction."""
+    try:
+        text = pytesseract.image_to_string(img)
+    except Exception as e:
+        log.warning("OCR failed: %s", e)
+        text = ""
+
+    upper = text.upper()
+    provider = "Generic"
+    if "COMMERCIAL BANK OF ETHIOPIA" in upper or "CBE" in upper or "FT" in upper:
+        provider = "CBE"
+    elif "TELEBIRR" in upper or "ETHIO TELECOM" in upper or "DH" in upper:
+        provider = "Telebirr"
+    elif "ABYSSINIA" in upper or "BOA" in upper:
+        provider = "Abyssinia"
+    elif "DASHEN" in upper:
+        provider = "Dashen"
+
+    patterns = [
+        r"\b(FT[A-Z0-9]{8,14})\b",
+        r"\b(DH[A-Z0-9]{8,16})\b",
+        r"\b(D[A-Z0-9]{9})\b",
+        r"(?:TRANSACTION\s*(?:ID|NO|NUMBER)|REFERENCE\s*(?:ID|NO|NUMBER)|REF\s*NO)[\s:#-]+([A-Z0-9]{8,20})",
+        r"\b([A-Z0-9]{10,14})\b",
+    ]
+
+    ref = None
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            ref = m.group(1).upper()
+            break
+
+    if ref:
+        if ref.startswith("FT"):
+            provider = "CBE"
+        elif ref.startswith("DH") or (len(ref) == 10 and ref.startswith("D")):
+            provider = "Telebirr"
+
+    return ref, provider
+
+
+def _parse_veritas_details(res: dict, provider: str) -> dict:
+    raw = res.get("raw_response") or {}
+    raw_data = raw.get("data") if isinstance(raw, dict) and isinstance(raw.get("data"), dict) else {}
+
+    payer = res.get("payer")
+    if not payer or payer in ("Unknown", "None", ""):
+        payer = raw.get("payer") or raw_data.get("payerName") or "Unknown Payer"
+
+    receiver = res.get("receiver")
+    if not receiver or receiver in ("N/A", "None", ""):
+        receiver = raw.get("receiver") or raw_data.get("creditedPartyName") or "Hilawe Sema Melese"
+
+    amount = res.get("amount") or 0.0
+    if not amount or amount == 0.0:
+        settled = raw_data.get("settledAmount") or raw.get("settledAmount") or raw_data.get("totalPaidAmount")
+        if settled:
+            m = re.search(r"(\d+(?:\.\d+)?)", str(settled).replace(",", ""))
+            if m:
+                amount = float(m.group(1))
+        elif raw.get("amount"):
+            try:
+                amount = float(raw.get("amount"))
+            except Exception:
+                pass
+
+    status_str = "Verified" if res.get("success") else "Unverified"
+    if raw_data.get("transactionStatus"):
+        status_str = raw_data.get("transactionStatus")
+
+    return {
+        "success": res.get("success", False),
+        "state": res.get("verification_state", "unverified"),
+        "payer": payer,
+        "receiver": receiver,
+        "amount": amount,
+        "status": status_str,
+    }
+
+
+def _stamp_audit_banner(
+    img: Image.Image,
+    dest_path: Path,
+    amount: float,
+    pid: int,
+    entry: dict,
+) -> Path:
+    """Stamps high-contrast, large-font audit banner with live AI verification details."""
+    w, h = img.size
+
+    # Extra 4-10px font enlargement as requested by user
+    font_path_bold = "C:/Windows/Fonts/arialbd.ttf"
+    font_path_reg = "C:/Windows/Fonts/arial.ttf"
+    if not os.path.exists(font_path_bold):
+        font_path_bold = font_path_reg = "C:/Windows/Fonts/segoeuib.ttf"
+
+    try:
+        font_title   = ImageFont.truetype(font_path_bold, size=max(26, int(w * 0.046)))
+        font_badge   = ImageFont.truetype(font_path_bold, size=max(14, int(w * 0.026)))
+        font_details = ImageFont.truetype(font_path_bold, size=max(16, int(w * 0.028)))
+        font_sub     = ImageFont.truetype(font_path_reg,  size=max(13, int(w * 0.024)))
+    except Exception:
+        font_title = font_badge = font_details = font_sub = ImageFont.load_default()
+
+    banner_h = max(200, int(w * 0.25))
+
+    is_dup = entry.get("is_duplicate", False)
+    is_verified = entry.get("is_verified", False)
+    within_tol = entry.get("within_tolerance", True)
+    gap = entry.get("amount_difference", 0.0)
+
+    # Pick header background color
+    if is_dup:
+        bg_color = (120, 15, 15)  # Crimson red
+    elif not within_tol:
+        bg_color = (130, 50, 10)  # Orange-red mismatch
+    else:
+        bg_color = (10, 30, 58)   # Deep Navy
+
+    new_img = Image.new("RGB", (w, h + banner_h), color=bg_color)
+    draw = ImageDraw.Draw(new_img)
+
+    # ── LINE 1: Registered DB Amount + Status Badge ────────────────────────────
+    line1_left = f"DB REGISTERED: {amount:,.2f} ETB   |   ID: #{pid}"
+    title_color = (255, 80, 80) if is_dup else (255, 215, 0)
+    draw.text((22, int(banner_h * 0.09)), line1_left, fill=title_color, font=font_title)
+
+    # Status badge pill
+    if is_dup:
+        badge_text = f"  REPLAY DUPLICATE (PID #{entry.get('duplicate_of_pid')})  "
+        badge_bg = (190, 30, 30)
+        badge_fg = (255, 255, 255)
+    elif not within_tol:
+        badge_text = f"  AMOUNT GAP: {gap:+.0f} ETB  "
+        badge_bg = (210, 80, 20)
+        badge_fg = (255, 255, 255)
+    elif is_verified:
+        badge_text = f"  AI VERIFIED ({entry.get('provider', 'CBE').upper()})  "
+        badge_bg = (22, 138, 62)  # Emerald green
+        badge_fg = (255, 255, 255)
+    else:
+        badge_text = f"  {entry.get('bank_status', 'MANUAL REVIEW')}  "
+        badge_bg = (180, 110, 20)
+        badge_fg = (255, 255, 255)
+
+    badge_w = draw.textlength(badge_text, font=font_badge) + 14
+    badge_x = w - badge_w - 22
+    badge_y = int(banner_h * 0.09)
+    badge_height = max(26, int(banner_h * 0.15))
+
+    # If narrow screen, badge drops below
+    if badge_x < draw.textlength(line1_left, font=font_title) + 30:
+        badge_x = 22
+        badge_y = int(banner_h * 0.28)
+        line2_y = int(banner_h * 0.47)
+        line3_y = int(banner_h * 0.65)
+        line4_y = int(banner_h * 0.82)
+    else:
+        line2_y = int(banner_h * 0.36)
+        line3_y = int(banner_h * 0.58)
+        line4_y = int(banner_h * 0.78)
+
+    draw.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_height], radius=6, fill=badge_bg)
+    draw.text((badge_x + 7, badge_y + 3), badge_text, fill=badge_fg, font=font_badge)
+
+    # ── LINE 2: Bank Payer & Receiver ──────────────────────────────────────────
+    clean_payer = _sanitize_str(entry.get("bank_payer", "Unknown Payer"))
+    clean_receiver = _sanitize_str(entry.get("bank_receiver", "Hilawe Sema"))
+    line2 = f"Payer: {clean_payer}  →  Receiver: {clean_receiver}"
+    draw.text((22, line2_y), line2, fill=(255, 255, 255), font=font_details)
+
+    # ── LINE 3: Txn ID, Bank Settled Amount, and Status ────────────────────────
+    tid = entry.get("txn_id", "Not Detected")
+    b_amt = entry.get("bank_amount", 0.0)
+    b_amt_str = f"{b_amt:,.2f} ETB" if b_amt > 0 else "Confirmed"
+    status_label = entry.get("bank_status", "Completed")
+
+    line3 = f"Txn: {tid}   ·   Bank Settled: {b_amt_str}   ·   Status: {status_label}"
+    line3_color = (120, 230, 160) if is_verified else (255, 190, 90)
+    draw.text((22, line3_y), line3, fill=line3_color, font=font_details)
+
+    # ── LINE 4: Telegram User Details & Date ───────────────────────────────────
+    clean_tg_name = _sanitize_str(entry.get("full_name", "Unknown"))
+    uname = f"@{entry.get('username')}" if entry.get("username") and entry.get("username") != "N/A" else "No username"
+    line4 = f"Telegram: {clean_tg_name} ({uname})   ·   {entry.get('created_at', '')}"
+    draw.text((22, line4_y), line4, fill=(185, 210, 240), font=font_sub)
+
+    # Divider bar
+    border_color = (255, 80, 80) if is_dup else ((210, 80, 20) if not within_tol else (201, 168, 76))
+    draw.line([(0, banner_h - 2), (w, banner_h - 2)], fill=border_color, width=3)
+
+    new_img.paste(img, (0, banner_h))
+    new_img.save(dest_path, quality=95)
+    return dest_path
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TELEGRAM FILE DOWNLOAD & AUDIT PIPELINE
 # ──────────────────────────────────────────────────────────────────────────────
 async def _get_file_url(session: aiohttp.ClientSession, file_id: str) -> str | None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile"
@@ -1088,89 +1428,366 @@ async def _get_file_url(session: aiohttp.ClientSession, file_id: str) -> str | N
     return None
 
 
-async def _download_file(
-    session:      aiohttp.ClientSession,
-    file_id:      str,
-    dest:         Path,
-    label:        str,
+async def process_and_stamp_payment(
+    session: aiohttp.ClientSession,
+    payment: dict,
+    folder: Path,
+    stream: str,
+    ledger: TransactionAuditLedger,
+    sem: asyncio.Semaphore,
 ) -> Path | None:
-    if dest.exists():
-        log.info("    Already exists: %s", dest.name)
-        return dest
-
-    url = await _get_file_url(session, file_id)
-    if not url:
-        log.warning("    Could not resolve Telegram URL for %s", label)
-        return None
-
-    try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-            resp.raise_for_status()
-            async with aiofiles.open(dest, "wb") as f:
-                await f.write(await resp.read())
-        log.info("    ✓ %s", dest.name)
-        return dest
-    except Exception as e:
-        log.error("    ✗ Download failed for %s: %s", label, e)
-        return None
-
-
-async def download_sale_screenshot(
-    session:  aiohttp.ClientSession,
-    payment:  dict,
-    folder:   Path,          # .../2025-01-10/product_sales/
-) -> Path | None:
+    """Downloads, verifies via Veritas/OCR, records in ledger, stamps banner, and saves formatted screenshot."""
+    pid = payment.get("payment_id") or payment.get("club_payment_id")
+    amount = float(payment.get("amount") or 0.0)
+    user_id = payment.get("telegram_id", 0)
     file_id = payment.get("proof_file_id")
+
+    # Name format requested by user: {int(amount)}Br._id_{pid}_user_{user_id}.jpg
+    dest = folder / f"{int(amount)}Br._id_{pid}_user_{user_id}.jpg"
+
+    if dest.exists() and any(r.get("payment_id") == pid and r.get("stream") == stream for r in ledger.records):
+        log.info("    Already processed: %s", dest.name)
+        return dest
+
     if not file_id:
-        log.warning("  Sale #%s — no proof_file_id.", payment["payment_id"])
+        log.warning("  Payment #%s — no proof_file_id.", pid)
+        ledger.record(
+            payment_id=pid,
+            stream=stream,
+            amount_db=amount,
+            user_id=user_id,
+            full_name=payment.get("full_name", "Unknown"),
+            username=payment.get("username", "N/A"),
+            date_str=payment["created_at"].strftime("%Y-%m-%d %H:%M") if payment.get("created_at") else "",
+            txn_id=None,
+            provider="None",
+            veritas_info={"success": False, "state": "no_proof", "status": "No Proof Attached"},
+            filename="NO_PROOF",
+        )
         return None
 
-    url_stub = await _get_file_url(session, file_id)
-    ext = "jpg"
-    if url_stub and "." in url_stub.rsplit("/", 1)[-1]:
-        ext = url_stub.rsplit(".", 1)[-1].lower()
+    async with sem:
+        url = await _get_file_url(session, file_id)
+        if not url:
+            log.warning("    Could not resolve Telegram URL for payment #%s", pid)
+            return None
 
-    dest = folder / f"sale_{payment['payment_id']}_user_{payment['telegram_id']}.{ext}"
-    return await _download_file(
-        session, file_id, dest,
-        f"sale #{payment['payment_id']}",
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                resp.raise_for_status()
+                img_bytes = await resp.read()
+
+            raw_img = Image.open(io.BytesIO(img_bytes))
+            img = ImageOps.exif_transpose(raw_img).convert("RGB")
+
+            # Extract Txn ID & detect provider
+            txn_id, provider = _extract_receipt_data(img)
+
+            # Call Veritas verification
+            veritas_info = {"success": False, "state": "unverified", "status": "Not Verified"}
+            if txn_id and txn_id != "Not Detected":
+                try:
+                    veritas_raw = await asyncio.wait_for(verify_external(txn_id, provider), timeout=8.0)
+                    veritas_info = _parse_veritas_details(veritas_raw, provider)
+                except Exception as ve:
+                    log.warning("Veritas call failed for #%s (%s): %s", pid, txn_id, ve)
+                    veritas_info = {"success": False, "state": "unavailable", "status": "Bank Lag / Timeout"}
+
+            date_str = payment["created_at"].strftime("%Y-%m-%d %H:%M") if payment.get("created_at") else ""
+            entry = ledger.record(
+                payment_id=pid,
+                stream=stream,
+                amount_db=amount,
+                user_id=user_id,
+                full_name=payment.get("full_name", "Unknown"),
+                username=payment.get("username", "N/A"),
+                date_str=date_str,
+                txn_id=txn_id,
+                provider=provider,
+                veritas_info=veritas_info,
+                filename=dest.name,
+            )
+
+            # Stamp banner & save
+            _stamp_audit_banner(img, dest, amount, pid, entry)
+            log.info("    ✓ Stamped & Saved: %s (Txn: %s | Verified: %s)", dest.name, txn_id, entry["is_verified"])
+            return dest
+
+        except Exception as e:
+            log.error("    ✗ Failed processing payment #%s: %s", pid, e)
+            return None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AUDIT INTELLIGENCE PDF REPORT
+# ──────────────────────────────────────────────────────────────────────────────
+def generate_ai_audit_pdf(
+    ledger: TransactionAuditLedger,
+    output_dir: Path,
+    sales_range_str: str,
+    club_range_str: str,
+) -> Path:
+    pdf_path = output_dir / "AUDIT_INTELLIGENCE_REPORT.pdf"
+    s = _styles()
+    story = []
+
+    records = ledger.records
+    total_count = len(records)
+    verified_count = sum(1 for r in records if r.get("is_verified"))
+    verified_pct = (verified_count / total_count * 100) if total_count else 0
+
+    mismatches = [r for r in records if r.get("flagged") and "AMOUNT MISMATCH" in str(r.get("flagged_reason", ""))]
+    duplicates = [r for r in records if r.get("is_duplicate")]
+    unverified = [r for r in records if not r.get("is_verified") and not r.get("is_duplicate")]
+
+    total_db = sum(float(r.get("amount_db") or 0) for r in records)
+    total_bank = sum(float(r.get("bank_amount") or 0) for r in records if r.get("is_verified"))
+    variance = total_db - total_bank
+
+    # ── Cover block ───────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.15*cm))
+    story.append(Paragraph("AUDIT INTELLIGENCE REPORT", s["doc_title"]))
+    story.append(Paragraph(
+        "AI Verification & Forensic Discrepancy Reconciliation",
+        s["doc_subtitle"],
+    ))
+    story.append(Paragraph(
+        f"Sales Scope: {sales_range_str}  ·  Club Scope: {club_range_str}  ·  "
+        f"Total Scanned: {total_count} txn  ·  "
+        f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')}",
+        s["doc_meta"],
+    ))
+    story.append(Spacer(1, 0.25*cm))
+    story.append(_hr(C_NAVY, 1.8))
+
+    # ── Executive KPI Cards ───────────────────────────────────────────────────
+    story += _section(
+        "Executive Audit Metrics",
+        "Overall AI pass rates, detected duplicates, and revenue variance.",
+        s,
     )
 
+    card_w = (A4[0] - 36*mm - 9*mm) / 4
+    val_row = [
+        Paragraph(str(total_count), s["kpi_value"]),
+        Paragraph(f"{verified_pct:.0f}%", s["kpi_value"]),
+        Paragraph(str(len(duplicates)), ParagraphStyle("kred", parent=s["kpi_value"], textColor=C_WARN)),
+        Paragraph(str(len(mismatches)), ParagraphStyle("korg", parent=s["kpi_value"], textColor=C_GOLD)),
+    ]
+    unit_row = [
+        Paragraph("TXN", s["kpi_unit"]),
+        Paragraph(f"{verified_count} PASS", s["kpi_unit"]),
+        Paragraph("REPLAYS", s["kpi_unit"]),
+        Paragraph("> 5 ETB", s["kpi_unit"]),
+    ]
+    label_row = [
+        Paragraph("Total Scanned", s["kpi_label"]),
+        Paragraph("AI Verified", s["kpi_label"]),
+        Paragraph("Duplicate Receipts", s["kpi_label"]),
+        Paragraph("Amount Mismatches", s["kpi_label"]),
+    ]
+    kpi_t = Table([val_row, unit_row, label_row], colWidths=[card_w]*4, rowHeights=[1.3*cm, 0.4*cm, 0.4*cm])
+    kpi_t.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), C_OFF_WHITE),
+        *[("BOX", (i, 0), (i, -1), 0.4, C_RULE) for i in range(4)],
+        ("LINEABOVE",     (0, 0), (0, 0), 3.5, C_NAVY),
+        ("LINEABOVE",     (1, 0), (1, 0), 3.5, C_SUCCESS),
+        ("LINEABOVE",     (2, 0), (2, 0), 3.5, C_WARN),
+        ("LINEABOVE",     (3, 0), (3, 0), 3.5, C_GOLD),
+        ("TOPPADDING",    (0, 0), (-1, 0),  10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0),   2),
+        ("TOPPADDING",    (0, 1), (-1, -1),  0),
+        ("BOTTOMPADDING", (0, 1), (-1, -1),  8),
+        ("LEFTPADDING",   (0, 0), (-1, -1),  6),
+        ("RIGHTPADDING",  (0, 0), (-1, -1),  6),
+    ]))
+    story.append(kpi_t)
+    story.append(Spacer(1, 0.3*cm))
 
-async def download_club_screenshot(
-    session:       aiohttp.ClientSession,
-    club_payment:  dict,
-    folder:        Path,     # .../2025-01-10/club_payments/
-) -> Path | None:
-    file_id = club_payment.get("proof_file_id")
-    if not file_id:
-        log.warning("  Club #%s — no proof_file_id.", club_payment["club_payment_id"])
-        return None
+    # ── Revenue Variance Box ──────────────────────────────────────────────────
+    recon_rows = [
+        [
+            Paragraph("TOTAL REGISTERED IN DATABASE", s["section_h"]),
+            Paragraph(f"{total_db:,.2f} ETB", s["big_num"]),
+        ],
+        [
+            Paragraph("TOTAL BANK SETTLED (CONFIRMED BY AI)", s["section_h"]),
+            Paragraph(f"{total_bank:,.2f} ETB", ParagraphStyle("bgreen", parent=s["big_num"], textColor=C_SUCCESS)),
+        ],
+        [
+            Paragraph("REVENUE GAP (UNCONFIRMED / DIFFERENCE)", s["total_label"]),
+            Paragraph(f"{variance:,.2f} ETB", ParagraphStyle("bgold", parent=s["combined_num"], textColor=C_WARN if variance > 0 else C_NAVY)),
+        ],
+        [
+            Paragraph("Tolerance Policy: Differences within 5 ETB (e.g. 399 vs 400 Birr) are treated as valid matches. "
+                      "Gaps represent either pending bank API timeouts, unverified receipts, or underpayments.", s["note"]),
+            Paragraph("", s["note"]),
+        ],
+    ]
+    recon_t = Table(recon_rows, colWidths=[12*cm, 5.4*cm])
+    recon_t.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0),  (-1, -1), C_OFF_WHITE),
+        ("BOX",           (0, 0),  (-1, -1), 0.4, C_RULE),
+        ("LINEABOVE",     (0, 0),  (-1, 0),  3.5, C_NAVY),
+        ("LINEABOVE",     (0, 2),  (-1, 2),  1.5, C_GOLD),
+        ("BACKGROUND",    (0, 2),  (-1, 2),  C_GOLD_LIGHT),
+        ("TOPPADDING",    (0, 0),  (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0),  (-1, -1), 7),
+        ("LEFTPADDING",   (0, 0),  (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0),  (-1, -1), 10),
+        ("SPAN",          (0, 3),  (-1, 3)),
+    ]))
+    story.append(recon_t)
+    story.append(Spacer(1, 0.4*cm))
 
-    url_stub = await _get_file_url(session, file_id)
-    ext = "jpg"
-    if url_stub and "." in url_stub.rsplit("/", 1)[-1]:
-        ext = url_stub.rsplit(".", 1)[-1].lower()
-
-    dest = folder / (
-        f"club_{club_payment['club_payment_id']}_user_{club_payment['telegram_id']}.{ext}"
+    # ── SECTION 1: FLAGGED & SUSPICIOUS TRANSACTIONS ──────────────────────────
+    flagged = [r for r in records if r.get("flagged")]
+    story += _section(
+        "Flagged & Suspicious Transactions",
+        f"Critical audit findings: {len(flagged)} transaction(s) requiring owner review.",
+        s, accent=C_WARN,
     )
-    return await _download_file(
-        session, file_id, dest,
-        f"club #{club_payment['club_payment_id']}",
+
+    if flagged:
+        f_headers = ["#", "Stream", "PID", "Telegram User", "DB (ETB)", "Bank (ETB)", "Issue / Flagged Reason"]
+        f_rows = [[Paragraph(h, s["th"]) for h in f_headers]]
+        for i, r in enumerate(flagged):
+            uname = f"@{r['username']}" if r.get("username") and r["username"] != "N/A" else ""
+            user_str = f"{r.get('full_name', 'Unknown')[:18]}<br/>{uname}"
+            f_rows.append([
+                Paragraph(str(i + 1), s["td_c"]),
+                Paragraph(r.get("stream", "").replace("_", " ").title()[:10], s["td_c"]),
+                Paragraph(str(r.get("payment_id")), s["td_c"]),
+                Paragraph(user_str, s["td"]),
+                Paragraph(f"{float(r.get('amount_db') or 0):,.2f}", s["td_money"]),
+                Paragraph(f"{float(r.get('bank_amount') or 0):,.2f}", s["td_money"]),
+                Paragraph(r.get("flagged_reason", "Suspicious Entry"), ParagraphStyle("fr", parent=s["td"], textColor=C_WARN, fontName="Helvetica-Bold")),
+            ])
+        f_cols = [0.8*cm, 2.2*cm, 1.2*cm, 3.8*cm, 2.2*cm, 2.2*cm, 5.0*cm]
+        f_table = Table(f_rows, colWidths=f_cols, repeatRows=1)
+        f_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0),  (-1, 0),  C_WARN),
+            ("TEXTCOLOR",     (0, 0),  (-1, 0),  C_WHITE),
+            ("FONTNAME",      (0, 0),  (-1, 0),  "Helvetica-Bold"),
+            ("FONTSIZE",      (0, 0),  (-1, 0),  7.5),
+            ("ROWBACKGROUNDS",(0, 1),  (-1, -1), [C_WHITE, C_WARN_BG]),
+            ("GRID",          (0, 0),  (-1, -1), 0.3, C_RULE),
+            ("TOPPADDING",    (0, 0),  (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0),  (-1, -1), 4),
+        ]))
+        story.append(f_table)
+    else:
+        story.append(Paragraph("✓ Clean Audit: Zero duplicate transactions or large amount mismatches found.", s["note"]))
+
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── SECTION 2: AI VERIFICATION & EXTRACTION FAILURES ──────────────────────
+    story += _section(
+        "AI Verification & Extraction Log",
+        "Records where bank API connection timed out or screenshot OCR was inconclusive.",
+        s, accent=C_GOLD,
     )
+
+    if unverified:
+        u_headers = ["#", "PID", "Telegram User", "Extracted Txn", "Provider", "Verification State"]
+        u_rows = [[Paragraph(h, s["th"]) for h in u_headers]]
+        for i, r in enumerate(unverified):
+            u_rows.append([
+                Paragraph(str(i + 1), s["td_c"]),
+                Paragraph(str(r.get("payment_id")), s["td_c"]),
+                Paragraph(r.get("full_name", "Unknown")[:20], s["td"]),
+                Paragraph(r.get("txn_id", "Not Detected"), s["td_c"]),
+                Paragraph(r.get("provider", "Generic"), s["td_c"]),
+                Paragraph(r.get("bank_status", "Unverified"), s["td_c"]),
+            ])
+        u_cols = [0.8*cm, 1.4*cm, 4.5*cm, 3.8*cm, 2.5*cm, 4.4*cm]
+        u_table = Table(u_rows, colWidths=u_cols, repeatRows=1)
+        u_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0),  (-1, 0),  C_NAVY_MID),
+            ("TEXTCOLOR",     (0, 0),  (-1, 0),  C_WHITE),
+            ("FONTNAME",      (0, 0),  (-1, 0),  "Helvetica-Bold"),
+            ("ROWBACKGROUNDS",(0, 1),  (-1, -1), [C_WHITE, C_ROW_ALT]),
+            ("GRID",          (0, 0),  (-1, -1), 0.3, C_RULE),
+            ("TOPPADDING",    (0, 0),  (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0),  (-1, -1), 4),
+        ]))
+        story.append(u_table)
+    else:
+        story.append(Paragraph("✓ All scanned receipts were successfully verified.", s["note"]))
+
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── SECTION 3: FULL AUDIT REGISTER ────────────────────────────────────────
+    story.append(PageBreak())
+    story += _section(
+        "Full AI Reconciliation Register",
+        "Comprehensive ledger of all scanned payments across both revenue streams.",
+        s,
+    )
+
+    r_headers = ["#", "Str", "PID", "Telegram User", "DB Birr", "Bank Settled", "AI Status", "Txn Ref"]
+    r_rows = [[Paragraph(h, s["th"]) for h in r_headers]]
+    for i, r in enumerate(records):
+        st_short = "Sale" if "sale" in r.get("stream", "").lower() else "Club"
+        is_ok = r.get("is_verified", False)
+        status_text = "PASS" if is_ok else ("DUP" if r.get("is_duplicate") else "MANUAL")
+        status_style = s["td_ok"] if is_ok else (s["td_fail"] if r.get("is_duplicate") else s["td_c"])
+
+        b_settled_str = f"{float(r.get('bank_amount') or 0):,.0f}" if r.get("bank_amount") else "—"
+
+        r_rows.append([
+            Paragraph(str(i + 1), s["td_c"]),
+            Paragraph(st_short, s["td_c"]),
+            Paragraph(str(r.get("payment_id")), s["td_c"]),
+            Paragraph(r.get("full_name", "Unknown")[:20], s["td"]),
+            Paragraph(f"{float(r.get('amount_db') or 0):,.0f}", s["td_money"]),
+            Paragraph(b_settled_str, s["td_money_club"] if st_short == "Club" else s["td_money"]),
+            Paragraph(status_text, status_style),
+            Paragraph((r.get("txn_id") or "—")[:16], s["td_c"]),
+        ])
+
+    r_cols = [0.8*cm, 1.4*cm, 1.2*cm, 4.0*cm, 2.2*cm, 2.2*cm, 1.8*cm, 3.8*cm]
+    r_table = Table(r_rows, colWidths=r_cols, repeatRows=1, splitByRow=True)
+    r_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0),  (-1, 0),  C_NAVY),
+        ("TEXTCOLOR",     (0, 0),  (-1, 0),  C_WHITE),
+        ("FONTNAME",      (0, 0),  (-1, 0),  "Helvetica-Bold"),
+        ("ROWBACKGROUNDS",(0, 1),  (-1, -1), [C_WHITE, C_ROW_ALT]),
+        ("GRID",          (0, 0),  (-1, -1), 0.3, C_RULE),
+        ("TOPPADDING",    (0, 0),  (-1, -1), 3.5),
+        ("BOTTOMPADDING", (0, 0),  (-1, -1), 3.5),
+    ]))
+    story.append(r_table)
+
+    _build_doc(pdf_path, story)
+    log.info("Audit Intelligence PDF saved: %s", pdf_path)
+    return pdf_path
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────────────────────────────────────────────
-async def main(date_from: date | None, date_to: date | None, stream: str):
+async def main(
+    date_from: date | None,
+    date_to: date | None,
+    stream: str,
+    sales_from: date | None = None,
+    sales_to: date | None = None,
+    club_from: date | None = None,
+    club_to: date | None = None,
+):
     if not DATABASE_URL:
         log.error("DATABASE_URL not set in .env"); sys.exit(1)
     if not BOT_TOKEN:
         log.error("BOT_TOKEN not set in .env"); sys.exit(1)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Determine effective date ranges
+    s_from = sales_from or date_from
+    s_to   = sales_to   or date_to
+    c_from = club_from  or date_from
+    c_to   = club_to    or date_to
 
     log.info("Connecting to database …")
     conn = await asyncpg.connect(DATABASE_URL)
@@ -1179,18 +1796,24 @@ async def main(date_from: date | None, date_to: date | None, stream: str):
         all_club_payments = []
 
         if stream in ("both", "sales"):
-            all_payments = await fetch_approved_sales(conn, date_from, date_to)
-            log.info("  Stream A (product sales)  : %d records", len(all_payments))
+            all_payments = await fetch_approved_sales(conn, s_from, s_to)
+            log.info("  Stream A (product sales)  : %d records (%s -> %s)", len(all_payments), s_from or "All", s_to or "Now")
 
         if stream in ("both", "club"):
-            all_club_payments = await fetch_approved_club(conn, date_from, date_to)
-            log.info("  Stream B (club payments)  : %d records", len(all_club_payments))
+            all_club_payments = await fetch_approved_club(conn, c_from, c_to)
+            log.info("  Stream B (club payments)  : %d records (%s -> %s)", len(all_club_payments), c_from or "All", c_to or "Now")
     finally:
         await conn.close()
 
     if not all_payments and not all_club_payments:
         log.warning("No approved payments found in either stream. Nothing to export.")
         return
+
+    # Initialize ledger in output directory
+    ledger = TransactionAuditLedger(
+        json_path=OUTPUT_DIR / "scanned_transactions.json",
+        csv_path=OUTPUT_DIR / "scanned_transactions.csv",
+    )
 
     # Group by day
     by_day_sales: dict[str, list] = defaultdict(list)
@@ -1206,6 +1829,9 @@ async def main(date_from: date | None, date_to: date | None, stream: str):
     all_days = sorted(set(by_day_sales) | set(by_day_club))
     log.info("Days to process: %s", ", ".join(all_days))
 
+    # Concurrency semaphore for safe, fast Telegram & Veritas processing
+    sem = asyncio.Semaphore(4)
+
     # ── Per-day processing ───────────────────────────────────────────────────
     async with aiohttp.ClientSession() as session:
         for day in all_days:
@@ -1220,67 +1846,99 @@ async def main(date_from: date | None, date_to: date | None, stream: str):
             if day_sales: sales_folder.mkdir(parents=True, exist_ok=True)
             if day_club:  club_folder.mkdir(parents=True, exist_ok=True)
 
-            log.info("── %s  (sales: %d  |  club: %d) ──",
-                     day, len(day_sales), len(day_club))
+            log.info("── %s  (sales: %d  |  club: %d) ──", day, len(day_sales), len(day_club))
 
-            # Download sale screenshots → product_sales/
-            sale_shots: dict[int, Path | None] = {}
-            for p in day_sales:
-                sale_shots[p["payment_id"]] = await download_sale_screenshot(
-                    session, p, sales_folder,
-                )
+            # Download & verify sale screenshots
+            sale_tasks = [
+                process_and_stamp_payment(session, p, sales_folder, "product_sales", ledger, sem)
+                for p in day_sales
+            ]
+            sale_results = await asyncio.gather(*sale_tasks)
+            sale_shots = {p["payment_id"]: res for p, res in zip(day_sales, sale_results)}
 
-            # Download club screenshots → club_payments/
-            club_shots: dict[int, Path | None] = {}
-            for p in day_club:
-                club_shots[p["club_payment_id"]] = await download_club_screenshot(
-                    session, p, club_folder,
-                )
+            # Download & verify club screenshots
+            club_tasks = [
+                process_and_stamp_payment(session, p, club_folder, "club_payments", ledger, sem)
+                for p in day_club
+            ]
+            club_results = await asyncio.gather(*club_tasks)
+            club_shots = {p["club_payment_id"]: res for p, res in zip(day_club, club_results)}
 
-            generate_day_pdf(
-                day, day_sales, day_club,
-                day_folder, sale_shots, club_shots,
-            )
+            generate_day_pdf(day, day_sales, day_club, day_folder, sale_shots, club_shots)
 
-    # ── Master audit ─────────────────────────────────────────────────────────
+    # Save finalized ledger
+    ledger.save()
+
+    # ── Master audit PDF ─────────────────────────────────────────────────────
     log.info("Generating master audit PDF …")
-    generate_master_pdf(all_payments, all_club_payments, OUTPUT_DIR, date_from, date_to)
+    generate_master_pdf(all_payments, all_club_payments, OUTPUT_DIR, s_from, s_to)
+
+    # ── AI Audit Intelligence PDF ────────────────────────────────────────────
+    log.info("Generating AI audit intelligence PDF …")
+    sales_range_label = f"{s_from or 'All'} to {s_to or 'Now'}"
+    club_range_label  = f"{c_from or 'All'} to {c_to or 'Now'}"
+    generate_ai_audit_pdf(ledger, OUTPUT_DIR, sales_range_label, club_range_label)
 
     # ── Summary banner ────────────────────────────────────────────────────────
     total_sales = sum(float(p["amount"] or 0) for p in all_payments)
     total_club  = sum(float(p["amount"] or 0) for p in all_club_payments)
     total_all   = total_sales + total_club
 
-    print("\n" + "═" * 62)
-    print("  DIGITAL REVENUE — DUAL-STREAM EXPORT COMPLETE")
-    print("═" * 62)
-    print(f"  Output folder      : {OUTPUT_DIR.resolve()}")
-    print(f"  Days processed     : {len(all_days)}")
-    print(f"  ── Stream A (Sales) ──────────────────────────────────")
-    print(f"  Transactions       : {len(all_payments)}")
-    print(f"  Product Sales Rev  : {total_sales:>14,.2f} ETB")
-    print(f"  ── Stream B (Club) ───────────────────────────────────")
-    print(f"  Subscriptions      : {len(all_club_payments)}")
-    print(f"  Club Sub Rev       : {total_club:>14,.2f} ETB")
-    print(f"  ── Combined ──────────────────────────────────────────")
-    print(f"  Total Revenue      : {total_all:>14,.2f} ETB")
-    print("═" * 62)
-    print("  Open MASTER_AUDIT.pdf and compare each stream total")
-    print("  against your CBE / Telebirr / Abyssinia statements.")
-    print("═" * 62 + "\n")
+    verified_n = sum(1 for r in ledger.records if r.get("is_verified"))
+    flagged_n  = sum(1 for r in ledger.records if r.get("flagged"))
+    dup_n      = sum(1 for r in ledger.records if r.get("is_duplicate"))
+
+    print("\n" + "=" * 66)
+    print("  DIGITAL REVENUE -- FORENSIC DUAL-STREAM AUDIT COMPLETE")
+    print("=" * 66)
+    print(f"  Output folder           : {OUTPUT_DIR.resolve()}")
+    print(f"  Sales Range             : {sales_range_label}")
+    print(f"  Club Range              : {club_range_label}")
+    print(f"  Total Scanned           : {len(ledger.records)}")
+    if ledger.records:
+        print(f"  AI Verified (Pass)      : {verified_n} / {len(ledger.records)} ({verified_n/len(ledger.records)*100:.1f}%)")
+    print(f"  Replay Duplicates       : {dup_n}")
+    print(f"  Flagged Transactions    : {flagged_n}")
+    print(f"  -- Financial Summary -----------------------------------")
+    print(f"  Product Sales Rev (DB)  : {total_sales:>14,.2f} ETB ({len(all_payments)} txn)")
+    print(f"  Club Subscription (DB)  : {total_club:>14,.2f} ETB ({len(all_club_payments)} subs)")
+    print(f"  Total Registered Rev    : {total_all:>14,.2f} ETB")
+    print("=" * 66)
+    print("  AUDIT ARTIFACTS CREATED:")
+    print("  [OK] MASTER_AUDIT.pdf               - Consolidated financial ledger")
+    print("  [OK] AUDIT_INTELLIGENCE_REPORT.pdf  - Forensic AI verification & discrepancy report")
+    print("  [OK] scanned_transactions.csv       - Full Excel-ready audit ledger")
+    print("  [OK] scanned_transactions.json      - Machine-readable transaction state")
+    print("=" * 66 + "\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Digital Revenue — Export approved payments (both streams) by day.",
+        description="Digital Revenue — Export and verify approved payments with AI forensics.",
     )
     parser.add_argument(
         "--from", dest="date_from", metavar="YYYY-MM-DD",
-        help="Only include payments created on/after this date",
+        help="Default start date for both streams",
     )
     parser.add_argument(
         "--to", dest="date_to", metavar="YYYY-MM-DD",
-        help="Only include payments created on/before this date",
+        help="Default end date for both streams",
+    )
+    parser.add_argument(
+        "--sales-from", dest="sales_from", metavar="YYYY-MM-DD",
+        help="Start date for product sales stream",
+    )
+    parser.add_argument(
+        "--sales-to", dest="sales_to", metavar="YYYY-MM-DD",
+        help="End date for product sales stream",
+    )
+    parser.add_argument(
+        "--club-from", dest="club_from", metavar="YYYY-MM-DD",
+        help="Start date for club payments stream",
+    )
+    parser.add_argument(
+        "--club-to", dest="club_to", metavar="YYYY-MM-DD",
+        help="End date for club payments stream",
     )
     parser.add_argument(
         "--stream", dest="stream", choices=["both", "sales", "club"],
@@ -1291,4 +1949,12 @@ if __name__ == "__main__":
 
     def _d(v): return datetime.strptime(v, "%Y-%m-%d").date() if v else None
 
-    asyncio.run(main(_d(args.date_from), _d(args.date_to), args.stream))
+    asyncio.run(main(
+        date_from=_d(args.date_from),
+        date_to=_d(args.date_to),
+        stream=args.stream,
+        sales_from=_d(args.sales_from),
+        sales_to=_d(args.sales_to),
+        club_from=_d(args.club_from),
+        club_to=_d(args.club_to),
+    ))

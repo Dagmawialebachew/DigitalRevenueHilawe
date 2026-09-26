@@ -11,7 +11,8 @@ import {
   PriceOption,
   startPayment,
 } from './api'
-import { hapticSelect } from './telegram'
+import { hapticError, hapticLight, hapticMedium, hapticSelect, hapticSuccess, syncTelegramBackButton } from './telegram'
+import TopProgressBar from './TopProgressBar'
 
 type Props = {
   initData: string
@@ -206,24 +207,65 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     [prices, config.duration_days, config.service_type],
   )
 
-  function go(next: Step) { hapticSelect(); setError(''); setStep(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
+
+  function go(next: Step) {
+    hapticMedium()
+    setError('')
+    setDirection('forward')
+    setStep(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function goBack() {
+    if (result) {
+      hapticSelect()
+      setResult(null)
+      return
+    }
+    const prevMap: Partial<Record<Step, Step>> = {
+      MEALS: 'PROFILE',
+      START: 'MEALS',
+      DURATION: 'START',
+      SERVICE: 'DURATION',
+      SUMMARY: config.duration_days === 30 ? 'SERVICE' : 'DURATION',
+    }
+    const prev = prevMap[step]
+    if (prev) {
+      hapticSelect()
+      setError('')
+      setDirection('backward')
+      setStep(prev)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  useEffect(() => {
+    const isNested = Boolean(result) || (step !== 'PROFILE' && !paymentResult)
+    const cleanup = syncTelegramBackButton(isNested, goBack)
+    return cleanup
+  }, [step, result, paymentResult, config.duration_days])
 
   async function submit() {
-    setLoading(true); setError(''); hapticSelect()
+    setLoading(true); setError(''); hapticMedium()
     try {
       const response = await previewCheckout(initData, config)
       setResult(response)
+      hapticSuccess()
     } catch (cause) {
+      hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to prepare checkout')
     } finally { setLoading(false) }
   }
 
   async function beginPayment() {
-    setLoading(true); setError(''); hapticSelect()
+    setLoading(true); setError(''); hapticMedium()
     try {
       const response = await startPayment(initData, config)
       setPaymentResult(response)
+      hapticSuccess()
     } catch (cause) {
+      hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to start payment')
     } finally { setLoading(false) }
   }
@@ -234,6 +276,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       ? (payment.settlement_currency === 'ETB' ? `${Number(payment.settlement_amount).toLocaleString()} Br` : `$${Number(payment.settlement_amount).toLocaleString()}`)
       : '—'
     return <section className="phase5-payment-stage">
+      <TopProgressBar active={loading} />
       <div className="completion-mark">✓</div>
       <p className="eyebrow">PAYMENT · READY</p>
       <h1>{language === 'AM' ? 'የክፍያ መመሪያዎ ወደ Telegram bot(@CoachHilaweBot) ተልኳል' : 'Your payment instructions are ready in Telegram'}</h1>
@@ -247,6 +290,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
 
   if (result) {
     return <section className="phase4-stage checkout-result">
+      <TopProgressBar active={loading} />
       <div className={`completion-mark ${result.pricing_status === 'READY' ? '' : 'soft'}`}>{result.pricing_status === 'READY' ? '✓' : '…'}</div>
       <p className="eyebrow">CHECKOUT · {result.pricing_status.replace(/_/g, ' ')}</p>
       <h1>{result.pricing_status === 'READY' ? t.checkoutReady : result.pricing_status === 'MANUAL_REVIEW_REQUIRED' ? t.manualPricing : t.pricingMissing}</h1>
@@ -259,15 +303,32 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       </div>
       <FastingCalendarPanel context={result.fasting_calendar} language={language} />
       <p className="lead checkout-note">{result.pricing_status === 'READY' ? (language === 'AM' ? 'ዋጋዎ ተረጋግጧል። ቀጥለው የCBE / Abyssinia የክፍያ መመሪያዎን ይክፈቱ።' : 'Your price is confirmed. Continue to open the CBE / Abyssinia payment instructions.') : result.pricing_status === 'MANUAL_REVIEW_REQUIRED' ? t.manualPricing : t.pricingMissing}</p>
-      {result.pricing_status === 'READY' && <button className="primary-button tall" disabled={loading} onClick={() => void beginPayment()}>{loading ? '…' : (language === 'AM' ? 'ወደ ክፍያ ቀጥል →' : 'Continue to payment →')}</button>}
+      {result.pricing_status === 'READY' && (
+        <button
+          className={`primary-button tall ${loading ? 'is-loading' : ''}`}
+          disabled={loading}
+          onClick={() => void beginPayment()}
+        >
+          {loading ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{language === 'AM' ? 'በማዘጋጀት ላይ…' : 'Preparing…'}</span>
+            </>
+          ) : (
+            (language === 'AM' ? 'ወደ ክፍያ ቀጥል →' : 'Continue to payment →')
+          )}
+        </button>
+      )}
       <button className="secondary-button wide" onClick={() => setResult(null)}>← {t.back}</button>
     </section>
   }
 
   return <section className="phase4-stage">
+    <TopProgressBar active={loading} />
     <div className="phase4-progress"><span className={step === 'PROFILE' ? 'active' : 'done'}>01</span><i /><span className={['MEALS','START'].includes(step) ? 'active' : ['DURATION','SERVICE','SUMMARY'].includes(step) ? 'done' : ''}>02</span><i /><span className={['DURATION','SERVICE'].includes(step) ? 'active' : step === 'SUMMARY' ? 'done' : ''}>03</span><i /><span className={step === 'SUMMARY' ? 'active' : ''}>04</span></div>
 
-    {step === 'PROFILE' && <>
+    <div key={step} className={`step-animated-shell ${direction}`}>
+      {step === 'PROFILE' && <>
       <p className="eyebrow">{t.profileEyebrow}</p>
       <h1>{t.profileTitle(firstName)}</h1>
       <p className="lead">{t.profileBody}</p>
@@ -330,9 +391,26 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       <div className="summary-price"><span>{language === 'AM' ? 'ዋጋ' : 'PRICE'}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'በreview ይረጋገጣል' : 'Manual confirmation') : formatPrice(selectedPrice)}</strong></div>
       {pricingMode === 'AUTOMATIC' && !selectedPrice && <p className="inline-warning">{t.pricingMissing}</p>}
       {pricingMode === 'MANUAL' && <p className="inline-warning">{t.manualPricing}</p>}
-      <button className="primary-button tall" disabled={loading} onClick={() => void submit()}>{loading ? t.loadingPrice : `${t.prepareCheckout} →`}</button>
+      <button
+        className={`primary-button tall ${loading ? 'is-loading' : ''}`}
+        disabled={loading}
+        onClick={() => void submit()}
+      >
+        {loading ? (
+          <>
+            <span className="button-spinner inverted" />
+            <span>{t.loadingPrice}</span>
+          </>
+        ) : (
+          <>
+            <span>{t.prepareCheckout}</span>
+            <span>→</span>
+          </>
+        )}
+      </button>
       <button className="back-button centered" onClick={() => go(config.duration_days === 30 ? 'SERVICE' : 'DURATION')}>← {t.back}</button>
     </>}
+    </div>
     {error && <div className="inline-error">{error}</div>}
   </section>
 }

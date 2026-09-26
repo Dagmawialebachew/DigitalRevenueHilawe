@@ -37,3 +37,11 @@ crushconnect.db
 artifacts/
 env_broken_backup/
 downloads/
+*.tsbuildinfo
+
+# Raw receipt images and heavy archives from export
+payments_export/**/*.jpg
+payments_export/**/*.jpeg
+payments_export/**/*.png
+payments_export/**/*.zip
+payments_export/UNVERIFIED_REVIEW_QUEUE/

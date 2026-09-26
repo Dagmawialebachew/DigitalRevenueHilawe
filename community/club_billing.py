@@ -22,6 +22,8 @@ except ImportError:
     async def verify_external(*args): return {"success": False}
     def is_hilawe_receiver(*args): return False
 
+from handlers.forensic_stamp import process_and_stamp_incoming_proof
+
 logger = logging.getLogger(__name__)
 router = Router(name="club_billing")
 
@@ -220,6 +222,25 @@ async def process_club_receipt(message: types.Message, state: FSMContext, db: Da
     amount = data.get("club_amount", 299.00)
     proof_id = message.photo[-1].file_id
 
+    # ANTI-REPLAY / ANTI-FRAUD SHIELD: Prevent reusing existing proof screenshots
+    duplicate = await db.check_duplicate_proof(proof_id)
+    if duplicate:
+        await state.clear()
+        if lang == "EN":
+            dup_msg = (
+                "⚠️ <b>DUPLICATE RECEIPT DETECTED</b>\n\n"
+                "This transfer screenshot has already been submitted in our system and cannot be reused.\n\n"
+                "If you made a new payment, please upload the distinct official transfer receipt for this club subscription."
+            )
+        else:
+            dup_msg = (
+                "⚠️ <b>ይህ ደረሰኝ ከዚህ ቀደም ተመዝግቧል!</b>\n\n"
+                "ይህ የክፍያ ማረጋገጫ ፎቶ ቀደም ሲል በሲስተሙ ውስጥ ጥቅም ላይ ውሏል፤ ደግመው መጠቀም አይችሉም።\n\n"
+                "እባክዎ ለአዲሱ የክለብ ምዝገባ የተከፈለበትን ትክክለኛ እና አዲስ ደረሰኝ ይላኩ።"
+            )
+        await message.answer(dup_msg, parse_mode="HTML")
+        return
+
     # UI updates matching existing user experience loops
     load_msg = "📡 <b>Connecting to secure subscription ledger...</b>" if lang == "EN" else "📡 <b>ከክለብ መዝገብ ቤት ጋር በመገናኘት ላይ...</b>"
     progress = await message.answer(load_msg, reply_markup=types.ReplyKeyboardRemove(), parse_mode="HTML")
@@ -308,229 +329,73 @@ async def notify_admin_club_payment(
     db: Database
 ):
     try:
-        username = (
-            f"@{msg.from_user.username}"
-            if msg.from_user.username
-            else "No Username"
-        )
-
         payment = await db._pool.fetchrow("""
-            SELECT
-                payment_type,
-                previous_expiry
+            SELECT payment_type, previous_expiry
             FROM club_payments
             WHERE id = $1
         """, pay_id)
 
-        payment_type = (
-            payment["payment_type"]
-            if payment
-            else "new"
-        )
-
-        previous_expiry = (
-            payment["previous_expiry"]
-            if payment
-            else None
-        )
-
+        payment_type = payment["payment_type"] if payment else "new"
+        previous_expiry = payment["previous_expiry"] if payment else None
         is_renewal = payment_type == "renewal"
 
         previous_payments = await db._pool.fetchval("""
             SELECT COUNT(*)
             FROM club_payments
-            WHERE user_id = $1
-              AND status = 'approved'
+            WHERE user_id = $1 AND status = 'approved'
         """, uid)
 
-        if is_renewal:
+        extra_details = {
+            "payment_type": payment_type,
+            "is_renewal": is_renewal,
+            "previous_expiry": previous_expiry,
+            "previous_payments": previous_payments,
+        }
 
-            expiry_text = (
-                previous_expiry.strftime("%Y-%m-%d %H:%M")
-                if previous_expiry
-                else "Unknown"
-            )
+        # 1. Run Forensic Pipeline & Stamp Image with Visual Audit Banner
+        photo_payload, caption, keyboard = await process_and_stamp_incoming_proof(
+            bot=bot,
+            db=db,
+            proof_file_id=proof_id,
+            payment_id=pay_id,
+            stream="club",
+            user_id=uid,
+            user_name=name,
+            username=msg.from_user.username,
+            lang=lang,
+            expected_amount=float(amt),
+            item_title="Transformation Club (30 Days)",
+            extra_details=extra_details,
+        )
 
-            caption = (
-                "🔄 <b>TRANSFORMATION CLUB — RENEWAL PAYMENT</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 <b>Member:</b> {html.escape(name)}\n"
-                f"🔗 <b>Username:</b> {html.escape(username)}\n"
-                f"🆔 <code>{uid}</code>\n"
-                f"🌍 Language: <code>{lang}</code>\n\n"
+        target_chat = -5196014443
 
-                "♻️ <b>PAYMENT TYPE: MEMBERSHIP RENEWAL</b>\n"
-                f"💰 Amount: <code>{amt} ETB</code>\n"
-                f"🎫 Payment ID: <code>#{pay_id}</code>\n"
-                f"📆 Current Expiry: <code>{expiry_text}</code>\n"
-                f"🧾 Previous Approved Club Payments: "
-                f"<code>{previous_payments}</code>\n\n"
-            )
-
-        else:
-
-            caption = (
-                "👑 <b>TRANSFORMATION CLUB — NEW PAYMENT</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 <b>User:</b> {html.escape(name)}\n"
-                f"🔗 <b>Username:</b> {html.escape(username)}\n"
-                f"🆔 <code>{uid}</code>\n"
-                f"🌍 Language: <code>{lang}</code>\n\n"
-                f"💰 Subscription: <code>{amt} ETB / 30 Days</code>\n"
-                f"🎫 Payment ID: <code>#{pay_id}</code>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━"
-            )
-
-        kb = InlineKeyboardBuilder()
-
-        if is_renewal:
-            kb.button(
-                text="✅ APPROVE RENEWAL +30 DAYS",
-                callback_data=f"club_approve_{pay_id}"
-            )
-
-            kb.button(
-                text="🧾 VIEW PREVIOUS PAYMENTS",
-                callback_data=f"club_history_{uid}"
-            )
-
-            kb.button(
-                text="❌ REJECT RENEWAL",
-                callback_data=f"club_reject_{pay_id}"
-            )
-
-        else:
-            kb.button(
-                text="✅ APPROVE ENTRY",
-                callback_data=f"club_approve_{pay_id}"
-            )
-
-            kb.button(
-                text="❌ REJECT RECEIPT",
-                callback_data=f"club_reject_{pay_id}"
-            )
-
-        kb.adjust(1)
-
-        admin_msg = await bot.send_photo(
-            chat_id=-5196014443,
-            photo=proof_id,
+        # 2. Forward Stamped Image with Executive Caption & Smart Action Buttons to Club Admin Channel
+        await bot.send_photo(
+            chat_id=target_chat,
+            photo=photo_payload,
             caption=caption,
-            reply_markup=kb.as_markup(),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
-
-        # ──────────────────────────────────────
-        # Existing OCR / bank verification
-        # ──────────────────────────────────────
-        start = time.perf_counter()
-
+    except Exception as e:
+        logger.error("Error in notify_admin_club_payment for Pay ID #%s: %s", pay_id, e, exc_info=True)
+        # Resilient fallback: ensure club admins always receive the alert
         try:
-            file_info = await bot.get_file(proof_id)
-
-            img_stream = io.BytesIO()
-
-            await bot.download_file(
-                file_info.file_path,
-                destination=img_stream
-            )
-
-            img_stream.seek(0)
-
-            local = await extract_local_data(img_stream)
-
-            ref_id = local.get("ref") if local else None
-            provider = (
-                local.get("provider", "CBE")
-                if local
-                else "CBE"
-            )
-
-            raw_text = (
-                local.get("raw_text", "")
-                if local
-                else ""
-            )
-
-            if not ref_id or len(str(ref_id)) < 8:
-
-                await admin_msg.reply(
-                    "🤖 <b>AI SCAN: MANUAL REVIEW REQUIRED</b>\n\n"
-                    "Could not reliably parse a transaction reference.",
-                    parse_mode="HTML"
-                )
-
-                return
-
-            bank_data = await verify_external(
-                ref_id,
-                provider
-            )
-
-            is_real = bank_data.get(
-                "success",
-                False
-            )
-
-            is_hilawe = is_hilawe_receiver(
-                raw_text,
-                bank_data
-            )
-
-            elapsed = time.perf_counter() - start
-
-            if is_real and is_hilawe:
-                eval_txt = (
-                    "🤖 <b>CLUB AI SCAN: VERIFIED ✅</b>\n"
-                    f"🏦 {provider}\n"
-                    f"🆔 <code>{ref_id}</code>\n"
-                    f"⏱️ <code>{elapsed:.2f}s</code>"
-                )
-            else:
-                eval_txt = (
-                    "🚨 <b>CLUB AI SCAN: REVIEW REQUIRED</b>\n"
-                    f"🏦 {provider}\n"
-                    f"🆔 <code>{ref_id or 'N/A'}</code>"
-                )
-
-            CLUB_REPORT_CACHE[pay_id] = format_club_audit(
-                local,
-                bank_data,
-                elapsed,
-                is_real,
-                is_hilawe
-            )
-
-            info_kb = InlineKeyboardBuilder()
-
-            info_kb.button(
-                text="ℹ️ Audit Details",
-                callback_data=f"club_info_{pay_id}"
-            )
-
-            if is_renewal:
-                info_kb.button(
-                    text="🧾 Previous Payments",
-                    callback_data=f"club_history_{uid}"
-                )
-
-            info_kb.adjust(1)
-
-            await admin_msg.reply(
-                eval_txt,
-                reply_markup=info_kb.as_markup(),
+            kb = InlineKeyboardBuilder()
+            kb.button(text="✅ APPROVE CLUB ENTRY", callback_data=f"club_approve_{pay_id}")
+            kb.button(text="❌ REJECT RECEIPT", callback_data=f"club_reject_{pay_id}")
+            kb.adjust(1)
+            await bot.send_photo(
+                chat_id=-5196014443,
+                photo=proof_id,
+                caption=f"👑 <b>CLUB PAYMENT #{pay_id}</b> (Fallback mode)\nMember: {html.escape(name)}\nAmount: <code>{amt} ETB</code>",
+                reply_markup=kb.as_markup(),
                 parse_mode="HTML"
             )
+        except Exception as inner_e:
+            logger.error("Critical delivery failure in notify_admin_club_payment fallback: %s", inner_e)
 
-        except Exception as ocr_err:
-            logger.error(
-                f"Club OCR error: {ocr_err}"
-            )
-
-    except Exception as e:
-        logger.error(
-            f"Club admin payment notification failed: {e}"
-        )
 
 #Don't ever forget to reset their membership expiry date later on buddy
 

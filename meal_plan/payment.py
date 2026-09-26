@@ -278,6 +278,20 @@ async def receive_meal_payment_proof(message: types.Message, state: FSMContext, 
 
     repo = get_meal_plan_repository(db)
     proof_file_id = message.photo[-1].file_id
+
+    # ANTI-REPLAY / ANTI-FRAUD SHIELD: Prevent reusing existing proof screenshots
+    duplicate = await db.check_duplicate_proof(proof_file_id)
+    if duplicate:
+        await state.clear()
+        user = await db.get_user(message.from_user.id)
+        lang = (user.get("language") if user else None) or "AM"
+        dup_msg = (
+            "⚠️ <b>DUPLICATE RECEIPT DETECTED</b>\n\nThis payment screenshot has already been submitted in our system and cannot be reused. Please submit a valid, unused receipt."
+            if lang == "EN"
+            else "⚠️ <b>ይህ ደረሰኝ ከዚህ ቀደም ተመዝግቧል!</b>\n\nይህ የክፍያ ማረጋገጫ ፎቶ ቀደም ሲል ጥቅም ላይ ውሏል፤ ደግመው መጠቀም አይችሉም። እባክዎ አዲስ እና ትክክለኛ ደረሰኝ ይጠቀሙ።"
+        )
+        return await message.answer(dup_msg, parse_mode="HTML")
+
     try:
         payment, order = await repo.submit_payment_proof(payment_id, message.from_user.id, proof_file_id)
     except (PermissionError, RecordNotFound, ConcurrentUpdate) as exc:

@@ -19,6 +19,7 @@ from config import settings
 import io
 import time
 from handlers.verify import extract_local_data, verify_external, is_hilawe_receiver
+from handlers.forensic_stamp import process_and_stamp_incoming_proof
 REPORT_CACHE = {}
 
 router = Router(name="payment")
@@ -120,6 +121,25 @@ async def handle_payment_proof(message: types.Message, state: FSMContext, db: Da
     amount = data.get('amount')
     proof_file_id = message.photo[-1].file_id
 
+    # ANTI-REPLAY / ANTI-FRAUD SHIELD: Prevent reusing existing proof screenshots
+    duplicate = await db.check_duplicate_proof(proof_file_id)
+    if duplicate:
+        await state.clear()
+        if lang == "EN":
+            dup_msg = (
+                "⚠️ <b>DUPLICATE RECEIPT DETECTED</b>\n\n"
+                "This transfer screenshot has already been submitted in our system and cannot be reused.\n\n"
+                "If you made a new payment, please upload the distinct official transfer receipt for this order."
+            )
+        else:
+            dup_msg = (
+                "⚠️ <b>ይህ ደረሰኝ ከዚህ ቀደም ተመዝግቧል!</b>\n\n"
+                "ይህ የክፍያ ማረጋገጫ ፎቶ ቀደም ሲል በሲስተሙ ውስጥ ጥቅም ላይ ውሏል፤ ደግመው መጠቀም አይችሉም።\n\n"
+                "እባክዎ ለአዲሱ ትዕዛዝ የተከፈለበትን ትክክለኛ እና አዲስ ደረሰኝ ይላኩ።"
+            )
+        await message.answer(dup_msg, reply_markup=rb.main_menu(lang), parse_mode="HTML")
+        return
+
     # 1. IMMEDIATE FEEDBACK & REMOVE CANCEL KEYBOARD
     progress_text = "📡 <b>Connecting to secure server...</b>" if lang == "EN" else "📡 <b>ከሴኩዩር ሰርቨር ጋር በመገናኘት ላይ...</b>"
     progress_msg = await message.answer(progress_text, reply_markup=types.ReplyKeyboardRemove(), parse_mode="HTML")
@@ -179,119 +199,55 @@ async def handle_payment_proof(message: types.Message, state: FSMContext, db: Da
 
 
 async def notify_admin_payment(bot: Bot, message: types.Message, data: dict, payment_id: int, proof_id: str, db: Database):
-    """The Founder Alert: Sends the receipt immediately, then runs automated OCR verification."""
+    """The Founder Alert: Performs real-time forensic verification, stamps visual audit banner, and forwards to group."""
     try:
-        product = await db._pool.fetchrow("SELECT title FROM products WHERE id = $1", data['selected_product_id'])
-        
-        lang_code = data.get("language", "EN")
-        lang_display = "🇺🇸 English" if lang_code == "EN" else "🇪🇹 አማርኛ (Amharic)"
-        
-        full_name = html.escape(message.from_user.full_name)
-        username = html.escape(f"@{message.from_user.username}") if message.from_user.username else "No Username"
-        product_title = html.escape(product['title'])
-        
-        admin_caption = (
-            f"💸 <b>MONEY IN: NEW PAYMENT</b>\n"            
-            f"────────────────────\n"
-            f"👤 <b>User:</b> {full_name} | {username}\n"
-            f"🆔 <b>User ID:</b> <code>{message.from_user.id}</code>\n"
-            f"🌍 <b>Language:</b> <code>{lang_display}</code>\n"
-            f"────────────────────\n"
-            f"📦 <b>Plan:</b> {product_title}\n"
-            f"💰 <b>Amount:</b> <code>{data['amount']} ETB</code>\n"
-            f"🎫 <b>Payment ID:</b> #{payment_id}\n"
-            f"────────────────────\n"
-            f"⚡️ <b>Verify receipt and choose action:</b>"
-        )
-        
-        kb_builder = InlineKeyboardBuilder()
-        kb_builder.button(text="✅ APPROVE & SEND PDF", callback_data=f"approve_{payment_id}")
-        kb_builder.button(text="❌ REJECT / FAKE", callback_data=f"reject_{payment_id}")
-        kb_builder.adjust(1)
+        product = await db._pool.fetchrow("SELECT title FROM products WHERE id = $1", data.get('selected_product_id'))
+        product_title = product['title'] if product else "Custom Fitness Plan"
 
-        # Immediate Delivery to Group Channel
-        admin_msg = await bot.send_photo(
+        user_rec = await db.get_user(message.from_user.id)
+        lang = (user_rec.get("language") if user_rec else data.get("language")) or "EN"
+        amount = float(data.get("amount", 399.0))
+
+        # 1. Run Forensic Pipeline & Stamp Image with Visual Audit Banner
+        photo_payload, caption, keyboard = await process_and_stamp_incoming_proof(
+            bot=bot,
+            db=db,
+            proof_file_id=proof_id,
+            payment_id=payment_id,
+            stream="sales",
+            user_id=message.from_user.id,
+            user_name=message.from_user.full_name,
+            username=message.from_user.username,
+            lang=lang,
+            expected_amount=amount,
+            item_title=product_title,
+        )
+
+        # 2. Forward Stamped Image with Executive Caption & Action Buttons to Admin Channel
+        await bot.send_photo(
             chat_id=settings.ADMIN_PAYMENT_LOG_ID,
-            photo=proof_id,
-            caption=admin_caption,
-            reply_markup=kb_builder.as_markup(),
+            photo=photo_payload,
+            caption=caption,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
-
-        # 🚀 ASYNC NON-BLOCKING VERIFICATION PROCESSING
-        
-        # start_time = time.perf_counter()
-        # try:
-        #     file_info = await bot.get_file(proof_id)
-        #     img_stream = io.BytesIO()
-        #     await bot.download_file(file_info.file_path, destination=img_stream)
-        #     img_stream.seek(0)
-
-        #     # Process with verify.py core mechanics
-        #     local = await extract_local_data(img_stream)
-
-        #     # Verification Scenario 1: No clear text could be read by OCR
-        #     if not local["ref"] or len(str(local["ref"])) < 8:
-        #         elapsed = time.perf_counter() - start_time
-        #         await admin_msg.reply(
-        #             f"🤖 <b>AI SCAN: MANUAL REVIEW REQUIRED 🧐</b>\n"
-        #             f"────────────────────\n"
-        #             f"⚠️ Layout is too messy or other bank. Couldn't extract a solid Transaction ID.\n"
-        #             f"🛡️ <i>Locking it down to prevent a false approval. Over to you, human.</i>\n\n"
-        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s",
-        #             parse_mode="HTML"
-        #         )
-        #         return
-
-        #     # Verification Scenario 2: ID extracted, let's look up the APIs
-        #     bank_data = await verify_external(local["ref"], local["provider"])
-        #     is_real = bank_data.get("success", False)
-        #     is_hilawe = is_hilawe_receiver(local["raw_text"], bank_data)
-
-        #     api_amount = bank_data.get("data", {}).get("amount")
-        #     display_amount = f"{float(api_amount):,.2f}" if api_amount else (local['amount_fallback'] or "Unknown")
-        #     elapsed = time.perf_counter() - start_time
-        #     full_audit_report = format_audit_report(local, bank_data, elapsed, is_real, is_hilawe)
-        
-        # # 2. Store it in cache
-            
-
-        #     if is_real and is_hilawe:
-        #         evaluation_text = (
-        #             f"🤖 <b>API MATCH: SECURE & VALID ✅</b>\n"
-        #             f"────────────────────\n"
-        #             f"🟢 100% authentic. Live bank transaction check confirmed the funds are safely in.\n\n"
-        #             f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref']}</code> • 💰 <b>{display_amount} ETB</b>\n"
-        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
-        #         )
-        #     else:
-        #         evaluation_text = (
-        #             f"🤖 <b>API MATCH: REJECTED / FAKE ALERT 🚨</b>\n"
-        #             f"────────────────────\n"
-        #             f"🔴 Fraud guard triggered. This transaction ID does not exist on the bank's live server.\n"
-        #             f"🛡️ <i>Nice try, but the system just caught a ghost receipt. Do not send the program.</i>\n\n"
-        #             f"📊 <b>{local['provider']}</b> • 🆔 <code>{local['ref'] or 'N/A'}</code> • 💰 <b>{display_amount} ETB</b>\n"
-        #             f"⏱️ <b>Speed:</b> {elapsed:.2f}s"
-        #         )
-            
-        #     REPORT_CACHE[payment_id] = full_audit_report
-
-        #     # 3. Define the "More Info" button
-        #     kb_info = InlineKeyboardBuilder()
-        #     kb_info.button(text="ℹ️ Detail", callback_data=f"info_{payment_id}")
-        
-        # # 3. Send the reply with the button
-        #     await admin_msg.reply(
-        #     evaluation_text, 
-        #     reply_markup=kb_info.as_markup(), 
-        #     parse_mode="HTML"
-        # )
-
-        # except Exception as ocr_err:
-        #     logger.error(f"In-line background execution processing error: {ocr_err}")
-
     except Exception as e:
-        logging.error(f"Global admin notification error: {e}")
+        logger.error("Error in notify_admin_payment for PID #%s: %s", payment_id, e, exc_info=True)
+        # Resilient fallback: ensure admin always receives notification
+        try:
+            kb = InlineKeyboardBuilder()
+            kb.button(text="✅ APPROVE & SEND PDF", callback_data=f"approve_{payment_id}")
+            kb.button(text="❌ REJECT / FAKE", callback_data=f"reject_{payment_id}")
+            kb.adjust(1)
+            await bot.send_photo(
+                chat_id=settings.ADMIN_PAYMENT_LOG_ID,
+                photo=proof_id,
+                caption=f"💸 <b>NEW PAYMENT #{payment_id}</b> (Fallback mode)\nUser: {html.escape(message.from_user.full_name)}\nAmount: <code>{data.get('amount')} ETB</code>",
+                reply_markup=kb.as_markup(),
+                parse_mode="HTML"
+            )
+        except Exception as inner_e:
+            logger.error("Critical delivery failure in notify_admin_payment fallback: %s", inner_e)
 
 from datetime import datetime, timezone
 

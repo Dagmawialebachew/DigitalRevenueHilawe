@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { completeAssessment, IntakeAnswers, Language, saveIntakeAnswers } from './api'
 import {
   activityOptions,
@@ -13,7 +13,15 @@ import {
   Option,
   trainingOptions,
 } from './intakeContent'
-import { hapticSelect } from './telegram'
+import {
+  hapticError,
+  hapticLight,
+  hapticMedium,
+  hapticSelect,
+  hapticSuccess,
+  syncTelegramBackButton,
+} from './telegram'
+import TopProgressBar from './TopProgressBar'
 
 type Props = {
   initData: string
@@ -78,6 +86,7 @@ export default function IntakeFlow({
   const text = intakeCopy[language]
   const [answers, setAnswers] = useState<IntakeAnswers>(initialAnswers)
   const [step, setStep] = useState<Step>(asStep(initialStep, assessmentComplete))
+  const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -89,17 +98,25 @@ export default function IntakeFlow({
     return Math.max(3, Math.round(((index + 1) / progressOrder.length) * 100))
   }, [step])
 
+  // Synchronize Telegram's native top-left BackButton
+  useEffect(() => {
+    const isNested = step !== 'WELCOME' && step !== 'ASSESSMENT_COMPLETE'
+    const cleanup = syncTelegramBackButton(isNested, goBack)
+    return cleanup
+  }, [step, answers])
+
   async function commit(patch: IntakeAnswers, next: Step) {
     if (saving) return
     setSaving(true)
     setError('')
-    hapticSelect()
+    setDirection('forward')
     try {
       await saveIntakeAnswers(initData, patch, next)
       setAnswers((previous) => ({ ...previous, ...patch }))
       setStep(next)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (cause) {
+      hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to save your answer')
     } finally {
       setSaving(false)
@@ -110,16 +127,19 @@ export default function IntakeFlow({
     if (saving) return
     setSaving(true)
     setError('')
-    hapticSelect()
+    hapticMedium()
+    setDirection('forward')
     try {
       await saveIntakeAnswers(initData, patch, 'ASSESSMENT_COMPLETE')
       const merged = { ...answers, ...patch }
       await completeAssessment(initData)
       setAnswers(merged)
       setStep('ASSESSMENT_COMPLETE')
+      hapticSuccess()
       onAssessmentComplete()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (cause) {
+      hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to complete your assessment')
     } finally {
       setSaving(false)
@@ -131,6 +151,7 @@ export default function IntakeFlow({
     if (previous) {
       hapticSelect()
       setError('')
+      setDirection('backward')
       setStep(previous)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -139,6 +160,7 @@ export default function IntakeFlow({
   if (step === 'WELCOME') {
     return (
       <section className="intake-stage welcome-stage">
+        <TopProgressBar active={saving} />
         <CoachHero firstName={firstName} language={language} />
         <p className="eyebrow">COACH HILAWE · PERSONAL NUTRITION</p>
         <h1>{text.introTitle}</h1>
@@ -146,7 +168,9 @@ export default function IntakeFlow({
         <div className="value-list">
           {text.introPoints.map((point) => <div key={point}><span>✓</span><strong>{point}</strong></div>)}
         </div>
-        <button className="primary-button tall" onClick={() => setStep('AGE')}>{text.start} <span>→</span></button>
+        <button className="primary-button tall" onClick={() => { hapticMedium(); setDirection('forward'); setStep('AGE') }}>
+          <span>{text.start}</span> <span>→</span>
+        </button>
       </section>
     )
   }
@@ -154,6 +178,7 @@ export default function IntakeFlow({
   if (step === 'ASSESSMENT_COMPLETE') {
     return (
       <section className="completion-stage">
+        <TopProgressBar active={saving} />
         <div className="completion-mark">✓</div>
         <p className="eyebrow">ASSESSMENT · COMPLETE</p>
         <h1>{text.completeTitle}</h1>
@@ -169,9 +194,12 @@ export default function IntakeFlow({
 
   return (
     <section className="intake-stage">
+      <TopProgressBar active={saving} />
       <Progress chapter={chapter} chapters={text.chapters} progress={progress} />
       {chapterGuide(step, language, firstName)}
-      {renderStep(step, { language, answers, commit, finish, saving, text })}
+      <div key={step} className={`step-animated-shell ${direction}`}>
+        {renderStep(step, { language, answers, commit, finish, saving, text })}
+      </div>
       {error && <div className="inline-error">{error}</div>}
       <div className="intake-footer-row">
         <button className="back-button" onClick={goBack} disabled={saving}>← {text.back}</button>
@@ -195,29 +223,25 @@ function renderStep(step: Step, ctx: RenderContext) {
     case 'AGE': return <AgeStep {...ctx} />
     case 'SEX': return <SexStep {...ctx} />
     case 'BODY': return <BodyStep {...ctx} />
-    case 'GOAL': return <ChoiceStep title={ctx.text.goalTitle} body={ctx.text.goalBody} options={goalOptions[ctx.language]} selected={str(ctx.answers.primary_goal)} onSelect={(value) => ctx.commit({ primary_goal: value }, 'TARGET_WEIGHT')} disabled={ctx.saving} />
+    case 'GOAL': return <ChoiceStep key="GOAL" title={ctx.text.goalTitle} body={ctx.text.goalBody} options={goalOptions[ctx.language]} selected={str(ctx.answers.primary_goal)} onSelect={(value) => ctx.commit({ primary_goal: value }, 'TARGET_WEIGHT')} disabled={ctx.saving} />
     case 'TARGET_WEIGHT': return <TargetStep {...ctx} />
-    case 'ACTIVITY': return <ChoiceStep title={ctx.text.activityTitle} body={ctx.text.activityBody} options={activityOptions[ctx.language]} selected={str(ctx.answers.activity_level)} onSelect={(value) => ctx.commit({ activity_level: value }, 'TRAINING')} disabled={ctx.saving} />
+    case 'ACTIVITY': return <ChoiceStep key="ACTIVITY" title={ctx.text.activityTitle} body={ctx.text.activityBody} options={activityOptions[ctx.language]} selected={str(ctx.answers.activity_level)} onSelect={(value) => ctx.commit({ activity_level: value }, 'TRAINING')} disabled={ctx.saving} />
     case 'TRAINING': return <TrainingStep {...ctx} />
-    case 'CUISINE': return <ChoiceStep title={ctx.text.cuisineTitle} body={ctx.text.cuisineBody} options={cuisineOptions[ctx.language]} selected={str(ctx.answers.cuisine_style)} onSelect={(value) => ctx.commit({ cuisine_style: value }, 'DIETARY_PATTERN')} disabled={ctx.saving} />
-    case 'DIETARY_PATTERN': return <ChoiceStep title={ctx.text.dietaryTitle} body={ctx.text.dietaryBody} options={dietaryPatternOptions[ctx.language]} selected={str(ctx.answers.dietary_pattern)} onSelect={(value) => ctx.commit({ dietary_pattern: value }, 'BUDGET')} disabled={ctx.saving} />
-    case 'BUDGET': return <ChoiceStep title={ctx.text.budgetTitle} body={ctx.text.budgetBody} options={budgetOptions[ctx.language]} selected={str(ctx.answers.grocery_budget)} onSelect={(value) => ctx.commit({ grocery_budget: value }, 'FASTING')} disabled={ctx.saving} />
+    case 'CUISINE': return <ChoiceStep key="CUISINE" title={ctx.text.cuisineTitle} body={ctx.text.cuisineBody} options={cuisineOptions[ctx.language]} selected={str(ctx.answers.cuisine_style)} onSelect={(value) => ctx.commit({ cuisine_style: value }, 'DIETARY_PATTERN')} disabled={ctx.saving} />
+    case 'DIETARY_PATTERN': return <ChoiceStep key="DIETARY_PATTERN" title={ctx.text.dietaryTitle} body={ctx.text.dietaryBody} options={dietaryPatternOptions[ctx.language]} selected={str(ctx.answers.dietary_pattern)} onSelect={(value) => ctx.commit({ dietary_pattern: value }, 'BUDGET')} disabled={ctx.saving} />
+    case 'BUDGET': return <ChoiceStep key="BUDGET" title={ctx.text.budgetTitle} body={ctx.text.budgetBody} options={budgetOptions[ctx.language]} selected={str(ctx.answers.grocery_budget)} onSelect={(value) => ctx.commit({ grocery_budget: value }, 'FASTING')} disabled={ctx.saving} />
     case 'FASTING': return <FastingStep {...ctx} />
-    // These adjacent screens share an implementation but must not share local
-    // selection state. Distinct keys make React remount the control when the
-    // mode changes, so dislikes initialize from disliked_foods rather than the
-    // selections held by the preceding likes screen (and vice versa on Back).
     case 'LIKES': return <FoodSelectStep key="likes" {...ctx} mode="likes" />
     case 'DISLIKES': return <FoodSelectStep key="dislikes" {...ctx} mode="dislikes" />
     case 'ALLERGIES': return <AllergyStep {...ctx} />
     case 'INTOLERANCES': return <IntoleranceStep {...ctx} />
-    case 'HEALTH_PREGNANCY': return <HealthYesNo {...ctx} field="health_pregnancy_postpartum_lactating" question={ctx.text.pregnancyQ} next="HEALTH_EATING" />
-    case 'HEALTH_EATING': return <HealthYesNo {...ctx} field="health_eating_disorder_concern" question={ctx.text.eatingQ} next="HEALTH_KIDNEY_LIVER" />
-    case 'HEALTH_KIDNEY_LIVER': return <HealthYesNo {...ctx} field="health_kidney_liver_disease" question={ctx.text.kidneyQ} next="HEALTH_DIABETES" />
-    case 'HEALTH_DIABETES': return <HealthYesNo {...ctx} field="health_diabetes_or_glucose_medication" question={ctx.text.diabetesQ} next="HEALTH_CLINICIAN_DIET" />
-    case 'HEALTH_CLINICIAN_DIET': return <HealthYesNo {...ctx} field="health_clinician_prescribed_diet" question={ctx.text.clinicianDietQ} next="HEALTH_GI" />
-    case 'HEALTH_GI': return <HealthYesNo {...ctx} field="health_severe_gi_condition" question={ctx.text.giQ} next="HEALTH_UNEXPLAINED_WEIGHT" />
-    case 'HEALTH_UNEXPLAINED_WEIGHT': return <HealthYesNo {...ctx} field="health_unexplained_weight_change" question={ctx.text.unexplainedQ} next="HEALTH_OTHER" />
+    case 'HEALTH_PREGNANCY': return <HealthYesNo key="HEALTH_PREGNANCY" {...ctx} field="health_pregnancy_postpartum_lactating" question={ctx.text.pregnancyQ} next="HEALTH_EATING" />
+    case 'HEALTH_EATING': return <HealthYesNo key="HEALTH_EATING" {...ctx} field="health_eating_disorder_concern" question={ctx.text.eatingQ} next="HEALTH_KIDNEY_LIVER" />
+    case 'HEALTH_KIDNEY_LIVER': return <HealthYesNo key="HEALTH_KIDNEY_LIVER" {...ctx} field="health_kidney_liver_disease" question={ctx.text.kidneyQ} next="HEALTH_DIABETES" />
+    case 'HEALTH_DIABETES': return <HealthYesNo key="HEALTH_DIABETES" {...ctx} field="health_diabetes_or_glucose_medication" question={ctx.text.diabetesQ} next="HEALTH_CLINICIAN_DIET" />
+    case 'HEALTH_CLINICIAN_DIET': return <HealthYesNo key="HEALTH_CLINICIAN_DIET" {...ctx} field="health_clinician_prescribed_diet" question={ctx.text.clinicianDietQ} next="HEALTH_GI" />
+    case 'HEALTH_GI': return <HealthYesNo key="HEALTH_GI" {...ctx} field="health_severe_gi_condition" question={ctx.text.giQ} next="HEALTH_UNEXPLAINED_WEIGHT" />
+    case 'HEALTH_UNEXPLAINED_WEIGHT': return <HealthYesNo key="HEALTH_UNEXPLAINED_WEIGHT" {...ctx} field="health_unexplained_weight_change" question={ctx.text.unexplainedQ} next="HEALTH_OTHER" />
     case 'HEALTH_OTHER': return <OtherHealthStep {...ctx} />
     default: return null
   }
@@ -268,17 +292,63 @@ function QuestionHeader({ title, body }: { title: string; body: string }) {
   return <div className="question-header"><h2>{title}</h2><p>{body}</p></div>
 }
 
-function ChoiceStep({ title, body, options, selected, onSelect, disabled }: { title: string; body: string; options: Option[]; selected: string; onSelect: (value: string) => void; disabled: boolean }) {
+function ChoiceStep({
+  title,
+  body,
+  options,
+  selected,
+  onSelect,
+  disabled,
+}: {
+  title: string
+  body: string
+  options: Option[]
+  selected: string
+  onSelect: (value: string) => void
+  disabled: boolean
+}) {
+  const [pendingValue, setPendingValue] = useState<string | null>(null)
+
+  function handlePick(val: string) {
+    if (disabled || pendingValue) return
+    setPendingValue(val)
+    hapticMedium()
+    // 180ms confirmation pulse: gives instant visual feedback before transition
+    window.setTimeout(() => {
+      onSelect(val)
+    }, 180)
+  }
+
   return (
     <>
       <QuestionHeader title={title} body={body} />
-      <div className="option-stack">
-        {options.map((option) => (
-          <button key={option.value} disabled={disabled} className={`choice-card ${selected === option.value ? 'selected' : ''}`} onClick={() => onSelect(option.value)}>
-            {option.icon && <span className="option-icon">{option.icon}</span>}
-            <div><strong>{option.title}</strong>{option.body && <p>{option.body}</p>}</div><span className="choice-indicator">→</span>
-          </button>
-        ))}
+      <div className={`option-stack ${pendingValue || disabled ? 'locked' : ''}`}>
+        {options.map((option) => {
+          const isSelected = selected === option.value || pendingValue === option.value
+          const isPending = pendingValue === option.value
+          return (
+            <button
+              key={option.value}
+              type="button"
+              disabled={disabled || (Boolean(pendingValue) && !isPending)}
+              className={`choice-card ${isSelected ? 'selected' : ''} ${isPending ? 'pending-active' : ''}`}
+              onClick={() => handlePick(option.value)}
+            >
+              {option.icon && <span className="option-icon">{option.icon}</span>}
+              <div>
+                <strong>{option.title}</strong>
+                {option.body && <p>{option.body}</p>}
+              </div>
+              {isPending ? (
+                <span className="choice-indicator loading">
+                  <span className="button-spinner" />
+                </span>
+              ) : (
+                <span className="choice-indicator">→</span>
+              )}
+            </button>
+          )
+        })}
       </div>
     </>
   )
@@ -291,18 +361,72 @@ function AgeStep(ctx: RenderContext) {
     <>
       <QuestionHeader title={ctx.text.ageTitle} body={ctx.text.ageBody} />
       <NumberCard value={age} onChange={(value) => setAge(Math.round(value))} min={10} max={100} suffix={ctx.text.years} />
-      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ age }, 'SEX')}>{ctx.text.continue} →</button>
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || !valid}
+          onClick={() => { hapticMedium(); void ctx.commit({ age }, 'SEX') }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
 
 function SexStep(ctx: RenderContext) {
+  const [pendingSex, setPendingSex] = useState<'MALE' | 'FEMALE' | null>(null)
+
+  function pickSex(sex: 'MALE' | 'FEMALE') {
+    if (ctx.saving || pendingSex) return
+    setPendingSex(sex)
+    hapticMedium()
+    window.setTimeout(() => {
+      if (sex === 'MALE') {
+        void ctx.commit({ calculation_sex: 'MALE', health_pregnancy_postpartum_lactating: false }, 'BODY')
+      } else {
+        void ctx.commit({ calculation_sex: 'FEMALE' }, 'BODY')
+      }
+    }, 180)
+  }
+
+  const isMale = ctx.answers.calculation_sex === 'MALE' || pendingSex === 'MALE'
+  const isFemale = ctx.answers.calculation_sex === 'FEMALE' || pendingSex === 'FEMALE'
+
   return (
     <>
       <QuestionHeader title={ctx.text.sexTitle} body={ctx.text.sexBody} />
-      <div className="two-choice-grid">
-        <button className={`big-choice ${ctx.answers.calculation_sex === 'MALE' ? 'selected' : ''}`} onClick={() => ctx.commit({ calculation_sex: 'MALE', health_pregnancy_postpartum_lactating: false }, 'BODY')} disabled={ctx.saving}><span>♂</span><strong>{ctx.text.male}</strong></button>
-        <button className={`big-choice ${ctx.answers.calculation_sex === 'FEMALE' ? 'selected' : ''}`} onClick={() => ctx.commit({ calculation_sex: 'FEMALE' }, 'BODY')} disabled={ctx.saving}><span>♀</span><strong>{ctx.text.female}</strong></button>
+      <div className={`two-choice-grid ${pendingSex || ctx.saving ? 'locked' : ''}`}>
+        <button
+          type="button"
+          className={`big-choice ${isMale ? 'selected' : ''} ${pendingSex === 'MALE' ? 'pending-active' : ''}`}
+          onClick={() => pickSex('MALE')}
+          disabled={ctx.saving || (Boolean(pendingSex) && pendingSex !== 'MALE')}
+        >
+          <span>♂</span>
+          <strong>{ctx.text.male}</strong>
+          {pendingSex === 'MALE' && <span className="button-spinner" style={{ marginTop: 8 }} />}
+        </button>
+        <button
+          type="button"
+          className={`big-choice ${isFemale ? 'selected' : ''} ${pendingSex === 'FEMALE' ? 'pending-active' : ''}`}
+          onClick={() => pickSex('FEMALE')}
+          disabled={ctx.saving || (Boolean(pendingSex) && pendingSex !== 'FEMALE')}
+        >
+          <span>♀</span>
+          <strong>{ctx.text.female}</strong>
+          {pendingSex === 'FEMALE' && <span className="button-spinner" style={{ marginTop: 8 }} />}
+        </button>
       </div>
     </>
   )
@@ -319,7 +443,25 @@ function BodyStep(ctx: RenderContext) {
         <CompactNumber label={ctx.text.height} value={height} onChange={setHeight} min={100} max={250} suffix="cm" step={1} />
         <CompactNumber label={ctx.text.currentWeight} value={weight} onChange={setWeight} min={25} max={350} suffix="kg" step={0.5} />
       </div>
-      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ height_cm: height, current_weight_kg: weight }, 'GOAL')}>{ctx.text.continue} →</button>
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || !valid}
+          onClick={() => { hapticMedium(); void ctx.commit({ height_cm: height, current_weight_kg: weight }, 'GOAL') }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -333,7 +475,25 @@ function TargetStep(ctx: RenderContext) {
       <QuestionHeader title={ctx.text.targetTitle} body={ctx.text.targetBody} />
       <NumberCard value={target} onChange={setTarget} min={25} max={350} suffix="kg" step={0.5} />
       <div className="current-reference"><span>{ctx.text.currentWeight}</span><strong>{current} kg</strong></div>
-      <button className="primary-button tall" disabled={ctx.saving || !valid} onClick={() => ctx.commit({ target_weight_kg: target }, 'ACTIVITY')}>{ctx.text.continue} →</button>
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || !valid}
+          onClick={() => { hapticMedium(); void ctx.commit({ target_weight_kg: target }, 'ACTIVITY') }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -347,11 +507,59 @@ function TrainingStep(ctx: RenderContext) {
     <>
       <QuestionHeader title={ctx.text.trainingTitle} body={ctx.text.trainingBody} />
       <div className="day-selector">
-        {[0,1,2,3,4,5,6,7].map((day) => <button key={day} className={days === day ? 'active' : ''} onClick={() => { setDays(day); if (day === 0) setTrainingType('NOT_TRAINING') }}>{day}</button>)}
+        {[0,1,2,3,4,5,6,7].map((day) => (
+          <button
+            key={day}
+            className={days === day ? 'active' : ''}
+            onClick={() => {
+              hapticLight()
+              setDays(day)
+              if (day === 0) setTrainingType('NOT_TRAINING')
+            }}
+          >
+            {day}
+          </button>
+        ))}
       </div>
       <div className="selector-caption">{days} {ctx.text.daysPerWeek}</div>
-      {days > 0 && <div className="chip-grid training-chips">{trainingOptions[ctx.language].filter((item) => item.value !== 'NOT_TRAINING').map((option) => <button key={option.value} className={activeType === option.value ? 'selected' : ''} onClick={() => setTrainingType(option.value)}>{option.title}</button>)}</div>}
-      <button className="primary-button tall" disabled={ctx.saving || (days > 0 && !activeType)} onClick={() => ctx.commit({ training_days_per_week: days, training_type: days === 0 ? 'NOT_TRAINING' : activeType }, 'CUISINE')}>{ctx.text.continue} →</button>
+      {days > 0 && (
+        <div className="chip-grid training-chips">
+          {trainingOptions[ctx.language].filter((item) => item.value !== 'NOT_TRAINING').map((option) => (
+            <button
+              key={option.value}
+              className={activeType === option.value ? 'selected' : ''}
+              onClick={() => {
+                hapticMedium()
+                setTrainingType(option.value)
+              }}
+            >
+              {option.title}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || (days > 0 && !activeType)}
+          onClick={() => {
+            hapticMedium()
+            void ctx.commit({ training_days_per_week: days, training_type: days === 0 ? 'NOT_TRAINING' : activeType }, 'CUISINE')
+          }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -364,9 +572,50 @@ function FastingStep(ctx: RenderContext) {
   return (
     <>
       <QuestionHeader title={ctx.text.fastingTitle} body={ctx.text.fastingBody} />
-      <div className="option-stack compact-options">{fastingOptions[ctx.language].map((option) => <button key={option.value} className={`choice-card ${fasting === option.value ? 'selected' : ''}`} onClick={() => { setFasting(option.value); if (option.value === 'NONE') setFish(false) }}><div><strong>{option.title}</strong></div><span className="radio-dot" /></button>)}</div>
-      {needsFish && <div className="conditional-card"><strong>{ctx.text.fishFast}</strong><YesNo value={fish} onChange={setFish} text={ctx.text} /></div>}
-      <button className="primary-button tall" disabled={ctx.saving || !fasting || (needsFish && fish === null)} onClick={() => ctx.commit({ orthodox_fasting: fasting, fish_during_fast: needsFish ? fish : false }, 'LIKES')}>{ctx.text.continue} →</button>
+      <div className="option-stack compact-options">
+        {fastingOptions[ctx.language].map((option) => (
+          <button
+            key={option.value}
+            className={`choice-card ${fasting === option.value ? 'selected' : ''}`}
+            onClick={() => {
+              hapticMedium()
+              setFasting(option.value)
+              if (option.value === 'NONE') setFish(false)
+            }}
+          >
+            <div><strong>{option.title}</strong></div>
+            <span className="radio-dot" />
+          </button>
+        ))}
+      </div>
+      {needsFish && (
+        <div className="conditional-card">
+          <strong>{ctx.text.fishFast}</strong>
+          <YesNo value={fish} onChange={setFish} text={ctx.text} />
+        </div>
+      )}
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || !fasting || (needsFish && fish === null)}
+          onClick={() => {
+            hapticMedium()
+            void ctx.commit({ orthodox_fasting: fasting, fish_during_fast: needsFish ? fish : false }, 'LIKES')
+          }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -379,13 +628,48 @@ function FoodSelectStep(ctx: RenderContext & { mode: 'likes' | 'dislikes' }) {
   const [other, setOther] = useState(str(ctx.answers[otherField]))
   const title = isLikes ? ctx.text.likesTitle : ctx.text.dislikesTitle
   const body = isLikes ? ctx.text.likesBody : ctx.text.dislikesBody
-  function toggle(value: string) { setSelected((items) => items.includes(value) ? items.filter((item) => item !== value) : [...items, value]) }
+
+  function toggle(value: string) {
+    hapticLight()
+    setSelected((items) => (items.includes(value) ? items.filter((item) => item !== value) : [...items, value]))
+  }
+
   return (
     <>
       <QuestionHeader title={title} body={body} />
-      <div className="chip-grid food-chips">{foodOptions[ctx.language].map((option) => <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>{option.title}</button>)}</div>
-      <label className="text-card"><span>{ctx.text.optional}</span><input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} /></label>
-      <button className="primary-button tall" disabled={ctx.saving} onClick={() => ctx.commit({ [field]: selected, [otherField]: other }, isLikes ? 'DISLIKES' : 'ALLERGIES')}>{ctx.text.continue} →</button>
+      <div className="chip-grid food-chips">
+        {foodOptions[ctx.language].map((option) => (
+          <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>
+            {option.title}
+          </button>
+        ))}
+      </div>
+      <label className="text-card">
+        <span>{ctx.text.optional}</span>
+        <input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} />
+      </label>
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving}
+          onClick={() => {
+            hapticMedium()
+            void ctx.commit({ [field]: selected, [otherField]: other }, isLikes ? 'DISLIKES' : 'ALLERGIES')
+          }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -396,14 +680,54 @@ function AllergyStep(ctx: RenderContext) {
   const initialSevere = typeof ctx.answers.health_anaphylactic_food_allergy === 'boolean' ? ctx.answers.health_anaphylactic_food_allergy : null
   const [severe, setSevere] = useState<boolean | null>(initialSevere)
   const hasAllergy = selected.length > 0 || other.trim().length > 0
-  function toggle(value: string) { setSelected((items) => items.includes(value) ? items.filter((item) => item !== value) : [...items, value]) }
+
+  function toggle(value: string) {
+    hapticLight()
+    setSelected((items) => (items.includes(value) ? items.filter((item) => item !== value) : [...items, value]))
+  }
+
   return (
     <>
       <QuestionHeader title={ctx.text.allergiesTitle} body={ctx.text.allergiesBody} />
-      <div className="chip-grid food-chips">{allergyOptions[ctx.language].map((option) => <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>{option.title}</button>)}</div>
-      <label className="text-card"><span>{ctx.text.optional}</span><input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} /></label>
-      {hasAllergy && <div className="conditional-card safety"><strong>{ctx.text.severeAllergy}</strong><YesNo value={severe} onChange={setSevere} text={ctx.text} /></div>}
-      <button className="primary-button tall" disabled={ctx.saving || (hasAllergy && severe === null)} onClick={() => ctx.commit({ food_allergies: selected, allergy_other: other, health_anaphylactic_food_allergy: hasAllergy ? severe : false }, 'INTOLERANCES')}>{ctx.text.continue} →</button>
+      <div className="chip-grid food-chips">
+        {allergyOptions[ctx.language].map((option) => (
+          <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>
+            {option.title}
+          </button>
+        ))}
+      </div>
+      <label className="text-card">
+        <span>{ctx.text.optional}</span>
+        <input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} />
+      </label>
+      {hasAllergy && (
+        <div className="conditional-card safety">
+          <strong>{ctx.text.severeAllergy}</strong>
+          <YesNo value={severe} onChange={setSevere} text={ctx.text} />
+        </div>
+      )}
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving || (hasAllergy && severe === null)}
+          onClick={() => {
+            hapticMedium()
+            void ctx.commit({ food_allergies: selected, allergy_other: other, health_anaphylactic_food_allergy: hasAllergy ? severe : false }, 'INTOLERANCES')
+          }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
@@ -411,27 +735,94 @@ function AllergyStep(ctx: RenderContext) {
 function IntoleranceStep(ctx: RenderContext) {
   const [selected, setSelected] = useState<string[]>(list(ctx.answers.food_intolerances))
   const [other, setOther] = useState(str(ctx.answers.intolerance_other))
-  function toggle(value: string) { setSelected((items) => items.includes(value) ? items.filter((item) => item !== value) : [...items, value]) }
+
+  function toggle(value: string) {
+    hapticLight()
+    setSelected((items) => (items.includes(value) ? items.filter((item) => item !== value) : [...items, value]))
+  }
+
   const next: Step = ctx.answers.calculation_sex === 'FEMALE' ? 'HEALTH_PREGNANCY' : 'HEALTH_EATING'
+
   return (
     <>
       <QuestionHeader title={ctx.text.intoleranceTitle} body={ctx.text.intoleranceBody} />
-      <div className="chip-grid food-chips">{allergyOptions[ctx.language].map((option) => <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>{option.title}</button>)}</div>
-      <label className="text-card"><span>{ctx.text.optional}</span><input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} /></label>
-      <button className="primary-button tall" disabled={ctx.saving} onClick={() => ctx.commit({ food_intolerances: selected, intolerance_other: other }, next)}>{ctx.text.continue} →</button>
+      <div className="chip-grid food-chips">
+        {allergyOptions[ctx.language].map((option) => (
+          <button key={option.value} className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>
+            {option.title}
+          </button>
+        ))}
+      </div>
+      <label className="text-card">
+        <span>{ctx.text.optional}</span>
+        <input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} />
+      </label>
+      <div className="sticky-bottom-bar">
+        <button
+          className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+          disabled={ctx.saving}
+          onClick={() => {
+            hapticMedium()
+            void ctx.commit({ food_intolerances: selected, intolerance_other: other }, next)
+          }}
+        >
+          {ctx.saving ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{ctx.text.saving}</span>
+            </>
+          ) : (
+            <>
+              <span>{ctx.text.continue}</span>
+              <span>→</span>
+            </>
+          )}
+        </button>
+      </div>
     </>
   )
 }
 
 function HealthYesNo(ctx: RenderContext & { field: string; question: string; next: Step }) {
   const existing = typeof ctx.answers[ctx.field] === 'boolean' ? Boolean(ctx.answers[ctx.field]) : null
+  const [pendingVal, setPendingVal] = useState<boolean | null>(null)
+
+  function pick(val: boolean) {
+    if (ctx.saving || pendingVal !== null) return
+    setPendingVal(val)
+    hapticMedium()
+    window.setTimeout(() => {
+      void ctx.commit({ [ctx.field]: val }, ctx.next)
+    }, 180)
+  }
+
+  const isNo = (existing === false && pendingVal === null) || pendingVal === false
+  const isYes = (existing === true && pendingVal === null) || pendingVal === true
+
   return (
     <div className="health-question-stage">
       <div className="health-shield">+</div>
       <p className="eyebrow">{ctx.text.healthIntro}</p>
       <h2>{ctx.question}</h2>
       <p className="health-explainer">{ctx.text.healthBody}</p>
-      <YesNo value={existing} onChange={(value) => void ctx.commit({ [ctx.field]: value }, ctx.next)} text={ctx.text} disabled={ctx.saving} large />
+      <div className={`yes-no large ${pendingVal !== null || ctx.saving ? 'locked' : ''}`}>
+        <button
+          type="button"
+          disabled={ctx.saving || (pendingVal !== null && pendingVal !== false)}
+          className={`${isNo ? 'selected' : ''} ${pendingVal === false ? 'pending-active' : ''}`}
+          onClick={() => pick(false)}
+        >
+          {pendingVal === false ? <span className="button-spinner" /> : ctx.text.no}
+        </button>
+        <button
+          type="button"
+          disabled={ctx.saving || (pendingVal !== null && pendingVal !== true)}
+          className={`${isYes ? 'selected yes' : ''} ${pendingVal === true ? 'pending-active' : ''}`}
+          onClick={() => pick(true)}
+        >
+          {pendingVal === true ? <span className="button-spinner inverted" /> : ctx.text.yes}
+        </button>
+      </div>
     </div>
   )
 }
@@ -440,21 +831,66 @@ function OtherHealthStep(ctx: RenderContext) {
   const existing = typeof ctx.answers.health_other_important_change === 'boolean' ? Boolean(ctx.answers.health_other_important_change) : null
   const [choice, setChoice] = useState<boolean | null>(existing)
   const [details, setDetails] = useState(str(ctx.answers.health_other_details))
+
   return (
     <div className="health-question-stage">
       <div className="health-shield">+</div>
       <p className="eyebrow">{ctx.text.healthIntro}</p>
       <h2>{ctx.text.otherHealthQ}</h2>
       <p className="health-explainer">{ctx.text.healthBody}</p>
-      <YesNo value={choice} onChange={setChoice} text={ctx.text} large />
-      {choice === true && <label className="text-card health-details"><span>{ctx.text.otherHealthDetails}</span><textarea value={details} onChange={(event: { target: { value: string } }) => setDetails(event.target.value)} maxLength={300} rows={4} /></label>}
-      {choice !== null && <button className="primary-button tall" disabled={ctx.saving || (choice && details.trim().length < 3)} onClick={() => void ctx.finish({ health_other_important_change: choice, health_other_details: choice ? details : '' })}>{ctx.saving ? ctx.text.saving : `${ctx.text.continue} →`}</button>}
+      <YesNo value={choice} onChange={(val) => { hapticMedium(); setChoice(val) }} text={ctx.text} large />
+      {choice === true && (
+        <label className="text-card health-details">
+          <span>{ctx.text.otherHealthDetails}</span>
+          <textarea value={details} onChange={(event: { target: { value: string } }) => setDetails(event.target.value)} maxLength={300} rows={4} />
+        </label>
+      )}
+      {choice !== null && (
+        <div className="sticky-bottom-bar">
+          <button
+            className={`primary-button tall ${ctx.saving ? 'is-loading' : ''}`}
+            disabled={ctx.saving || (choice && details.trim().length < 3)}
+            onClick={() => void ctx.finish({ health_other_important_change: choice, health_other_details: choice ? details : '' })}
+          >
+            {ctx.saving ? (
+              <>
+                <span className="button-spinner inverted" />
+                <span>{ctx.text.saving}</span>
+              </>
+            ) : (
+              <>
+                <span>{ctx.text.continue}</span>
+                <span>→</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 function YesNo({ value, onChange, text, disabled = false, large = false }: { value: boolean | null; onChange: (value: boolean) => void; text: RenderContext['text']; disabled?: boolean; large?: boolean }) {
-  return <div className={`yes-no ${large ? 'large' : ''}`}><button disabled={disabled} className={value === false ? 'selected' : ''} onClick={() => onChange(false)}>{text.no}</button><button disabled={disabled} className={value === true ? 'selected yes' : ''} onClick={() => onChange(true)}>{text.yes}</button></div>
+  return (
+    <div className={`yes-no ${large ? 'large' : ''}`}>
+      <button
+        type="button"
+        disabled={disabled}
+        className={value === false ? 'selected' : ''}
+        onClick={() => { hapticMedium(); onChange(false) }}
+      >
+        {text.no}
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        className={value === true ? 'selected yes' : ''}
+        onClick={() => { hapticMedium(); onChange(true) }}
+      >
+        {text.yes}
+      </button>
+    </div>
+  )
 }
 
 function validNumber(value: number, min: number, max: number): boolean {
@@ -489,16 +925,48 @@ function useNumberDraft(initialValue: number, onChange: (value: number) => void)
 function NumberCard({ value, onChange, min, max, suffix, step = 1 }: { value: number; onChange: (value: number) => void; min: number; max: number; suffix: string; step?: number }) {
   const input = useNumberDraft(value, onChange)
   function update(delta: number) {
+    hapticLight()
     const current = parseNumberDraft(input.draft)
     const base = Number.isFinite(current) ? current : min
     input.setNumeric(Math.min(max, Math.max(min, base + delta)))
   }
-  return <div className="number-card"><button type="button" onClick={() => update(-step)}>−</button><label><input type="text" inputMode={step < 1 ? 'decimal' : 'numeric'} pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'} value={input.draft} onFocus={(event) => event.currentTarget.select()} onChange={(event) => input.type(event.target.value)} /><span>{suffix}</span></label><button type="button" onClick={() => update(step)}>+</button></div>
+  return (
+    <div className="number-card">
+      <button type="button" onClick={() => update(-step)}>−</button>
+      <label>
+        <input
+          type="text"
+          inputMode={step < 1 ? 'decimal' : 'numeric'}
+          pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'}
+          value={input.draft}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => input.type(event.target.value)}
+        />
+        <span>{suffix}</span>
+      </label>
+      <button type="button" onClick={() => update(step)}>+</button>
+    </div>
+  )
 }
 
 function CompactNumber({ label, value, onChange, min, max, suffix, step }: { label: string; value: number; onChange: (value: number) => void; min: number; max: number; suffix: string; step: number }) {
   const input = useNumberDraft(value, onChange)
-  return <label className="compact-number"><span>{label}</span><div><input type="text" inputMode={step < 1 ? 'decimal' : 'numeric'} pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'} value={input.draft} onFocus={(event) => event.currentTarget.select()} onChange={(event) => input.type(event.target.value)} /><small>{suffix}</small></div></label>
+  return (
+    <label className="compact-number">
+      <span>{label}</span>
+      <div>
+        <input
+          type="text"
+          inputMode={step < 1 ? 'decimal' : 'numeric'}
+          pattern={step < 1 ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'}
+          value={input.draft}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => input.type(event.target.value)}
+        />
+        <small>{suffix}</small>
+      </div>
+    </label>
+  )
 }
 
 function chapterIndex(step: Step): number {

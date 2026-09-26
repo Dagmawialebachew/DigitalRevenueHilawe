@@ -3,7 +3,8 @@ import { bootstrap, BootstrapResponse, downloadApprovedPlan, FollowUpAnswers, La
 import { copy } from './copy'
 import IntakeFlow from './IntakeFlow'
 import ProfileCheckoutFlow from './ProfileCheckoutFlow'
-import { getTelegramWebApp, hapticSelect, initializeTelegramShell } from './telegram'
+import { getTelegramWebApp, hapticError, hapticLight, hapticMedium, hapticSelect, initializeTelegramShell } from './telegram'
+import TopProgressBar from './TopProgressBar'
 
 const regions = [
   ['ETHIOPIA', '🇪🇹', 'ኢትዮጵያ', 'Ethiopia'],
@@ -74,7 +75,7 @@ export default function App() {
     }
 
     setSaving(true)
-    hapticSelect()
+    hapticMedium()
     try {
       const result = await saveCountry(state.initData, region, region === 'OTHER' ? otherCountry : undefined)
       setState({
@@ -92,6 +93,7 @@ export default function App() {
       })
       setSelectedRegion(null)
     } catch (error) {
+      hapticError()
       setState({ status: 'error', message: error instanceof Error ? error.message : 'Unable to save country' })
     } finally {
       setSaving(false)
@@ -100,6 +102,7 @@ export default function App() {
 
   return (
     <main className="app-shell">
+      <TopProgressBar active={state.status === 'loading' || saving} />
       <header className="topbar">
         <div className="brand-lockup">
           <span className="signal-line" />
@@ -112,7 +115,7 @@ export default function App() {
         </div>
       </header>
 
-      {state.status === 'loading' && <LoadingCard language={language} />}
+      {state.status === 'loading' && <BrandSkeletonLoader language={language} />}
 
       {state.status === 'outside-telegram' && (
         <section className="center-card compact">
@@ -155,17 +158,48 @@ export default function App() {
           <p className="eyebrow">{text.eyebrow}</p>
           <h1>{text.countryTitle}</h1>
           <p className="lead">{text.countryBody}</p>
-          <div className="country-grid">
-            {regions.map(([region, emoji, am, en]) => (
-              <button key={region} className={`country-card ${selectedRegion === region ? 'selected' : ''}`} disabled={saving} onClick={() => { setSelectedRegion(region); if (region !== 'OTHER') void submitCountry(region) }}>
-                <span>{emoji}</span><strong>{language === 'AM' ? am : en}</strong>
-              </button>
-            ))}
+          <div className={`country-grid ${saving ? 'locked' : ''}`}>
+            {regions.map(([region, emoji, am, en]) => {
+              const isSelected = selectedRegion === region
+              return (
+                <button
+                  key={region}
+                  className={`country-card ${isSelected ? 'selected' : ''} ${saving && isSelected ? 'pending-active' : ''}`}
+                  disabled={saving}
+                  onClick={() => {
+                    hapticMedium()
+                    setSelectedRegion(region)
+                    if (region !== 'OTHER') {
+                      window.setTimeout(() => void submitCountry(region), 160)
+                    }
+                  }}
+                >
+                  <span>{emoji}</span>
+                  <strong>{language === 'AM' ? am : en}</strong>
+                  {saving && isSelected && <span className="button-spinner" style={{ marginLeft: 8 }} />}
+                </button>
+              )
+            })}
           </div>
           {selectedRegion === 'OTHER' && (
             <div className="other-country">
-              <input value={otherCountry} onChange={(event: { target: { value: string } }) => setOtherCountry(event.target.value)} placeholder={text.otherPlaceholder} maxLength={80} autoFocus />
-              <button className="primary-button" disabled={saving || otherCountry.trim().length < 2} onClick={() => void submitCountry('OTHER')}>{saving ? '…' : text.save}</button>
+              <input
+                value={otherCountry}
+                onChange={(event: { target: { value: string } }) => setOtherCountry(event.target.value)}
+                placeholder={text.otherPlaceholder}
+                maxLength={80}
+                autoFocus
+              />
+              <button
+                className="primary-button"
+                disabled={saving || otherCountry.trim().length < 2}
+                onClick={() => {
+                  hapticMedium()
+                  void submitCountry('OTHER')
+                }}
+              >
+                {saving ? <span className="button-spinner inverted" /> : text.save}
+              </button>
             </div>
           )}
         </section>
@@ -426,12 +460,22 @@ function FollowUpCheckinCard({ language, initData, checkin, onComplete }: { lang
   </div>
 }
 
-function LoadingCard({ language }: { language: Language }) {
+function BrandSkeletonLoader({ language }: { language: Language }) {
   return (
-    <section className="center-card compact">
-      <div className="loader-ring" />
-      <h1>{language === 'AM' ? 'የምግብ ፕላንዎን በመክፈት ላይ' : 'Opening your Meal Plan'}</h1>
-      <p>{language === 'AM' ? 'የTelegram መለያዎን በደህንነት በማረጋገጥ ላይ…' : 'Securely verifying your Telegram session…'}</p>
+    <section className="skeleton-shell">
+      <div className="skeleton-bar skeleton-eyebrow" />
+      <div className="skeleton-bar skeleton-title" />
+      <div className="skeleton-bar skeleton-lead" />
+      <div className="skeleton-bar skeleton-lead short" />
+      <div className="skeleton-card-stack">
+        <div className="skeleton-card" />
+        <div className="skeleton-card" />
+        <div className="skeleton-card" />
+      </div>
+      <div className="skeleton-bar skeleton-button" />
+      <div style={{ textAlign: 'center', marginTop: 22, color: 'var(--muted)', fontSize: 11, fontWeight: 750 }}>
+        {language === 'AM' ? 'የCoach Hilawe Meal Plan መለያዎን በማረጋገጥ ላይ…' : 'Securely verifying your Telegram session…'}
+      </div>
     </section>
   )
 }

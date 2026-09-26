@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Anti-Replay Shield: Ensure proof_file_id cannot be reused across active/approved transactions
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_proof_file_id_active
+ON payments (proof_file_id)
+WHERE proof_file_id IS NOT NULL AND proof_file_id != '' AND status IN ('approved', 'pending');
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_club_payments_proof_file_id_active
+ON club_payments (proof_file_id)
+WHERE proof_file_id IS NOT NULL AND proof_file_id != '' AND status IN ('approved', 'pending');
+
 
 -- Add per-user deal fields and broadcasts table
 ALTER TABLE users
@@ -377,6 +386,77 @@ class Database:
         await self._pool.execute(query, title, lang, gender, level, freq, price, file_id)
 
     # --- PAYMENT & ADMIN LOGIC ---
+    async def check_duplicate_proof(self, proof_file_id: str) -> Optional[Dict]:
+        """
+        Anti-Replay / Anti-Fraud Shield:
+        Checks both payments and club_payments to see if this proof_file_id has already
+        been submitted for an approved or pending transaction.
+        Returns the conflicting record info if found, or None.
+        """
+        if not proof_file_id:
+            return None
+
+        # Check product sales
+        p_row = await self._pool.fetchrow("""
+            SELECT id, user_id, amount, status, created_at, 'sales' as stream
+            FROM payments
+            WHERE proof_file_id = $1 AND status IN ('approved', 'pending')
+            LIMIT 1
+        """, proof_file_id)
+        if p_row:
+            return dict(p_row)
+
+        # Check club payments
+        c_row = await self._pool.fetchrow("""
+            SELECT id, user_id, amount, status, created_at, 'club' as stream
+            FROM club_payments
+            WHERE proof_file_id = $1 AND status IN ('approved', 'pending')
+            LIMIT 1
+        """, proof_file_id)
+        if c_row:
+            return dict(c_row)
+
+        return None
+
+    async def check_duplicate_txn_id(self, txn_id: str, exclude_id: int | None = None, stream: str = "sales") -> Optional[Dict]:
+        """
+        Anti-Replay Shield: Checks if this bank transaction reference (e.g. FT...)
+        was already recorded in any active/approved transaction.
+        """
+        if not txn_id or txn_id in ("Not Detected", "N/A", "SUCCESSFULLY", "Unknown"):
+            return None
+
+        # Check sales
+        p_row = await self._pool.fetchrow("""
+            SELECT id, user_id, amount, status, created_at, 'sales' as stream
+            FROM payments
+            WHERE txn_id = $1 AND status IN ('approved', 'pending')
+              AND ($2::int IS NULL OR id != $2)
+            LIMIT 1
+        """, txn_id, exclude_id if stream == "sales" else None)
+        if p_row:
+            return dict(p_row)
+
+        # Check club
+        c_row = await self._pool.fetchrow("""
+            SELECT id, user_id, amount, status, created_at, 'club' as stream
+            FROM club_payments
+            WHERE txn_id = $1 AND status IN ('approved', 'pending')
+              AND ($2::int IS NULL OR id != $2)
+            LIMIT 1
+        """, txn_id, exclude_id if stream == "club" else None)
+        if c_row:
+            return dict(c_row)
+
+        return None
+
+    async def update_payment_txn_id(self, payment_id: int, txn_id: str, stream: str = "sales"):
+        """Stores the detected bank reference code with the payment record."""
+        if not txn_id or txn_id in ("Not Detected", "N/A", "Unknown"):
+            return
+        table = "payments" if stream == "sales" else "club_payments"
+        await self._pool.execute(f"UPDATE {table} SET txn_id = $1 WHERE id = $2", txn_id, payment_id)
+
     async def create_payment(self, user_id: int, product_id: int, proof_id: str, amount: float):
         query = """
             INSERT INTO payments (user_id, product_id, proof_file_id, amount)

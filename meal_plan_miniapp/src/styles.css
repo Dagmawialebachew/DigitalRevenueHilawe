@@ -419,3 +419,230 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 .health-change-toggle button.danger-selected { background:#9b2f24; color:white; border-color:#9b2f24; }
 .followup-result { margin-top:12px; padding:13px 14px; border-radius:16px; background:#edf4e9; color:#355d31; font-size:10px; line-height:1.55; }
 .renewal-card .primary-button { width:100%; margin-top:11px; }
+
+/* ==========================================================================
+   Top 0.00001% UI/UX Polish: Micro-spinners, Top Progress, Fluid Transitions
+   ========================================================================== */
+
+/* Top glowing progress bar (Linear / Telegram style) */
+.top-progress-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.top-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ed7419, #f59e0b, #ed7419);
+  background-size: 200% 100%;
+  box-shadow: 0 0 10px rgba(237, 116, 25, 0.75), 0 0 4px rgba(245, 158, 11, 0.5);
+  border-radius: 0 999px 999px 0;
+  transition: width 0.22s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.25s ease;
+  animation: shimmer-progress 1.4s linear infinite;
+}
+
+@keyframes shimmer-progress {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Micro-spinners */
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+
+.button-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(24, 21, 18, 0.18);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: button-spin 0.65s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.button-spinner.inverted {
+  border: 2.2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ffffff;
+}
+
+.choice-indicator.loading {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+}
+
+.choice-indicator.loading .button-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.2px solid rgba(237, 116, 25, 0.2);
+  border-top-color: var(--orange);
+}
+
+/* Instant card selection & multi-tap lock */
+.choice-card.pending-active {
+  border-color: var(--orange) !important;
+  background: #fff8f0 !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  transform: scale(0.99);
+}
+
+.option-stack.locked,
+.two-choice-grid.locked,
+.yes-no.locked,
+.country-grid.locked {
+  pointer-events: none;
+}
+
+.option-stack.locked .choice-card:not(.pending-active),
+.two-choice-grid.locked .big-choice:not(.pending-active),
+.yes-no.locked button:not(.pending-active),
+.country-grid.locked .country-card:not(.pending-active) {
+  opacity: 0.52;
+}
+
+.big-choice.pending-active {
+  border-color: var(--orange) !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  transform: scale(0.985);
+}
+
+.country-card.pending-active {
+  border-color: var(--orange) !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  transform: scale(0.985);
+}
+
+.yes-no button.pending-active {
+  border-color: var(--orange) !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+}
+
+.primary-button.is-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Directional screen transitions */
+.step-animated-shell {
+  width: 100%;
+}
+
+.step-animated-shell.forward {
+  animation: slideInForward 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.step-animated-shell.backward {
+  animation: slideInBackward 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slideInForward {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInBackward {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Sticky floating bottom action bar */
+.sticky-bottom-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  margin-top: 20px;
+  padding: 10px 0 calc(8px + var(--app-safe-bottom));
+  background: linear-gradient(180deg, rgba(247, 244, 237, 0) 0%, rgba(247, 244, 237, 0.94) 26%, #f7f4ed 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.sticky-bottom-bar .primary-button {
+  margin-top: 0;
+}
+
+/* Luxury brand skeleton shimmer */
+.skeleton-shell {
+  width: 100%;
+  padding-top: clamp(24px, 5vh, 48px);
+  animation: stage-in 0.24s ease both;
+}
+
+.skeleton-bar, .skeleton-card, .skeleton-pill, .skeleton-circle {
+  background: linear-gradient(90deg, #ede7de 0%, #f6f1ea 50%, #ede7de 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  border-radius: 12px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-eyebrow {
+  width: 110px;
+  height: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.skeleton-title {
+  width: 82%;
+  height: 38px;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+
+.skeleton-lead {
+  width: 96%;
+  height: 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.skeleton-lead.short {
+  width: 58%;
+  margin-bottom: 30px;
+}
+
+.skeleton-card-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.skeleton-card {
+  height: 76px;
+  border-radius: 20px;
+}
+
+.skeleton-button {
+  height: 58px;
+  border-radius: 17px;
+  margin-top: 28px;
+}
