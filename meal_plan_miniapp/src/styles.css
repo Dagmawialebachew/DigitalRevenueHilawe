@@ -167,6 +167,218 @@ h2 { margin: 0; font-size: clamp(29px, 7.4vw, 42px); line-height: 1.08; letter-s
 .food-chips { margin-top: 2px; }
 .training-chips { margin-top: 6px; }
 
+/* Option B: Modern Searchable Database Food Pills & Selected Tray */
+.selected-food-tray {
+  margin-top: 14px;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid rgba(237, 116, 25, 0.24);
+  border-radius: 20px;
+  background: #fff9f3;
+  animation: fadeInTray 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInTray {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.selected-food-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.selected-food-header strong {
+  color: var(--orange-strong);
+  font-weight: 850;
+}
+
+.clear-all-button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.clear-all-button:hover,
+.clear-all-button:active {
+  color: #9b2f24;
+  background: rgba(155, 47, 36, 0.08);
+}
+
+.selected-pills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.selected-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid rgba(237, 116, 25, 0.3);
+  border-radius: 999px;
+  background: #fff;
+  color: #8f410d;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(237, 116, 25, 0.08);
+  transition: all 0.14s ease;
+}
+
+.selected-pill:active {
+  transform: scale(0.96);
+  background: #fee9d7;
+}
+
+.pill-remove-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(237, 116, 25, 0.15);
+  color: var(--orange-strong);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.food-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(36, 28, 20, 0.03);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.food-search-box:focus-within {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.12);
+}
+
+.food-search-icon {
+  display: grid;
+  place-items: center;
+  color: #9b9389;
+  margin-right: 9px;
+  flex-shrink: 0;
+}
+
+.food-search-box input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.food-search-box input::placeholder {
+  color: #9b9389;
+  font-weight: 500;
+}
+
+.food-search-clear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: #ede6dc;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.food-search-clear:hover,
+.food-search-clear:active {
+  background: #dbd2c5;
+  color: var(--ink);
+}
+
+.food-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 14px 2px 8px;
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--ink);
+}
+
+.food-grid-header small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chip-check {
+  font-weight: 900;
+  margin-right: 3px;
+  color: var(--orange-strong);
+}
+
+.food-search-empty {
+  text-align: center;
+  padding: 26px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 20px;
+  background: rgba(255, 253, 248, 0.6);
+  margin-top: 6px;
+}
+
+.food-search-empty p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.clear-search-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 15px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.clear-search-btn:hover,
+.clear-search-btn:active {
+  border-color: var(--orange);
+  background: #fff8f0;
+  color: var(--orange-strong);
+}
+
+
 .text-card { display: block; margin-top: 15px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 19px; background: var(--surface); }
 .text-card > span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .text-card input, .text-card textarea { width: 100%; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--ink); font-size: 13px; line-height: 1.5; }

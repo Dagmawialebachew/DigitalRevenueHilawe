@@ -29,6 +29,10 @@ class IntakeValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_answer_patch({"liked_foods": ["PIZZA_FROM_NOWHERE"]})
 
+    def test_extended_database_food_chips_accepted(self):
+        patch = validate_answer_patch({"liked_foods": ["SALMON", "SWEET_POTATO", "SPINACH", "TUNA"]})
+        self.assertEqual(patch["liked_foods"], ["SALMON", "SWEET_POTATO", "SPINACH", "TUNA"])
+
     def test_step_allowlist(self):
         self.assertEqual(normalize_step("health_diabetes"), "HEALTH_DIABETES")
         with self.assertRaises(ValueError):

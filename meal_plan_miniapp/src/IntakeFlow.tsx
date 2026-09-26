@@ -658,34 +658,143 @@ function FoodSelectStep(ctx: RenderContext & { mode: 'likes' | 'dislikes' }) {
   const field = isLikes ? 'liked_foods' : 'disliked_foods'
   const otherField = isLikes ? 'liked_foods_other' : 'disliked_foods_other'
   const [selected, setSelected] = useState<string[]>(list(ctx.answers[field]))
-  const [other, setOther] = useState(str(ctx.answers[otherField]))
+  const [searchQuery, setSearchQuery] = useState('')
   const title = isLikes ? ctx.text.likesTitle : ctx.text.dislikesTitle
   const body = isLikes ? ctx.text.likesBody : ctx.text.dislikesBody
+
+  const currentOptions = foodOptions[ctx.language]
+  const otherLanguage: Language = ctx.language === 'AM' ? 'EN' : 'AM'
+  const altOptions = foodOptions[otherLanguage]
+  const altByValue = useMemo(() => new Map(altOptions.map((opt) => [opt.value, opt])), [altOptions])
+  const currentByValue = useMemo(() => new Map(currentOptions.map((opt) => [opt.value, opt])), [currentOptions])
 
   function toggle(value: string) {
     hapticLight()
     setSelected((items) => (items.includes(value) ? items.filter((item) => item !== value) : [...items, value]))
   }
 
+  function clearAll() {
+    hapticLight()
+    setSelected([])
+  }
+
+  const cleanQuery = searchQuery.trim().toLowerCase()
+
+  const displayedOptions = useMemo(() => {
+    if (!cleanQuery) {
+      return currentOptions.filter((opt) => opt.popular)
+    }
+    return currentOptions.filter((opt) => {
+      const alt = altByValue.get(opt.value)
+      const hay = `${opt.title} ${opt.value} ${alt?.title || ''}`.toLowerCase()
+      return hay.includes(cleanQuery)
+    })
+  }, [cleanQuery, currentOptions, altByValue])
+
   return (
     <>
       <QuestionHeader title={title} body={body} />
-      <div className="chip-grid food-chips">
-        {foodOptions[ctx.language].map((option) => (
-          <button key={option.value} type="button" className={selected.includes(option.value) ? 'selected' : ''} onClick={() => toggle(option.value)}>
-            {option.title}
+
+      {/* Selected Foods Pill Tray */}
+      {selected.length > 0 && (
+        <div className="selected-food-tray">
+          <div className="selected-food-header">
+            <span>
+              <strong>{ctx.text.selectedPills}</strong> ({selected.length})
+            </span>
+            <button type="button" className="clear-all-button" onClick={clearAll}>
+              {ctx.text.clearAll}
+            </button>
+          </div>
+          <div className="selected-pills-list">
+            {selected.map((val) => {
+              const opt = currentByValue.get(val)
+              const label = opt ? opt.title : val
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  className="selected-pill"
+                  onClick={() => toggle(val)}
+                  title="Remove"
+                >
+                  <span>{label}</span>
+                  <span className="pill-remove-icon">✕</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Search Box */}
+      <div className="food-search-box">
+        <span className="food-search-icon" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={ctx.text.searchFood}
+          maxLength={60}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            className="food-search-clear"
+            onClick={() => setSearchQuery('')}
+            aria-label={ctx.text.clearSearch}
+          >
+            ✕
           </button>
-        ))}
+        )}
       </div>
-      <label className="text-card">
-        <span>{ctx.text.optional}</span>
-        <input value={other} onChange={(event: { target: { value: string } }) => setOther(event.target.value)} placeholder={ctx.text.other} maxLength={300} />
-      </label>
+
+      {/* Section Header */}
+      <div className="food-grid-header">
+        <span>{cleanQuery ? `${ctx.text.allFoods} (${displayedOptions.length})` : ctx.text.popularFoods}</span>
+        {!cleanQuery && <small>{ctx.text.tapToDiscover}</small>}
+      </div>
+
+      {/* Food Chips Grid or Empty Search State */}
+      {displayedOptions.length > 0 ? (
+        <div className="chip-grid food-chips">
+          {displayedOptions.map((option) => {
+            const isSelected = selected.includes(option.value)
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`food-chip ${isSelected ? 'selected' : ''}`}
+                onClick={() => toggle(option.value)}
+              >
+                {isSelected && <span className="chip-check">✓ </span>}
+                {option.title}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="food-search-empty">
+          <p>{ctx.text.noFoodFound}</p>
+          <button type="button" className="clear-search-btn" onClick={() => setSearchQuery('')}>
+            {ctx.text.clearSearch}
+          </button>
+        </div>
+      )}
+
+      {/* Standardized Mutex SubmitBar — clears otherField in backend */}
       <SubmitBar
         loading={ctx.saving}
         label={ctx.text.continue}
         savingLabel={ctx.text.saving}
-        onClick={() => ctx.commit({ [field]: selected, [otherField]: other }, isLikes ? 'DISLIKES' : 'ALLERGIES')}
+        onClick={() => ctx.commit({ [field]: selected, [otherField]: '' }, isLikes ? 'DISLIKES' : 'ALLERGIES')}
       />
     </>
   )
