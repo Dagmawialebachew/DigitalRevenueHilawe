@@ -71,6 +71,10 @@ class Phase7DocumentsTests(unittest.TestCase):
             self.assertIn("የግል የምግብ ፕላን", xml)
             self.assertIn("ረቂቅ", xml)
             self.assertIn("እንጀራ", xml)
+            # Section 06 / system audit table must never be included in the document
+            self.assertNotIn("የስርዓት ዝርዝሮች እና ኦዲት", xml)
+            self.assertNotIn("የፕላን ምርመራ እና ቨርዥን", xml)
+
 
     def test_document_generation_never_marks_auto_delivery(self):
         self.assertFalse(bool((self.plan.get("policy") or {}).get("auto_delivery")))

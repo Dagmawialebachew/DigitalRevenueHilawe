@@ -1716,8 +1716,6 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     total_pages += grocery_chunks_count
     total_pages += fasting_grocery_chunks_count
     total_pages += 1  # hydration
-    if not is_client_delivery:
-        total_pages += 1  # review
 
     current_page = 1
     pages_html = []
@@ -1764,11 +1762,6 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     # Hydration & Rules
     pages_html.append(build_hydration_html(context, c, is_client_delivery, current_page, total_pages))
     current_page += 1
-
-    # Review page
-    if not is_client_delivery:
-        pages_html.append(build_review_html(plan, context, c, current_page, total_pages))
-        current_page += 1
 
     css = _build_css()
     body_content = "\n".join(pages_html)

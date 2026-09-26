@@ -492,31 +492,9 @@ def _render_pdf_reportlab(
         story.append(_p(f"{context.hydration_target_l:.1f} {c.get('l_day', 'L / day')}", hydration_style, fonts, bold=True))
     story += [_p(c["hydration_general"], styles["body"], fonts), Spacer(1, 5*mm), _p(c["exact"] + " + " + c["familiar"], styles["h2"], fonts, bold=True), _p(c["portion_note"], styles["body"], fonts), Spacer(1, 8*mm), _p(c["coach_note"], styles["kicker"], fonts, bold=True), _p(c["coach_text"], ParagraphStyle("coach", fontName=fonts["latin_bold"], fontSize=11.5, leading=16, textColor=_hex(INK)), fonts, bold=True)]
 
-    if not is_client_delivery:
-        story.append(PageBreak())
-        # Review page
-        story += [_p("06", styles["kicker"], fonts, bold=True), _p(c["review"], styles["h1"], fonts, bold=True), _p(c["review_required"], ParagraphStyle("reviewwarn", fontName=fonts["latin_bold"], fontSize=9.5, leading=12, textColor=_hex(ORANGE), spaceAfter=8), fonts, bold=True)]
-        values = [[c["plan_id"], context.plan_public_id], [c["version"], f"V{context.version_number}"], [c["status"], context.status], [c["engine"], str(plan.get("engine_version") or "-")], [c["dataset"], str(plan.get("dataset_version") or "-")]]
-        if context.approved_by:
-            values.append([c["approved_by"], context.approved_by])
-        if context.approved_at:
-            values.append([c["approved_at"], context.approved_at])
-        review_table = Table([[_p(a, styles["small"], fonts, bold=True), _p(b, styles["small"], fonts)] for a,b in values], colWidths=[45*mm, 126*mm])
-        review_table.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (0,-1), _hex(ORANGE_SOFT)), ("BACKGROUND", (1,0), (1,-1), _hex(PAPER)),
-            ("BOX", (0,0), (-1,-1), .5, _hex(BORDER)), ("INNERGRID", (0,0), (-1,-1), .35, _hex(BORDER)),
-            ("LEFTPADDING", (0,0), (-1,-1), 3*mm), ("RIGHTPADDING", (0,0), (-1,-1), 3*mm),
-            ("TOPPADDING", (0,0), (-1,-1), 2.3*mm), ("BOTTOMPADDING", (0,0), (-1,-1), 2.3*mm),
-        ]))
-        story.append(review_table)
-        warnings = review_warning_lines(plan, language=context.normalized_language)
-        if warnings:
-            story += [Spacer(1, 6*mm), _p(c["warning"], styles["kicker"], fonts, bold=True)]
-            for warning in warnings:
-                story.append(_p("• " + warning, styles["small"], fonts))
-
     doc.build(story)
     return path
+
 
 
 def render_pdf(

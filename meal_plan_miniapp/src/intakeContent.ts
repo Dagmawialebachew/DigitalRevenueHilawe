@@ -248,7 +248,7 @@ export const intakeCopy = {
     goalTitle: 'ዋናው ግብዎ ምንድነው?', goalBody: 'አንድ ዋና ግብ ይምረጡ። ፕላኑ የሚዘጋጀው በዚህ አቅጣጫ ነው።',
     targetTitle: 'ወደ ምን ክብደት መድረስ ይፈልጋሉ?', targetBody: 'ይህ የረጅም ጊዜ አቅጣጫዎን ለመረዳት ነው፤ በ7፣ 14 ወይም 30 ቀን ውስጥ ይህን ሙሉ ለሙሉ እንደሚደርሱ ቃል አይገባም።', targetWeight: 'የሚፈልጉት ክብደት',
     activityTitle: 'በአብዛኛው ቀንዎ እንዴት ያልፋል?', activityBody: 'የስራዎን፣ የትምህርትዎን እና የቀን እንቅስቃሴዎን በአጠቃላይ ያስቡ።',
-    trainingTitle: 'በሳምንት ስንት ቀን ይለማመዳሉ?', trainingBody: 'ከዚያም በአብዛኛው የሚያደርጉትን የልምምድ ዓይነት ይምረጡ።', daysPerWeek: 'ቀን / ሳምንት',
+    trainingTitle: 'በሳምንት ስንት ቀን ስፖርት ይሰራሉ ወይም እንቅስቃሴ ያደርጋሉ?', trainingBody: 'ከዚያም በአብዛኛው የሚያደርጉትን የስፖርት ወይም የእንቅስቃሴ ዓይነት ይምረጡ።', daysPerWeek: 'ቀን / ሳምንት',
     cuisineTitle: 'ፕላኑ በምን ዓይነት ምግቦች ዙሪያ እንዲገነባ ይፈልጋሉ?', cuisineBody: 'የሚኖሩበት አገር እና የሚወዱት የምግብ ባህል ሁለት የተለያዩ ነገሮች ናቸው።',
     dietaryTitle: 'በአጠቃላይ የሚከተሉት የአመጋገብ አይነት የትኛው ነው?', dietaryBody: 'ይህ ስጋ፣ ዓሳ፣ ወተት እና እንቁላል በፕላኑ ውስጥ መግባት እንደሚችሉ ለመወሰን ይረዳናል። የኦርቶዶክስ ጾምን በቀጣዩ ደረጃ በተለየ እንጠይቃለን።',
     budgetTitle: 'የግሮሰሪ በጀትዎን የሚመጥነው የትኛው ነው?', budgetBody: 'ይህ ለፕላኑ የምግብ ምርጫ ብቻ ይጠቅማል፤ የሚከፍሉትን የMeal Plan ዋጋ አይቀይርም።',
@@ -347,14 +347,20 @@ export const activityOptions: Record<Language, Option[]> = {
 
 export const trainingOptions: Record<Language, Option[]> = {
   AM: [
-    { value: 'GYM_STRENGTH', title: 'Gym / Strength' }, { value: 'RUNNING_CARDIO', title: 'Running / Cardio' },
-    { value: 'SPORTS', title: 'Sports' }, { value: 'HOME_WORKOUT', title: 'Home workout' },
-    { value: 'MIXED', title: 'Mixed' }, { value: 'NOT_TRAINING', title: 'አሁን አልለማመድም' },
+    { value: 'GYM_STRENGTH', title: 'የጂም ስፖርት (Gym / Strength)' },
+    { value: 'RUNNING_CARDIO', title: 'ሩጫ / ካርዲዮ (Running)' },
+    { value: 'SPORTS', title: 'ስፖርት (እግር ኳስ፣ ዋና ወዘተ)' },
+    { value: 'HOME_WORKOUT', title: 'የቤት ውስጥ ስፖርት (Home workout)' },
+    { value: 'MIXED', title: 'የተለያየ / ቅልቅል እንቅስቃሴ (Mixed)' },
+    { value: 'NOT_TRAINING', title: 'አሁን ስፖርት አልሰራም' },
   ],
   EN: [
-    { value: 'GYM_STRENGTH', title: 'Gym / strength' }, { value: 'RUNNING_CARDIO', title: 'Running / cardio' },
-    { value: 'SPORTS', title: 'Sports' }, { value: 'HOME_WORKOUT', title: 'Home workout' },
-    { value: 'MIXED', title: 'Mixed' }, { value: 'NOT_TRAINING', title: 'I do not currently train' },
+    { value: 'GYM_STRENGTH', title: 'Gym / strength' },
+    { value: 'RUNNING_CARDIO', title: 'Running / cardio' },
+    { value: 'SPORTS', title: 'Sports' },
+    { value: 'HOME_WORKOUT', title: 'Home workout' },
+    { value: 'MIXED', title: 'Mixed' },
+    { value: 'NOT_TRAINING', title: 'I do not currently train' },
   ],
 }
 

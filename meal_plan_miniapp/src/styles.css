@@ -94,9 +94,6 @@ h2 { margin: 0; font-size: clamp(29px, 7.4vw, 42px); line-height: 1.08; letter-s
 .progress-meta span:first-child { color: var(--ink); }
 .progress-track { height: 3px; background: #e6dfd5; border-radius: 999px; overflow: hidden; margin-top: 9px; }
 .progress-track span { display: block; height: 100%; border-radius: 999px; background: var(--orange); transition: width .35s cubic-bezier(.2,.8,.2,1); }
-.chapter-dots { display: flex; gap: 5px; margin-top: 8px; }
-.chapter-dots i { display: block; flex: 1; height: 2px; border-radius: 999px; background: #e5ded4; }
-.chapter-dots i.active { background: rgba(237,116,25,.42); }
 
 .coach-hero { position: relative; margin-bottom: 27px; border: 1px solid #ded6cb; border-radius: 30px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); }
 .coach-image-shell { position: relative; width: 100%; height: clamp(260px, 78vw, 360px); display: grid; place-items: end center; overflow: hidden; background: #e8dfd5; }

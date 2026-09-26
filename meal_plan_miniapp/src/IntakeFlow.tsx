@@ -281,7 +281,6 @@ function Progress({ chapter, chapters, progress }: { chapter: number; chapters: 
     <div className="progress-shell">
       <div className="progress-meta"><span>{chapters[chapter] || chapters[0]}</span><span>{progress}%</span></div>
       <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
-      <div className="chapter-dots" aria-hidden="true">{chapters.map((_, index) => <i key={index} className={index <= chapter ? 'active' : ''} />)}</div>
     </div>
   )
 }

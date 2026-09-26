@@ -633,7 +633,5 @@ def render_docx(
     _days(doc, plan, context.normalized_language, is_client_delivery=is_client_delivery)
     _grocery(doc, plan, context.normalized_language)
     _guides(doc, context)
-    if not is_client_delivery:
-        _review(doc, plan, context)
     doc.save(path)
     return path
