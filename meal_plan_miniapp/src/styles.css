@@ -492,14 +492,15 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 .choice-card.pending-active {
   border-color: var(--orange) !important;
   background: #fff8f0 !important;
-  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
-  transform: scale(0.99);
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.22) !important;
+  transform: scale(0.985);
 }
 
 .option-stack.locked,
 .two-choice-grid.locked,
 .yes-no.locked,
-.country-grid.locked {
+.country-grid.locked,
+.flow-buttons.locked {
   pointer-events: none;
 }
 
@@ -512,19 +513,31 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 
 .big-choice.pending-active {
   border-color: var(--orange) !important;
-  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  background: #fff8f0 !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.22) !important;
   transform: scale(0.985);
 }
 
 .country-card.pending-active {
   border-color: var(--orange) !important;
-  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  background: #fff8f0 !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.22) !important;
   transform: scale(0.985);
 }
 
 .yes-no button.pending-active {
   border-color: var(--orange) !important;
-  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.18) !important;
+  background: #fff8f0 !important;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.22) !important;
+}
+
+.choice-card:active:not(:disabled),
+.big-choice:active:not(:disabled),
+.country-card:active:not(:disabled),
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 0.06s ease;
 }
 
 .primary-button.is-loading {

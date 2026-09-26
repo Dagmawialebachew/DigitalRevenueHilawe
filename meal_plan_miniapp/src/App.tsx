@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { bootstrap, BootstrapResponse, downloadApprovedPlan, FollowUpAnswers, Language, saveCountry, saveLanguage, startRenewal, submitFollowUpCheckin } from './api'
 import { copy } from './copy'
 import IntakeFlow from './IntakeFlow'
@@ -27,6 +27,8 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [otherCountry, setOtherCountry] = useState('')
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [pendingRegion, setPendingRegion] = useState<string | null>(null)
+  const countryLockRef = useRef(false)
 
   async function load() {
     setState({ status: 'loading' })
@@ -68,12 +70,14 @@ export default function App() {
   }
 
   async function submitCountry(region: string) {
-    if (state.status !== 'ready') return
+    if (state.status !== 'ready' || countryLockRef.current) return
     if (region === 'OTHER' && !otherCountry.trim()) {
       setSelectedRegion('OTHER')
       return
     }
 
+    countryLockRef.current = true
+    setPendingRegion(region)
     setSaving(true)
     hapticMedium()
     try {
@@ -97,6 +101,8 @@ export default function App() {
       setState({ status: 'error', message: error instanceof Error ? error.message : 'Unable to save country' })
     } finally {
       setSaving(false)
+      setPendingRegion(null)
+      countryLockRef.current = false
     }
   }
 
@@ -158,25 +164,29 @@ export default function App() {
           <p className="eyebrow">{text.eyebrow}</p>
           <h1>{text.countryTitle}</h1>
           <p className="lead">{text.countryBody}</p>
-          <div className={`country-grid ${saving ? 'locked' : ''}`}>
+          <div className={`country-grid ${saving || pendingRegion ? 'locked' : ''}`}>
             {regions.map(([region, emoji, am, en]) => {
-              const isSelected = selectedRegion === region
+              const isSelected = selectedRegion === region || pendingRegion === region
+              const isPending = pendingRegion === region
+              const isLocked = Boolean(saving || pendingRegion)
               return (
                 <button
                   key={region}
-                  className={`country-card ${isSelected ? 'selected' : ''} ${saving && isSelected ? 'pending-active' : ''}`}
-                  disabled={saving}
+                  type="button"
+                  className={`country-card ${isSelected ? 'selected' : ''} ${isPending ? 'pending-active' : ''}`}
+                  disabled={isLocked && !isPending}
                   onClick={() => {
+                    if (isLocked) return
                     hapticMedium()
                     setSelectedRegion(region)
                     if (region !== 'OTHER') {
-                      window.setTimeout(() => void submitCountry(region), 160)
+                      void submitCountry(region)
                     }
                   }}
                 >
                   <span>{emoji}</span>
                   <strong>{language === 'AM' ? am : en}</strong>
-                  {saving && isSelected && <span className="button-spinner" style={{ marginLeft: 8 }} />}
+                  {isPending && <span className="button-spinner" style={{ marginLeft: 8 }} />}
                 </button>
               )
             })}
@@ -191,14 +201,20 @@ export default function App() {
                 autoFocus
               />
               <button
-                className="primary-button"
+                type="button"
+                className={`primary-button ${saving ? 'is-loading' : ''}`}
                 disabled={saving || otherCountry.trim().length < 2}
                 onClick={() => {
                   hapticMedium()
                   void submitCountry('OTHER')
                 }}
               >
-                {saving ? <span className="button-spinner inverted" /> : text.save}
+                {saving ? (
+                  <>
+                    <span className="button-spinner inverted" />
+                    <span>{text.save}</span>
+                  </>
+                ) : text.save}
               </button>
             </div>
           )}

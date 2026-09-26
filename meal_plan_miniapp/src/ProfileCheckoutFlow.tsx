@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DayPicker as GregorianDayPicker } from 'react-day-picker'
 import { DayPicker as EthiopicDayPicker } from 'react-day-picker/ethiopic'
 import {
@@ -192,6 +192,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
   const [prices, setPrices] = useState<PriceOption[]>([])
   const [pricingMode, setPricingMode] = useState<'AUTOMATIC' | 'MANUAL'>('AUTOMATIC')
   const [loading, setLoading] = useState(false)
+  const submitLockRef = useRef(false)
   const [result, setResult] = useState<Awaited<ReturnType<typeof previewCheckout>> | null>(null)
   const [paymentResult, setPaymentResult] = useState<Awaited<ReturnType<typeof startPayment>> | null>(null)
   const [error, setError] = useState('')
@@ -247,7 +248,11 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
   }, [step, result, paymentResult, config.duration_days])
 
   async function submit() {
-    setLoading(true); setError(''); hapticMedium()
+    if (loading || submitLockRef.current) return
+    submitLockRef.current = true
+    setLoading(true)
+    setError('')
+    hapticMedium()
     try {
       const response = await previewCheckout(initData, config)
       setResult(response)
@@ -255,11 +260,18 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     } catch (cause) {
       hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to prepare checkout')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      submitLockRef.current = false
+    }
   }
 
   async function beginPayment() {
-    setLoading(true); setError(''); hapticMedium()
+    if (loading || submitLockRef.current) return
+    submitLockRef.current = true
+    setLoading(true)
+    setError('')
+    hapticMedium()
     try {
       const response = await startPayment(initData, config)
       setPaymentResult(response)
@@ -267,7 +279,10 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     } catch (cause) {
       hapticError()
       setError(cause instanceof Error ? cause.message : 'Unable to start payment')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      submitLockRef.current = false
+    }
   }
 
   if (paymentResult) {
@@ -417,4 +432,60 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric-card"><small>{label}</small><strong>{value}</strong></div> }
 function Summary({ label, value }: { label: string; value: string }) { return <div><small>{label}</small><strong>{value}</strong></div> }
-function FlowButtons({ back, next, backText, nextText }: { back: () => void; next: () => void; backText: string; nextText: string }) { return <div className="flow-buttons"><button className="secondary-button" onClick={back}>← {backText}</button><button className="primary-button" onClick={next}>{nextText} →</button></div> }
+function FlowButtons({
+  back,
+  next,
+  backText,
+  nextText,
+  disabled = false,
+}: {
+  back: () => void
+  next: () => void
+  backText: string
+  nextText: string
+  disabled?: boolean
+}) {
+  const [navigating, setNavigating] = useState(false)
+  const navLockRef = useRef(false)
+
+  function handleBack() {
+    if (disabled || navigating || navLockRef.current) return
+    navLockRef.current = true
+    setNavigating(true)
+    hapticSelect()
+    back()
+    window.setTimeout(() => {
+      navLockRef.current = false
+      setNavigating(false)
+    }, 200)
+  }
+
+  function handleNext() {
+    if (disabled || navigating || navLockRef.current) return
+    navLockRef.current = true
+    setNavigating(true)
+    hapticMedium()
+    next()
+    window.setTimeout(() => {
+      navLockRef.current = false
+      setNavigating(false)
+    }, 200)
+  }
+
+  return (
+    <div className={`flow-buttons ${navigating || disabled ? 'locked' : ''}`}>
+      <button type="button" className="secondary-button" disabled={disabled || navigating} onClick={handleBack}>
+        ← {backText}
+      </button>
+      <button type="button" className={`primary-button ${navigating ? 'is-loading' : ''}`} disabled={disabled || navigating} onClick={handleNext}>
+        {navigating ? (
+          <span className="button-spinner inverted" />
+        ) : (
+          <>
+            <span>{nextText}</span> <span>→</span>
+          </>
+        )}
+      </button>
+    </div>
+  )
+}
