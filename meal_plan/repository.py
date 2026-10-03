@@ -45,6 +45,10 @@ class RecordNotFound(LookupError):
     pass
 
 
+class PilotCapReached(RuntimeError):
+    pass
+
+
 class MealPlanRepository:
     def __init__(self, pool: PoolLike):
         self.pool = pool
@@ -1012,7 +1016,34 @@ class MealPlanRepository:
                 payment_id, reference, payload_json,
             )
 
+    async def get_approved_paid_user_count(self) -> int:
+        """Count distinct users with approved, active/fulfilled meal plan orders."""
+        async with self.pool.acquire() as conn:
+            val = await conn.fetchval(
+                """
+                SELECT COUNT(DISTINCT user_id)
+                FROM meal_orders
+                WHERE paid_at IS NOT NULL AND state != 'CANCELLED'
+                """
+            )
+            return int(val or 0)
+
+    async def is_user_pilot_approved(self, user_id: int) -> bool:
+        """Check if a specific user already has an approved meal plan order."""
+        async with self.pool.acquire() as conn:
+            val = await conn.fetchval(
+                """
+                SELECT 1 FROM meal_orders
+                WHERE user_id = $1 AND paid_at IS NOT NULL AND state != 'CANCELLED'
+                LIMIT 1
+                """,
+                user_id,
+            )
+            return bool(val)
+
     async def approve_payment_and_queue_generation(self, payment_id: int, *, processed_by: int | None):
+        from meal_plan.runtime import pilot_cap, pilot_cap_enabled
+
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 payment = await conn.fetchrow("SELECT * FROM meal_payments WHERE id=$1 FOR UPDATE", payment_id)
@@ -1036,6 +1067,31 @@ class MealPlanRepository:
 
                 if payment["status"] != "VERIFYING" or order["state"] != OrderState.PAYMENT_REVIEW.value:
                     raise ConcurrentUpdate("Payment is no longer awaiting approval")
+
+                if pilot_cap_enabled():
+                    user_already_approved = await conn.fetchval(
+                        """
+                        SELECT 1 FROM meal_orders
+                        WHERE user_id = $1 AND paid_at IS NOT NULL AND state != 'CANCELLED' AND id != $2
+                        LIMIT 1
+                        """,
+                        order["user_id"],
+                        order["id"],
+                    )
+                    if not user_already_approved:
+                        current_approved_count = await conn.fetchval(
+                            """
+                            SELECT COUNT(DISTINCT user_id)
+                            FROM meal_orders
+                            WHERE paid_at IS NOT NULL AND state != 'CANCELLED'
+                            """
+                        ) or 0
+                        cap = pilot_cap()
+                        if current_approved_count >= cap:
+                            raise PilotCapReached(
+                                f"Pilot cap reached ({current_approved_count}/{cap} approved clients). "
+                                f"Cannot approve additional users without increasing MEAL_PLAN_PILOT_CAP."
+                            )
 
                 payment = await conn.fetchrow(
                     """

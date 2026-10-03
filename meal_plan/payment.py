@@ -35,7 +35,7 @@ from handlers.verify import (
     _extract_generic_reference,
     _extract_amount_fallback,
 )
-from meal_plan.repository import ConcurrentUpdate, RecordNotFound
+from meal_plan.repository import ConcurrentUpdate, PilotCapReached, RecordNotFound
 from meal_plan.payment_rules import Settlement, amount_matches, build_settlement
 from meal_plan.repository_factory import get_meal_plan_repository
 from meal_plan.runtime import (
@@ -44,6 +44,8 @@ from meal_plan.runtime import (
     frontend_url_is_valid,
     payment_amount_tolerance,
     payment_review_chat_id,
+    pilot_cap,
+    pilot_cap_enabled,
     usd_settlement_mode,
     usd_to_etb_rate,
     is_reviewer,
@@ -198,6 +200,14 @@ def _instruction_text(language: str, payment) -> str:
         )
     bank_block = "\n\n".join(account_lines) if account_lines else "⚠️ Bank accounts are not configured on this demo."
 
+    pilot_note = ""
+    if pilot_cap_enabled():
+        cap = pilot_cap()
+        if language == "EN":
+            pilot_note = f"\n\n⚡️ <i>Notice: Round 1 is strictly capped at {cap} approved clients on a first-confirmed basis.</i>"
+        else:
+            pilot_note = f"\n\n⚡️ <i>ማሳሰቢያ፦ የመጀመሪያው ዙር ለ{cap} ደንበኞች ብቻ የተወሰነ ሲሆን ክፍያቸው አስቀድሞ በተረጋገጠ የመጀመሪያዎቹ {cap} ደንበኞች በቅደም-ተከተል ይዘጋል!</i>"
+
     if language == "EN":
         conversion = "" if payment["expected_currency"] == payment["settlement_currency"] else f"\nListed price: <b>{expected}</b>\nAmount to transfer: <b>{settlement}</b>"
         return (
@@ -207,6 +217,7 @@ def _instruction_text(language: str, payment) -> str:
             "After transferring, tap the button below and send your payment proof. "
             "You can upload a receipt screenshot OR paste the bank confirmation SMS text directly. "
             "Your Meal Plan order stays separate from your workout-plan purchases."
+            f"{pilot_note}"
         )
 
     conversion = "" if payment["expected_currency"] == payment["settlement_currency"] else f"\nየተመረጠው ዋጋ፦ <b>{expected}</b>\nየሚልኩት መጠን፦ <b>{settlement}</b>"
@@ -216,6 +227,7 @@ def _instruction_text(language: str, payment) -> str:
         f"{bank_block}\n\n"
         "ክፍያውን ከፈጸሙ በኋላ ከታች ያለውን ቁልፍ ተጭነው የደረሰኝ screenshot ወይም የባንኩን SMS ማረጋገጫ ኮፒ አድርገው ይላኩ። "
         "ይህ ክፍያ ከWorkout Plan ግዢዎችዎ ተለይቶ ይመዘገባል።"
+        f"{pilot_note}"
     )
 
 
@@ -411,6 +423,9 @@ async def _verify_and_handoff(bot: Bot, db: Database, payment, order, proof_file
             queued = await repo.approve_payment_and_queue_generation(payment["id"], processed_by=None)
             await _notify_user_payment_approved(bot, db, queued["order"])
             return
+        except PilotCapReached as exc:
+            logger.warning("Meal payment auto-approval held by pilot cap: %s", exc)
+            payload["pilot_cap_blocked"] = True
         except Exception:
             logger.exception("Meal payment auto-approval failed; falling back to review")
 
@@ -426,6 +441,11 @@ async def _verify_and_handoff(bot: Bot, db: Database, payment, order, proof_file
     settlement = _format_amount(payment["settlement_amount"], payment["settlement_currency"])
     status_icon = "🟢" if payload.get("outcome") == "VERIFIED" else "🟡"
     dup_warning = "\n🚨 <b>WARNING: DUPLICATE TRANSACTION REFERENCE!</b>\n" if payload.get("duplicate_detected") else ""
+    cap = pilot_cap()
+    pilot_warning = (
+        f"\n⚠️ <b>PILOT CAPACITY REACHED ({cap}/{cap} CLIENTS)</b>\n"
+        "Approval is locked. To admit additional clients, increase MEAL_PLAN_PILOT_CAP.\n"
+    ) if payload.get("pilot_cap_blocked") else ""
     caption = (
         f"🥗 <b>MEAL PLAN PAYMENT REVIEW</b>\n"
         f"────────────────────\n"
@@ -441,6 +461,7 @@ async def _verify_and_handoff(bot: Bot, db: Database, payment, order, proof_file
         f"Receiver match: <b>{'YES' if payload.get('receiver_match') else 'NO / UNKNOWN'}</b>\n"
         f"Amount match: <b>{'YES' if payload.get('amount_match') else 'NO / UNKNOWN'}</b>\n"
         f"{dup_warning}"
+        f"{pilot_warning}"
         f"────────────────────\n"
         "Approve only after the receipt is acceptable."
     )
@@ -481,6 +502,8 @@ async def approve_meal_payment(callback: types.CallbackQuery, db: Database, bot:
     repo = get_meal_plan_repository(db)
     try:
         result = await repo.approve_payment_and_queue_generation(payment_id, processed_by=callback.from_user.id)
+    except PilotCapReached as exc:
+        return await callback.answer(f"⚠️ Pilot Cap Full: {exc}", show_alert=True)
     except (RecordNotFound, ConcurrentUpdate) as exc:
         return await callback.answer(str(exc), show_alert=True)
     await callback.answer("Payment approved")

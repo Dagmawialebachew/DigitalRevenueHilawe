@@ -97,6 +97,16 @@ export type BootstrapResponse = {
     source_order_id?: number | null
   }
   payment_accounts?: PaymentAccount[]
+  pilot?: PilotStatus
+}
+
+export type PilotStatus = {
+  enabled: boolean
+  cap: number
+  approved_count: number
+  spots_remaining: number | null
+  is_full: boolean
+  user_approved: boolean
 }
 
 export type PaymentAccount = {

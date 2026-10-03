@@ -12,7 +12,14 @@ from database.db import Database
 from meal_plan.countries import country_label, normalize_region, validate_other_country_name
 from meal_plan.keyboards import country_gate_markup, launch_markup
 from meal_plan.repository_factory import get_meal_plan_repository
-from meal_plan.runtime import frontend_url, frontend_url_is_valid, meal_plan_enabled
+from meal_plan.runtime import (
+    admin_ids,
+    frontend_url,
+    frontend_url_is_valid,
+    meal_plan_enabled,
+    pilot_cap,
+    pilot_cap_enabled,
+)
 
 router = Router(name="meal_plan_entry")
 logger = logging.getLogger(__name__)
@@ -111,6 +118,28 @@ async def open_meal_plan_entry(message: types.Message, state: FSMContext, db: Da
     if active_order:
         intake = await repo.get_intake(active_order["intake_id"])
         return await _send_launch(message, lang, intake)
+
+    if pilot_cap_enabled() and message.from_user.id not in set(admin_ids()):
+        user_approved = await repo.is_user_pilot_approved(message.from_user.id)
+        if not user_approved:
+            approved_count = await repo.get_approved_paid_user_count()
+            cap = pilot_cap()
+            if approved_count >= cap:
+                if lang == "EN":
+                    full_text = (
+                        "🔒 <b>Round 1 Meal Plan Pilot is Full!</b>\n\n"
+                        f"To ensure top-tier 1-on-1 personalized attention and meal quality, Round 1 was strictly capped at <b>{cap} clients</b>. "
+                        f"All {cap} spots have now been claimed!\n\n"
+                        "You will be notified as soon as Round 2 opens. Thank you for your interest and support! 🙏"
+                    )
+                else:
+                    full_text = (
+                        "🔒 <b>የመጀመሪያው ዙር (Round 1) የምግብ ፕላን ምዝገባ ተጠናቋል!</b>\n\n"
+                        f"ለእያንዳንዱ ደንበኛ ከፍተኛ ጥራት ያለው የቅርብ ክትትል (1-on-1 focus) ለመስጠት ስንል የመጀመሪያው ዙር በ <b>{cap} ደንበኞች</b> ብቻ ተወስኗል። "
+                        f"አሁን {cap}ቱም ቦታዎች ሙሉ በሙሉ ተይዘዋል!\n\n"
+                        "ቀጣዩ ዙር (Round 2) ሲከፈት ወዲያውኑ መልእክት ይደርስዎታል። ስለመረጡን እናመሰግናለን! 🙏"
+                    )
+                return await message.answer(full_text, parse_mode="HTML")
 
     intake = await repo.create_or_resume_intake(
         message.from_user.id,

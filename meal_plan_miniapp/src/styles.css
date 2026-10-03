@@ -868,3 +868,41 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   border-radius: 17px;
   margin-top: 28px;
 }
+
+/* Pilot Cap & Urgency Aesthetics */
+.pilot-urgency-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.16), rgba(245, 158, 11, 0.08));
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 14px;
+  padding: 10px 16px;
+  margin: 8px 0 16px;
+  color: #fef08a;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+.pilot-urgency-banner .pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #facc15;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #facc15;
+  flex-shrink: 0;
+}
+
+.pilot-full-card {
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.pilot-full-card .status-orb.locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+  font-size: 1.8rem;
+}

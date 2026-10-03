@@ -27,6 +27,21 @@ def meal_plan_public_access_enabled() -> bool:
     return env_bool("MEAL_PLAN_PUBLIC_ACCESS", False)
 
 
+def pilot_cap() -> int:
+    """Maximum number of fully approved paid clients allowed for the pilot. Default is 5."""
+    raw = os.getenv("MEAL_PLAN_PILOT_CAP", "5").strip()
+    try:
+        val = int(raw)
+        return max(1, val)
+    except ValueError:
+        return 5
+
+
+def pilot_cap_enabled() -> bool:
+    """Whether the pilot cap is strictly enforced. Default is True."""
+    return env_bool("MEAL_PLAN_PILOT_CAP_ENABLED", True)
+
+
 def frontend_url() -> str:
     return os.getenv("MEAL_PLAN_FRONTEND_URL", "").strip().rstrip("/")
 

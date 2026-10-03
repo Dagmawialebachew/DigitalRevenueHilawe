@@ -36,11 +36,14 @@ from meal_plan.repository_factory import get_meal_plan_repository
 from meal_plan.review_repository import MealPlanReviewRepository
 from meal_plan.plan_access import plan_payload, safe_local_pdf_path
 from meal_plan.runtime import (
+    admin_ids,
     business_timezone_name,
     followup_auto_revision_enabled,
     init_data_max_age_seconds,
     meal_plan_access_allowed,
     meal_plan_enabled,
+    pilot_cap,
+    pilot_cap_enabled,
 )
 from meal_plan.states import IntakeState, OrderState
 
@@ -220,6 +223,23 @@ async def bootstrap(request: web.Request) -> web.Response:
     renewal_intake = bool(open_intake and str(open_intake.get("source") or "").startswith("RENEWAL:"))
     order = None if renewal_intake else await repo.get_current_order_for_user(identity.telegram_id)
 
+    pilot_enabled = pilot_cap_enabled()
+    pilot_limit = pilot_cap()
+    approved_count = await repo.get_approved_paid_user_count() if pilot_enabled else 0
+    user_approved = await repo.is_user_pilot_approved(identity.telegram_id) if pilot_enabled else False
+    is_admin = identity.telegram_id in set(admin_ids())
+    is_full = bool(pilot_enabled and (approved_count >= pilot_limit) and not user_approved and not is_admin)
+    spots_remaining = max(0, pilot_limit - approved_count) if pilot_enabled else None
+
+    pilot_payload = {
+        "enabled": pilot_enabled,
+        "cap": pilot_limit,
+        "approved_count": approved_count,
+        "spots_remaining": spots_remaining,
+        "is_full": is_full,
+        "user_approved": user_approved,
+    }
+
     if order:
         intake = await repo.get_intake(order["intake_id"])
         payment = await repo.get_latest_payment_for_order(order["id"])
@@ -286,6 +306,7 @@ async def bootstrap(request: web.Request) -> web.Response:
                 "source_order_id": order["id"],
             },
             "payment_accounts": bank_accounts(),
+            "pilot": pilot_payload,
         })
 
     intake = open_intake or await repo.create_or_resume_intake(identity.telegram_id, lang, source="MINI_APP")
@@ -321,6 +342,7 @@ async def bootstrap(request: web.Request) -> web.Response:
             "source_order_id": latest_order["id"] if renewal_intake and latest_order else None,
         },
         "payment_accounts": bank_accounts(),
+        "pilot": pilot_payload,
     })
 
 
@@ -627,6 +649,20 @@ async def start_payment(request: web.Request) -> web.Response:
             status=409,
             details={"missing_years": list(exc.missing_years)},
         )
+
+    if pilot_cap_enabled() and identity.telegram_id not in set(admin_ids()):
+        user_approved = await repo.is_user_pilot_approved(identity.telegram_id)
+        if not user_approved:
+            approved_count = await repo.get_approved_paid_user_count()
+            cap = pilot_cap()
+            if approved_count >= cap:
+                return _error(
+                    "PILOT_CAP_REACHED",
+                    f"Round 1 Pilot is full ({cap}/{cap} spots claimed). Checkout is temporarily closed."
+                    if lang == "EN"
+                    else f"የመጀመሪያው ዙር {cap} የሙከራ ቦታዎች በሙሉ ተይዘዋል። ምዝገባው ለጊዜው ተዘግቷል።",
+                    status=403,
+                )
 
     region = intake["country_region"]
     pricing_id = None

@@ -159,7 +159,34 @@ export default function App() {
         <PaymentOrderFlow language={language} data={state.data} initData={state.initData} onRefresh={() => void load()} />
       )}
 
-      {state.status === 'ready' && !state.data.order && state.data.intake.country_required && (
+      {state.status === 'ready' && !state.data.order && state.data.pilot?.is_full && (
+        <section className="center-card compact pilot-full-card">
+          <div className="status-orb locked">🔒</div>
+          <p className="eyebrow">ROUND 1 PILOT · {state.data.pilot.cap}/{state.data.pilot.cap} SPOTS CLAIMED</p>
+          <h1>{language === 'AM' ? 'የመጀመሪያው ዙር 5 የሙከራ ቦታዎች በሙሉ ተይዘዋል' : 'Round 1 Pilot Full (5/5 Slots Claimed)'}</h1>
+          <p className="lead">
+            {language === 'AM'
+              ? 'ለእያንዳንዱ ደንበኛ ከፍተኛ ጥራት ያለው የቅርብ ክትትል (1-on-1 focus) ለመስጠት ስንል የመጀመሪያው ዙር በ 5 ደንበኞች ብቻ ተወስኗል። አሁን 5ቱም ቦታዎች ሙሉ በሙሉ ተይዘዋል። ቀጣዩ ዙር (Round 2) በቅርቡ ይከፈታል!'
+              : 'To ensure top-tier 1-on-1 personalized attention, Round 1 was strictly capped at 5 clients. All 5 spots have been claimed! Round 2 will open soon.'}
+          </p>
+          <button className="primary-button" onClick={() => getTelegramWebApp()?.close?.()}>
+            {language === 'AM' ? 'ወደ Coach Hilawe Bot ተመለስ' : 'Return to Coach Hilawe Bot'}
+          </button>
+        </section>
+      )}
+
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.pilot?.enabled && state.data.pilot.spots_remaining !== null && (
+        <aside className="pilot-urgency-banner">
+          <span className="pulse-dot" />
+          <span>
+            {language === 'AM'
+              ? `🔥 የመጀመሪያው ዙር፦ ${state.data.pilot.spots_remaining} / ${state.data.pilot.cap} ክፍት ቦታዎች ብቻ ቀርተዋል!`
+              : `🔥 Round 1 Pilot: Only ${state.data.pilot.spots_remaining} of ${state.data.pilot.cap} spots remaining!`}
+          </span>
+        </aside>
+      )}
+
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.intake.country_required && (
         <section className="content-panel">
           <p className="eyebrow">{text.eyebrow}</p>
           <h1>{text.countryTitle}</h1>
@@ -221,7 +248,7 @@ export default function App() {
         </section>
       )}
 
-      {state.status === 'ready' && !state.data.order && state.data.renewal?.fresh_reassessment && (
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.renewal?.fresh_reassessment && (
         <section className="renewal-banner">
           <p className="eyebrow">RENEWAL · FRESH CHECK</p>
           <strong>{language === 'AM' ? 'የቀድሞውን PDF አንደግምም።' : 'We are not rebuying the old PDF.'}</strong>
@@ -229,7 +256,7 @@ export default function App() {
         </section>
       )}
 
-      {state.status === 'ready' && !state.data.order && !state.data.intake.country_required && ['COUNTRY_REQUIRED','INTAKE_IN_PROGRESS'].includes(state.data.intake.state) && (
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && !state.data.intake.country_required && ['COUNTRY_REQUIRED','INTAKE_IN_PROGRESS'].includes(state.data.intake.state) && (
         <IntakeFlow
           key={state.data.intake.public_id}
           initData={state.initData}
@@ -242,15 +269,15 @@ export default function App() {
         />
       )}
 
-      {state.status === 'ready' && !state.data.order && state.data.intake.state === 'HEALTH_REVIEW_REQUIRED' && (
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.intake.state === 'HEALTH_REVIEW_REQUIRED' && (
         <HealthReviewHold language={language} flags={state.data.health_review?.flags || []} onRefresh={() => void load()} />
       )}
 
-      {state.status === 'ready' && !state.data.order && state.data.intake.state === 'HEALTH_DECLINED' && (
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.intake.state === 'HEALTH_DECLINED' && (
         <HealthDeclined language={language} />
       )}
 
-      {state.status === 'ready' && !state.data.order && ['PROFILE_READY','CHECKOUT_READY'].includes(state.data.intake.state) && (
+      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && ['PROFILE_READY','CHECKOUT_READY'].includes(state.data.intake.state) && (
         <ProfileCheckoutFlow
           key={`${state.data.intake.public_id}-phase4`}
           initData={state.initData}
