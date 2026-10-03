@@ -64,9 +64,11 @@ h2 { margin: 0; font-size: clamp(29px, 7.4vw, 42px); line-height: 1.08; letter-s
 .country-card:active { transform: scale(.98); }
 .country-card.selected { border-color: var(--orange); box-shadow: 0 0 0 2px rgba(237,116,25,.08); }
 .country-card span { display: block; font-size: 25px; margin-bottom: 14px; }
+.country-card .flag-icon-shell { display: flex; align-items: center; margin-bottom: 14px; }
+.country-card .flag-icon { width: 36px; height: 24px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0, 0, 0, .14); display: block; }
 .country-card strong { font-size: 13px; line-height: 1.35; }
 .country-card:last-child { grid-column: 1 / -1; min-height: 84px; display: flex; align-items: center; gap: 15px; }
-.country-card:last-child span { margin: 0; }
+.country-card:last-child span, .country-card:last-child .flag-icon-shell { margin: 0; }
 .other-country { margin-top: 12px; border: 1px solid var(--line); background: var(--surface); padding: 12px; border-radius: 22px; }
 .other-country input { width: 100%; border: 0; outline: none; background: transparent; padding: 10px 8px 16px; color: var(--ink); }
 
@@ -791,18 +793,19 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   }
 }
 
-/* Sticky floating bottom action bar */
+/* Scroll-End Action Bar (Natural document flow at bottom of scroll, no sticky floating) */
+.scroll-end-action-bar,
 .sticky-bottom-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 15;
-  margin-top: 20px;
-  padding: 10px 0 calc(8px + var(--app-safe-bottom));
-  background: linear-gradient(180deg, rgba(247, 244, 237, 0) 0%, rgba(247, 244, 237, 0.94) 26%, #f7f4ed 100%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  position: static;
+  margin-top: 28px;
+  margin-bottom: 24px;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
+.scroll-end-action-bar .primary-button,
 .sticky-bottom-bar .primary-button {
   margin-top: 0;
 }
@@ -869,30 +872,88 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   margin-top: 28px;
 }
 
-/* Pilot Cap & Urgency Aesthetics */
+/* Offer Countdown Header Pill */
+.countdown-bar-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 4px 0 14px;
+}
+
+.offer-countdown-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #181512;
+  border: 1px solid rgba(237, 116, 25, 0.45);
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: #fffdf8;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 16px rgba(24, 21, 18, 0.18);
+}
+
+.countdown-flame {
+  font-size: 12px;
+  color: #ed7419;
+}
+
+.countdown-label {
+  color: #d6cebf;
+  font-weight: 600;
+}
+
+.countdown-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: #ff9d47;
+  font-weight: 850;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.countdown-pulse {
+  width: 6px;
+  height: 6px;
+  background: #ed7419;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #ed7419;
+  animation: pulse-glow 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px #ed7419; }
+}
+
+/* Pilot Cap & High-Contrast Luxury Urgency Banner */
 .pilot-urgency-banner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, rgba(234, 179, 8, 0.16), rgba(245, 158, 11, 0.08));
-  border: 1px solid rgba(234, 179, 8, 0.4);
-  border-radius: 14px;
-  padding: 10px 16px;
-  margin: 8px 0 16px;
-  color: #fef08a;
-  font-size: 0.88rem;
-  font-weight: 600;
+  gap: 12px;
+  background: #181512;
+  border: 1px solid rgba(237, 116, 25, 0.55);
+  border-radius: 16px;
+  padding: 12px 18px;
+  margin: 10px 0 20px;
+  color: #fffdf8;
+  font-size: 0.92rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(24, 21, 18, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .pilot-urgency-banner .pulse-dot {
-  width: 8px;
-  height: 8px;
-  background: #facc15;
+  width: 9px;
+  height: 9px;
+  background: #ed7419;
   border-radius: 50%;
-  box-shadow: 0 0 10px #facc15;
+  box-shadow: 0 0 12px #ed7419;
   flex-shrink: 0;
+  animation: pulse-glow 2s infinite ease-in-out;
 }
 
 .pilot-full-card {
@@ -905,4 +966,239 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   color: #f87171;
   border-color: rgba(239, 68, 68, 0.3);
   font-size: 1.8rem;
+}
+
+/* Seasonal Fasting (Tsige Tsom) Alert Card */
+.seasonal-fasting-alert-card {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: #fffdf8;
+  border: 1.5px solid #ed7419;
+  box-shadow: 0 8px 28px rgba(237, 116, 25, 0.12);
+  animation: stage-in 0.25s ease both;
+}
+
+.seasonal-fasting-alert-card .alert-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.seasonal-fasting-alert-card .alert-icon {
+  font-size: 18px;
+}
+
+.seasonal-fasting-alert-card .alert-header strong {
+  font-size: 14px;
+  color: #181512;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+}
+
+.seasonal-fasting-alert-card .alert-text {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #595248;
+}
+
+.seasonal-fasting-alert-card .alert-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.seasonal-fasting-alert-card .alert-btn {
+  flex: 1;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.seasonal-fasting-alert-card .alert-btn.change {
+  background: #f1ece3;
+  color: #595248;
+}
+
+.seasonal-fasting-alert-card .alert-btn.confirm {
+  background: #181512;
+  color: #fff;
+  border-color: #181512;
+}
+
+.seasonal-fasting-alert-card .alert-btn.confirm.confirmed {
+  background: #2f7254;
+  border-color: #2f7254;
+  color: #fff;
+}
+
+/* Duration & Service Pricing Psychology */
+.duration-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.scarcity-pill {
+  font-size: 9px;
+  font-weight: 850;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(237, 116, 25, 0.15);
+  color: #d85f0c;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scarcity-pill.popular {
+  background: #ed7419;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(237, 116, 25, 0.3);
+}
+
+.price-strike-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price-original {
+  text-decoration: line-through;
+  color: #9b9389;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.price-current {
+  color: #181512;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.vip-badge {
+  font-size: 9px;
+  font-weight: 850;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #181512;
+  color: #ffd700;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+}
+
+.checkout-scarcity-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #181512;
+  border: 1px solid rgba(237, 116, 25, 0.4);
+  border-radius: 14px;
+  padding: 9px 14px;
+  margin: 14px 0 20px;
+  color: #fffdf8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkout-scarcity-strip .flame-icon {
+  color: #ed7419;
+  font-size: 14px;
+}
+
+/* In-App PDF Modal Viewer */
+.pdf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(18, 15, 12, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.pdf-modal-sheet {
+  width: 100%;
+  max-width: 600px;
+  height: 92vh;
+  background: #fffdf8;
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+  animation: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.pdf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #f7f4ed;
+}
+
+.pdf-modal-header strong {
+  font-size: 13.5px;
+  color: #181512;
+  font-weight: 850;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdf-modal-btn {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.pdf-modal-btn.close {
+  background: #181512;
+  color: #fff;
+  border-color: #181512;
+}
+
+.pdf-frame-wrap {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: #525659;
+}
+
+.in-app-pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }

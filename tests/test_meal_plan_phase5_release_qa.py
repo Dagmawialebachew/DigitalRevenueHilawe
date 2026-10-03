@@ -63,7 +63,7 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 hydration_target_l=2.8,
             )
             filename = client_artifact_filename("Kidus Yohannes", 7, 1)
-            self.assertEqual(filename, "Kidus_Yohannes_Meal_Plan_7_Days_V1.pdf")
+            self.assertEqual(filename, "Kidus_Yohannes_የምግብ_እቅድ_7_Days_V1.pdf")
             out_file = Path(td) / filename
             pdf_path = render_client_pdf(plan, ctx, out_file)
             self.assertTrue(pdf_path.exists())
@@ -106,7 +106,7 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 hydration_target_l=2.4,
             )
             filename = client_artifact_filename("Sarah Jenkins", 14, 1)
-            self.assertEqual(filename, "Sarah_Jenkins_Meal_Plan_14_Days_V1.pdf")
+            self.assertEqual(filename, "Sarah_Jenkins_የምግብ_እቅድ_14_Days_V1.pdf")
             out_file = Path(td) / filename
             pdf_path = render_client_pdf(plan, ctx, out_file)
             self.assertTrue(pdf_path.exists())
@@ -149,7 +149,7 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 hydration_target_l=3.0,
             )
             filename = client_artifact_filename("Tewodros Kassahun", 30, 1)
-            self.assertEqual(filename, "Tewodros_Kassahun_Meal_Plan_30_Days_V1.pdf")
+            self.assertEqual(filename, "Tewodros_Kassahun_የምግብ_እቅድ_30_Days_V1.pdf")
             out_file = Path(td) / filename
             pdf_path = render_client_pdf(plan, ctx, out_file)
             self.assertTrue(pdf_path.exists())
@@ -157,7 +157,7 @@ class Phase5ReleaseQATests(unittest.TestCase):
             self.assertTrue(pdf_path.read_bytes().startswith(b"%PDF"))
 
     def test_release_gate_migrations_sequence_integrity(self):
-        """Verifies migrations 0001 through 0004 are discoverable and in order."""
+        """Verifies migrations 0001 through 0007 are discoverable and in order."""
         migrations_dir = Path(__file__).resolve().parents[1] / "database" / "migrations"
         found_migrations = sorted(p.name for p in migrations_dir.glob("[0-9][0-9][0-9][0-9]_*.sql"))
         self.assertEqual(
@@ -168,9 +168,11 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 "0003_verified_fasting_calendar.sql",
                 "0004_bilingual_and_calibrated_dataset.sql",
                 "0005_neon_name_cleanup_and_history_repair.sql",
+                "0006_update_meal_pricing.sql",
+                "0007_add_tsige_fasting.sql",
             ],
         )
-        for expected in ("0001", "0002", "0003", "0004", "0005"):
+        for expected in ("0001", "0002", "0003", "0004", "0005", "0006", "0007"):
             self.assertIn(expected, EXPECTED_ENGINE_MIGRATIONS)
 
 

@@ -30,19 +30,19 @@ class Phase1DeliveryContractTests(unittest.TestCase):
     def test_client_artifact_filename_standardization(self):
         self.assertEqual(
             client_artifact_filename("Dagmaros Alebachew", 30, 1),
-            "Dagmaros_Alebachew_Meal_Plan_30_Days_V1.pdf",
+            "Dagmaros_Alebachew_የምግብ_እቅድ_30_Days_V1.pdf",
         )
         self.assertEqual(
             client_artifact_filename("Abel / S.", 7, 2),
-            "Abel_S_Meal_Plan_7_Days_V2.pdf",
+            "Abel_S_የምግብ_እቅድ_7_Days_V2.pdf",
         )
         self.assertEqual(
             client_artifact_filename("  Special-Name!!  ", 14, 3),
-            "Special_Name_Meal_Plan_14_Days_V3.pdf",
+            "Special_Name_የምግብ_እቅድ_14_Days_V3.pdf",
         )
         self.assertEqual(
             client_artifact_filename("", 7, 1),
-            "Client_Meal_Plan_7_Days_V1.pdf",
+            "Client_የምግብ_እቅድ_7_Days_V1.pdf",
         )
 
     def test_client_pdf_renders_clean_document_without_internal_page(self):

@@ -24,7 +24,7 @@ def client_artifact_filename(client_name: str, duration_days: int, version_numbe
     cleaned_name = re.sub(r"[^\w]+", "_", str(client_name).strip()).strip("_")
     safe_name = cleaned_name or "Client"
     clean_ext = ext.lstrip(".")
-    return f"{safe_name}_Meal_Plan_{int(duration_days)}_Days_V{int(version_number)}.{clean_ext}"
+    return f"{safe_name}_የምግብ_እቅድ_{int(duration_days)}_Days_V{int(version_number)}.{clean_ext}"
 
 
 def sha256_file(path: Path) -> str:

@@ -420,7 +420,7 @@ function SubmitBar({
   const inProgress = Boolean(loading || submitting)
 
   return (
-    <div className="sticky-bottom-bar">
+    <div className="scroll-end-action-bar">
       <button
         type="button"
         className={`primary-button tall ${inProgress ? 'is-loading' : ''}`}
@@ -614,7 +614,21 @@ function FastingStep(ctx: RenderContext) {
   const [fasting, setFasting] = useState(str(ctx.answers.orthodox_fasting, ''))
   const existingFish = typeof ctx.answers.fish_during_fast === 'boolean' ? ctx.answers.fish_during_fast : null
   const [fish, setFish] = useState<boolean | null>(existingFish)
+  const isSeasonal = fasting === 'SEASONAL' || fasting === 'WED_FRI_AND_SEASONAL'
+  const [confirmedSeasonal, setConfirmedSeasonal] = useState(Boolean(ctx.answers.orthodox_fasting && isSeasonal))
   const needsFish = fasting !== '' && fasting !== 'NONE'
+
+  function handleSelectFasting(val: string) {
+    hapticMedium()
+    setFasting(val)
+    if (val === 'NONE') setFish(false)
+    if (val === 'SEASONAL' || val === 'WED_FRI_AND_SEASONAL') {
+      setConfirmedSeasonal(false)
+    } else {
+      setConfirmedSeasonal(true)
+    }
+  }
+
   return (
     <>
       <QuestionHeader title={ctx.text.fastingTitle} body={ctx.text.fastingBody} />
@@ -624,25 +638,65 @@ function FastingStep(ctx: RenderContext) {
             key={option.value}
             type="button"
             className={`choice-card ${fasting === option.value ? 'selected' : ''}`}
-            onClick={() => {
-              hapticMedium()
-              setFasting(option.value)
-              if (option.value === 'NONE') setFish(false)
-            }}
+            onClick={() => handleSelectFasting(option.value)}
           >
             <div><strong>{option.title}</strong></div>
             <span className="radio-dot" />
           </button>
         ))}
       </div>
-      {needsFish && (
+
+      {isSeasonal && (
+        <div className="seasonal-fasting-alert-card">
+          <div className="alert-header">
+            <span className="alert-icon">🌿</span>
+            <strong>
+              {ctx.language === 'AM'
+                ? 'ወቅታዊ ጾም ማረጋገጫ · ጾመ ጽጌ'
+                : 'Seasonal Fasting Confirmation · Tsige Fast'}
+            </strong>
+          </div>
+          <p className="alert-text">
+            {ctx.language === 'AM'
+              ? 'በቅርቡ የሚጀምር ጾመ ጽጌ (ከጥቅምት 6 እስከ ኅዳር 5 / መስከረም 26 – ኅዳር 5) ይገናኛል። ፕላኑ በዚህ ወቅት በሙሉ ከእንስሳት ተዋጽኦ ነፃ የሆኑ የጾም ምግቦችን ያካትታል። በዚህ ሁኔታ ይቀጥል?'
+              : 'Tsige Fasting starts in a few days (Oct 6 – Nov 14 / Meskerem 26 – Hidar 5). Your plan will automatically feature 100% plant-based fasting meals during this period. Do you wish to continue with this setting?'}
+          </p>
+          <div className="alert-actions">
+            <button
+              type="button"
+              className="alert-btn change"
+              onClick={() => {
+                hapticSelect()
+                setFasting('')
+                setConfirmedSeasonal(false)
+              }}
+            >
+              {ctx.language === 'AM' ? '🔄 ምርጫ ቀይር' : '🔄 Change Selection'}
+            </button>
+            <button
+              type="button"
+              className={`alert-btn confirm ${confirmedSeasonal ? 'confirmed' : ''}`}
+              onClick={() => {
+                hapticMedium()
+                setConfirmedSeasonal(true)
+              }}
+            >
+              {confirmedSeasonal
+                ? (ctx.language === 'AM' ? '✓ ተረጋግጧል' : '✓ Confirmed')
+                : (ctx.language === 'AM' ? '✓ ይስማማኛል · ቀጥል' : '✓ I Agree · Continue')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {needsFish && (!isSeasonal || confirmedSeasonal) && (
         <div className="conditional-card">
           <strong>{ctx.text.fishFast}</strong>
           <YesNo value={fish} onChange={setFish} text={ctx.text} />
         </div>
       )}
       <SubmitBar
-        disabled={!fasting || (needsFish && fish === null)}
+        disabled={!fasting || (isSeasonal && !confirmedSeasonal) || (needsFish && fish === null)}
         loading={ctx.saving}
         label={ctx.text.continue}
         savingLabel={ctx.text.saving}
@@ -791,7 +845,11 @@ function FoodSelectStep(ctx: RenderContext & { mode: 'likes' | 'dislikes' }) {
       {/* Standardized Mutex SubmitBar — clears otherField in backend */}
       <SubmitBar
         loading={ctx.saving}
-        label={ctx.text.continue}
+        label={
+          selected.length === 0
+            ? (ctx.language === 'AM' ? 'ምንም የለም · ቀጥል' : 'None / Skip · Continue')
+            : (ctx.language === 'AM' ? `${selected.length} ተመርጧል · ቀጥል` : `${selected.length} Selected · Continue`)
+        }
         savingLabel={ctx.text.saving}
         onClick={() => ctx.commit({ [field]: selected, [otherField]: '' }, isLikes ? 'DISLIKES' : 'ALLERGIES')}
       />
@@ -834,7 +892,11 @@ function AllergyStep(ctx: RenderContext) {
       <SubmitBar
         disabled={hasAllergy && severe === null}
         loading={ctx.saving}
-        label={ctx.text.continue}
+        label={
+          !hasAllergy
+            ? (ctx.language === 'AM' ? 'ምንም አለርጂ የለም · ቀጥል' : 'No Allergies · Continue')
+            : (ctx.language === 'AM' ? `${selected.length || 1} ተመርጧል · ቀጥል` : `${selected.length || 1} Selected · Continue`)
+        }
         savingLabel={ctx.text.saving}
         onClick={() => ctx.commit({ food_allergies: selected, allergy_other: other, health_anaphylactic_food_allergy: hasAllergy ? severe : false }, 'INTOLERANCES')}
       />
@@ -869,7 +931,11 @@ function IntoleranceStep(ctx: RenderContext) {
       </label>
       <SubmitBar
         loading={ctx.saving}
-        label={ctx.text.continue}
+        label={
+          selected.length === 0 && !other.trim()
+            ? (ctx.language === 'AM' ? 'ምንም ችግር የለም · ቀጥል' : 'None / Skip · Continue')
+            : (ctx.language === 'AM' ? `${selected.length || 1} ተመርጧል · ቀጥል` : `${selected.length || 1} Selected · Continue`)
+        }
         savingLabel={ctx.text.saving}
         onClick={() => ctx.commit({ food_intolerances: selected, intolerance_other: other }, next)}
       />

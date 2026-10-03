@@ -829,11 +829,17 @@ async def download_approved_pdf(request: web.Request) -> web.StreamResponse:
     if not plan or plan.get("status") not in {"APPROVED", "DELIVERED"}:
         return _error("PLAN_NOT_READY", "Your approved Meal Plan is not available yet.", status=409)
     filename = Path(str(plan.get("pdf_filename") or "meal-plan.pdf")).name
+    from urllib.parse import quote
+    import re
+    ascii_safe = re.sub(r"[^\w.-]+", "_", filename)
+    encoded_filename = quote(filename)
+    disposition = f"attachment; filename=\"{ascii_safe}\"; filename*=UTF-8''{encoded_filename}"
+
     path = safe_local_pdf_path(str(plan.get("pdf_storage_key") or ""))
     if path is not None:
         response = web.FileResponse(path)
         response.headers["Content-Type"] = "application/pdf"
-        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response.headers["Content-Disposition"] = disposition
         response.headers["Cache-Control"] = "private, no-store"
         return response
 
@@ -857,7 +863,7 @@ async def download_approved_pdf(request: web.Request) -> web.StreamResponse:
         logger.exception("Approved Meal Plan PDF recovery from Telegram failed for user %s", identity.telegram_id)
         return _error("PDF_TEMPORARILY_UNAVAILABLE", "The approved PDF is temporarily unavailable. Please try again.", status=503)
     response = web.Response(body=body, content_type="application/pdf")
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.headers["Content-Disposition"] = disposition
     response.headers["Cache-Control"] = "private, no-store"
     return response
 

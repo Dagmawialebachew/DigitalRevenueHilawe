@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { bootstrap, BootstrapResponse, downloadApprovedPlan, FollowUpAnswers, Language, saveCountry, saveLanguage, startRenewal, submitFollowUpCheckin } from './api'
 import { copy } from './copy'
+import { RegionFlagIcon } from './FlagIcons'
 import IntakeFlow from './IntakeFlow'
+import { OfferCountdown } from './OfferCountdown'
 import ProfileCheckoutFlow from './ProfileCheckoutFlow'
 import { getTelegramWebApp, hapticError, hapticLight, hapticMedium, hapticSelect, initializeTelegramShell } from './telegram'
 import TopProgressBar from './TopProgressBar'
 
 const regions = [
-  ['ETHIOPIA', '🇪🇹', 'ኢትዮጵያ', 'Ethiopia'],
-  ['UNITED_STATES', '🇺🇸', 'ዩናይትድ ስቴትስ', 'United States'],
-  ['EUROPE', '🇪🇺', 'አውሮፓ', 'Europe'],
-  ['UAE', '🇦🇪', 'ዱባይ / UAE', 'Dubai / UAE'],
-  ['OTHER', '🌍', 'ሌላ አገር', 'Other'],
+  ['ETHIOPIA', 'ኢትዮጵያ', 'Ethiopia'],
+  ['UNITED_STATES', 'ዩናይትድ ስቴትስ', 'United States'],
+  ['EUROPE', 'አውሮፓ', 'Europe'],
+  ['UAE', 'ዱባይ / UAE', 'Dubai / UAE'],
+  ['OTHER', 'ሌላ አገር', 'Other'],
 ] as const
 
 type LoadState =
@@ -120,6 +122,9 @@ export default function App() {
           <button className={language === 'EN' ? 'active' : ''} onClick={() => void changeLanguage('EN')}>EN</button>
         </div>
       </header>
+      <div className="countdown-bar-container">
+        <OfferCountdown language={language} />
+      </div>
 
       {state.status === 'loading' && <BrandSkeletonLoader language={language} />}
 
@@ -175,24 +180,23 @@ export default function App() {
         </section>
       )}
 
-      {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.pilot?.enabled && state.data.pilot.spots_remaining !== null && (
-        <aside className="pilot-urgency-banner">
-          <span className="pulse-dot" />
-          <span>
-            {language === 'AM'
-              ? `🔥 የመጀመሪያው ዙር፦ ${state.data.pilot.spots_remaining} / ${state.data.pilot.cap} ክፍት ቦታዎች ብቻ ቀርተዋል!`
-              : `🔥 Round 1 Pilot: Only ${state.data.pilot.spots_remaining} of ${state.data.pilot.cap} spots remaining!`}
-          </span>
-        </aside>
-      )}
-
       {state.status === 'ready' && !state.data.order && !state.data.pilot?.is_full && state.data.intake.country_required && (
         <section className="content-panel">
+          {state.data.pilot?.enabled && state.data.pilot.spots_remaining !== null && (
+            <aside className="pilot-urgency-banner">
+              <span className="pulse-dot" />
+              <span>
+                {language === 'AM'
+                  ? `🔥 የመጀመሪያው ዙር (Pilot)፦ ${state.data.pilot.spots_remaining} / ${state.data.pilot.cap} ክፍት ቦታዎች ብቻ ቀርተዋል!`
+                  : `🔥 Round 1 Pilot: Only ${state.data.pilot.spots_remaining} of ${state.data.pilot.cap} spots remaining!`}
+              </span>
+            </aside>
+          )}
           <p className="eyebrow">{text.eyebrow}</p>
           <h1>{text.countryTitle}</h1>
           <p className="lead">{text.countryBody}</p>
           <div className={`country-grid ${saving || pendingRegion ? 'locked' : ''}`}>
-            {regions.map(([region, emoji, am, en]) => {
+            {regions.map(([region, am, en]) => {
               const isSelected = selectedRegion === region || pendingRegion === region
               const isPending = pendingRegion === region
               const isLocked = Boolean(saving || pendingRegion)
@@ -211,7 +215,9 @@ export default function App() {
                     }
                   }}
                 >
-                  <span>{emoji}</span>
+                  <div className="flag-icon-shell">
+                    <RegionFlagIcon region={region} />
+                  </div>
                   <strong>{language === 'AM' ? am : en}</strong>
                   {isPending && <span className="button-spinner" style={{ marginLeft: 8 }} />}
                 </button>
@@ -319,6 +325,31 @@ function PaymentOrderFlow({ language, data, initData, onRefresh }: { language: L
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
   const [renewing, setRenewing] = useState(false)
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null)
+  const [previewFilename, setPreviewFilename] = useState('')
+  const [loadingPreview, setLoadingPreview] = useState(false)
+
+  async function openPdfInApp() {
+    setLoadingPreview(true)
+    setDownloadError('')
+    try {
+      const { blob, filename } = await downloadApprovedPlan(initData)
+      const url = URL.createObjectURL(blob)
+      setPreviewFilename(filename)
+      setPdfPreviewUrl(url)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'Unable to open PDF preview')
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  function closePdfPreview() {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl)
+    }
+    setPdfPreviewUrl(null)
+  }
   const settlement = payment?.settlement_amount && payment?.settlement_currency
     ? (payment.settlement_currency === 'ETB' ? `${Number(payment.settlement_amount).toLocaleString()} Br` : `$${Number(payment.settlement_amount).toLocaleString()}`)
     : (order.currency === 'ETB' ? `${Number(order.amount).toLocaleString()} Br` : `$${Number(order.amount).toLocaleString()}`)
@@ -418,13 +449,71 @@ function PaymentOrderFlow({ language, data, initData, onRefresh }: { language: L
       <div><span className={stepReviewDone ? 'done' : coachReview ? 'active' : ''}>{stepReviewDone ? '✓' : '3'}</span><small>COACH REVIEW</small></div><i />
       <div><span className={stepReady ? 'done' : delivery ? 'active' : ''}>{stepReady ? '✓' : '4'}</span><small>READY</small></div>
     </div>
-    {active && plan?.pdf_available && <button className="primary-button tall" disabled={downloading} onClick={() => void downloadPlan()}>{downloading ? '…' : (language === 'AM' ? 'የተፈቀደውን PDF ክፈት ↓' : 'Open approved PDF ↓')}</button>}
+    {active && plan?.pdf_available && (
+      <div style={{ display: 'grid', gap: 10, marginTop: 20, width: '100%' }}>
+        <button
+          className="primary-button tall"
+          style={{ marginTop: 0 }}
+          disabled={loadingPreview}
+          onClick={() => void openPdfInApp()}
+        >
+          {loadingPreview ? (
+            <>
+              <span className="button-spinner inverted" />
+              <span>{language === 'AM' ? 'PDF በመክፈት ላይ…' : 'Opening PDF…'}</span>
+            </>
+          ) : (
+            language === 'AM' ? '📄 የተፈቀደውን PDF በMini App ይመልከቱ' : '📄 View Approved PDF in App'
+          )}
+        </button>
+        <button
+          type="button"
+          className="secondary-button wide"
+          disabled={downloading}
+          onClick={() => void downloadPlan()}
+        >
+          {downloading ? '…' : (language === 'AM' ? '⬇️ PDF ፋይሉን አውርድ' : '⬇️ Download PDF File')}
+        </button>
+      </div>
+    )}
     {active && plan?.coach_username && <a className="coach-contact-button" href={`https://t.me/${plan.coach_username.replace('@', '')}`}>{language === 'AM' ? `💬 ${plan.coach_username} አነጋግር` : `💬 Contact ${plan.coach_username}`}</a>}
     {active && !plan?.pdf_available && <p className="inline-warning">{language === 'AM' ? 'PDFው Telegram ላይ ተልኳል፤ Mini App local storage copy አሁን አይገኝም።' : 'The PDF was delivered in Telegram, but the Mini App storage copy is not currently available.'}</p>}
     {active && data.followup?.due_checkin && <FollowUpCheckinCard language={language} initData={initData} checkin={data.followup.due_checkin} onComplete={onRefresh} />}
     {active && data.renewal?.available && <div className="renewal-card"><small>RENEWAL WINDOW</small><strong>{language === 'AM' ? 'ቀጣዩን ፕላን በአዲስ መረጃዎ ይጀምሩ' : 'Start the next plan from updated information'}</strong><p>{language === 'AM' ? `የአሁኑ ፕላን ${data.renewal.days_remaining ?? 0} ቀን ቀርቶታል። አዲሱ intake ከባዶ የጤና/ምግብ መረጃ ይጠይቃል።` : `Your current plan has ${data.renewal.days_remaining ?? 0} day(s) left. Renewal starts a fresh safety and food-preference assessment.`}</p><button className="primary-button" disabled={renewing} onClick={() => void beginRenewal()}>{renewing ? '…' : (language === 'AM' ? 'የቀጣዩን ፕላን አዘጋጅ →' : 'Prepare my next plan →')}</button></div>}
     {downloadError && <div className="inline-error">{downloadError}</div>}
     <button className="secondary-button wide" onClick={onRefresh}>{language === 'AM' ? 'Status እንደገና ፈትሽ' : 'Refresh status'}</button>
+    {pdfPreviewUrl && (
+      <div className="pdf-modal-backdrop" onClick={closePdfPreview}>
+        <div className="pdf-modal-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="pdf-modal-header">
+            <strong>{previewFilename || (language === 'AM' ? 'የተፈቀደ የምግብ ፕላን' : 'Approved Meal Plan')}</strong>
+            <div className="pdf-modal-actions">
+              <button
+                type="button"
+                className="pdf-modal-btn"
+                onClick={() => void downloadPlan()}
+              >
+                ⬇️ {language === 'AM' ? 'አውርድ' : 'Download'}
+              </button>
+              <button
+                type="button"
+                className="pdf-modal-btn close"
+                onClick={closePdfPreview}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="pdf-frame-wrap">
+            <iframe
+              src={pdfPreviewUrl}
+              className="in-app-pdf-frame"
+              title="Meal Plan PDF"
+            />
+          </div>
+        </div>
+      </div>
+    )}
   </section>
 }
 

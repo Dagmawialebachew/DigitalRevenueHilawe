@@ -179,6 +179,25 @@ function formatPrice(price: PriceOption | undefined) {
   return price.currency === 'ETB' ? `${amount.toLocaleString()} Br` : `$${amount.toLocaleString()}`
 }
 
+function originalAnchorPrice(price: PriceOption | undefined) {
+  if (!price) return null
+  const currency = price.currency
+  if (currency === 'ETB') {
+    if (price.duration_days === 7) return '4,500 Br'
+    if (price.duration_days === 14) return '6,000 Br'
+    if (price.duration_days === 30) {
+      return price.service_type === 'FOLLOW_UP' ? '12,500 Br' : '10,000 Br'
+    }
+  } else {
+    if (price.duration_days === 7) return '$29'
+    if (price.duration_days === 14) return '$45'
+    if (price.duration_days === 30) {
+      return price.service_type === 'FOLLOW_UP' ? '$119' : '$75'
+    }
+  }
+  return null
+}
+
 export default function ProfileCheckoutFlow({ initData, language, firstName, answers, profile, intakeState }: Props) {
   const t = text[language]
   const saved = (answers.plan_configuration || {}) as Partial<Config>
@@ -376,21 +395,82 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     </>}
 
     {step === 'DURATION' && <>
+      <div className="checkout-scarcity-strip">
+        <span className="flame-icon">🔥</span>
+        <span>
+          {language === 'AM'
+            ? 'የመጀመሪያው ዙር (Pilot)፦ 5 ቦታዎች ብቻ። ልዩ የቅናሽ ዋጋ በሰዓት ቆጣሪው ያበቃል።'
+            : 'Round 1 Pilot: Capped at 5 clients only. Special launch price ends with timer.'}
+        </span>
+      </div>
       <h1>{t.durationTitle}</h1><p className="lead">{t.durationBody}</p>
       <div className="duration-grid">{([7,14,30] as const).map((days) => {
         const p = prices.find((item) => item.duration_days === days && item.service_type === 'PLAN')
-        return <button key={days} className={config.duration_days === days ? 'selected featured' : ''} onClick={() => setConfig({ ...config, duration_days: days, service_type: 'PLAN' })}>
-          <span>{days === 7 ? t.d7 : days === 14 ? t.d14 : t.d30}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(p)}</strong><small>{days === 7 ? t.d7Sub : days === 14 ? t.d14Sub : t.d30Sub}</small>
-        </button>
+        const orig = originalAnchorPrice(p)
+        const isPopular = days === 30
+        const discountLabel = days === 7
+          ? (language === 'AM' ? '33% ቅናሽ' : '33% OFF')
+          : days === 14
+          ? (language === 'AM' ? '35% ቅናሽ' : '35% OFF')
+          : (language === 'AM' ? '🔥 ተመራጭ · 35% ቅናሽ' : '🔥 MOST POPULAR · 35% OFF')
+
+        return (
+          <button
+            key={days}
+            className={config.duration_days === days ? 'selected featured' : ''}
+            onClick={() => setConfig({ ...config, duration_days: days, service_type: 'PLAN' })}
+          >
+            <div className="duration-card-header">
+              <span>{days === 7 ? t.d7 : days === 14 ? t.d14 : t.d30}</span>
+              <span className={`scarcity-pill ${isPopular ? 'popular' : ''}`}>{discountLabel}</span>
+            </div>
+            <div className="price-strike-wrap">
+              {orig && pricingMode !== 'MANUAL' && <span className="price-original">{orig}</span>}
+              <strong className="price-current">
+                {pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(p)}
+              </strong>
+            </div>
+            <small>{days === 7 ? t.d7Sub : days === 14 ? t.d14Sub : t.d30Sub}</small>
+          </button>
+        )
       })}</div>
       <FlowButtons back={() => go('START')} next={() => go(config.duration_days === 30 ? 'SERVICE' : 'SUMMARY')} backText={t.back} nextText={t.continue} />
     </>}
 
     {step === 'SERVICE' && <>
+      <div className="checkout-scarcity-strip">
+        <span className="flame-icon">⚡</span>
+        <span>
+          {language === 'AM'
+            ? 'Follow-Up አገልግሎት ሳምንታዊ የ1-on-1 ክትትልና የፕላን ለውጥ ያካትታል።'
+            : 'Follow-Up service adds dedicated weekly 1-on-1 check-ins and plan adjustments.'}
+        </span>
+      </div>
       <h1>{t.serviceTitle}</h1><p className="lead">{t.serviceBody}</p>
       <div className="service-grid">
-        <button className={config.service_type === 'PLAN' ? 'selected' : ''} onClick={() => setConfig({ ...config, service_type: 'PLAN' })}><span>01</span><strong>{t.planOnly}</strong><small>{formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'PLAN'))}</small></button>
-        <button className={config.service_type === 'FOLLOW_UP' ? 'selected premium' : ''} onClick={() => setConfig({ ...config, service_type: 'FOLLOW_UP' })}><span>+</span><strong>{t.followUp}</strong><small>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'FOLLOW_UP'))}</small><em>{language === 'AM' ? 'ሳምንታዊ check-in + አስፈላጊ ማስተካከያ' : 'Weekly check-ins + adjustments when needed'}</em></button>
+        <button className={config.service_type === 'PLAN' ? 'selected' : ''} onClick={() => setConfig({ ...config, service_type: 'PLAN' })}>
+          <span>01</span>
+          <strong>{t.planOnly}</strong>
+          <small>{formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'PLAN'))}</small>
+        </button>
+        <button className={config.service_type === 'FOLLOW_UP' ? 'selected premium' : ''} onClick={() => setConfig({ ...config, service_type: 'FOLLOW_UP' })}>
+          <span>+</span>
+          <div>
+            <strong>{t.followUp}</strong>
+            <span className="vip-badge">VIP COACHING</span>
+          </div>
+          <div className="price-strike-wrap" style={{ marginTop: 4 }}>
+            {pricingMode !== 'MANUAL' && (
+              <span className="price-original">
+                {prices[0]?.currency === 'ETB' ? '12,500 Br' : '$119'}
+              </span>
+            )}
+            <small className="price-current" style={{ margin: 0 }}>
+              {pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'FOLLOW_UP'))}
+            </small>
+          </div>
+          <em>{language === 'AM' ? 'ሳምንታዊ 1-on-1 check-in + አስፈላጊ ማስተካከያ (2 ቦታዎች ብቻ)' : 'Weekly 1-on-1 check-ins + adjustments (Strictly 2 spots)'}</em>
+        </button>
       </div>
       <FlowButtons back={() => go('DURATION')} next={() => go('SUMMARY')} backText={t.back} nextText={t.continue} />
     </>}
