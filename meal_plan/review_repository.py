@@ -663,6 +663,30 @@ class MealPlanReviewRepository:
                 )
                 return replacement
 
+    async def cancel_replacement_draft(
+        self,
+        source_version_id: int,
+        replacement_version_id: int | None = None,
+        reviewer_id: int | None = None,
+    ):
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                source = await conn.fetchrow("SELECT * FROM meal_plan_versions WHERE id=$1 FOR UPDATE", source_version_id)
+                if source and source["status"] == "CHANGES_REQUESTED":
+                    await conn.execute("UPDATE meal_plan_versions SET status='REVIEW_PENDING',updated_at=NOW() WHERE id=$1", source_version_id)
+                if replacement_version_id:
+                    await conn.execute("DELETE FROM meal_plan_artifacts WHERE plan_version_id=$1", replacement_version_id)
+                    await conn.execute("DELETE FROM meal_plan_versions WHERE id=$1 AND status='DRAFT'", replacement_version_id)
+                if reviewer_id:
+                    await conn.execute(
+                        """
+                        INSERT INTO meal_plan_reviews(plan_version_id, reviewer_telegram_id, action, metadata)
+                        VALUES($1, $2, 'COMMENT', $3::jsonb)
+                        """,
+                        source_version_id, reviewer_id,
+                        json.dumps({"intent": "CANCEL_REPLACEMENT", "cancelled_replacement_id": replacement_version_id}),
+                    )
+
     async def prepare_delivery(self, plan_version_id: int):
         async with self.pool.acquire() as conn:
             async with conn.transaction():

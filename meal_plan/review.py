@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 
 from aiogram import F, Router, types
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile
 
 from database.db import Database
@@ -14,7 +16,7 @@ from meal_plan.delivery import deliver_approved_plan
 from meal_plan.documents.helpers import artifact_basename
 from meal_plan.documents.storage import version_output_dir
 from meal_plan.repository import ConcurrentUpdate, RecordNotFound
-from meal_plan.review_card import approved_keyboard, review_card_text, review_keyboard
+from meal_plan.review_card import approved_keyboard, replacement_keyboard, review_card_text, review_keyboard
 from meal_plan.review_files import ReviewFileError, classify_review_filename, validate_review_file
 from meal_plan.review_logic import parse_review_callback
 from meal_plan.review_repository import MealPlanReviewRepository
@@ -22,6 +24,11 @@ from meal_plan.runtime import is_reviewer, review_group_id, review_upload_max_by
 
 router = Router(name="meal_plan_review")
 logger = logging.getLogger(__name__)
+
+
+class MealReviewState(StatesGroup):
+    awaiting_replacement = State()
+
 
 
 def _repo(db: Database) -> MealPlanReviewRepository:
@@ -33,7 +40,9 @@ def _repo(db: Database) -> MealPlanReviewRepository:
 
 async def _send_replacement_review_card(bot, repo: MealPlanReviewRepository, replacement_id: int, source_id: int):
     version, artifacts = await repo.get_review_context(replacement_id)
-    chat_id = review_group_id()
+    source = await repo.get_version(source_id)
+    group_chat = review_group_id()
+    chat_id = group_chat or (source.get("review_chat_id") if source else None)
     if not chat_id:
         raise RuntimeError("MEAL_PLAN_REVIEW_GROUP_ID is not configured")
     card = await bot.send_message(chat_id, "⏳ Preparing replacement review packet…")
@@ -62,7 +71,6 @@ async def _send_replacement_review_card(bot, repo: MealPlanReviewRepository, rep
         reply_markup=review_keyboard(replacement_id),
     )
     await repo.mark_review_handoff(replacement_id, chat_id=chat_id, message_id=card.message_id)
-    source = await repo.get_version(source_id)
     if source and source.get("review_chat_id") and source.get("review_message_id"):
         try:
             await bot.edit_message_reply_markup(chat_id=source["review_chat_id"], message_id=source["review_message_id"], reply_markup=None)
@@ -72,7 +80,7 @@ async def _send_replacement_review_card(bot, repo: MealPlanReviewRepository, rep
 
 
 @router.callback_query(F.data.startswith("mealreview:"))
-async def review_action(callback: types.CallbackQuery, db: Database):
+async def review_action(callback: types.CallbackQuery, db: Database, state: FSMContext):
     if not is_reviewer(callback.from_user.id):
         return await callback.answer("Not authorized for Meal Plan review.", show_alert=True)
     try:
@@ -91,19 +99,70 @@ async def review_action(callback: types.CallbackQuery, db: Database):
 
         if action == "replace":
             version = await repo.get_version(plan_version_id)
-            if not version or version["status"] != "REVIEW_PENDING":
+            if not version or version["status"] not in {"REVIEW_PENDING", "CHANGES_REQUESTED"}:
                 raise ConcurrentUpdate("This version is no longer awaiting file replacement")
-            await repo.record_review_action(plan_version_id, callback.from_user.id, "COMMENT", metadata={"intent": "REPLACE_FILES"})
-            await callback.answer("Reply to this review card with the corrected DOCX and PDF.", show_alert=True)
-            await callback.message.reply(
-                "📎 <b>Replace Files</b>\n\nReply directly to the original review card with BOTH corrected files:\n"
-                "1) one <b>.docx</b>\n2) one <b>.pdf</b>\n\n"
-                "The first valid upload starts a new immutable version. The old version can no longer be approved after replacement begins.",
-                parse_mode="HTML",
+            draft = await repo.get_or_create_replacement_draft(plan_version_id, callback.from_user.id)
+            _, draft_artifacts = await repo.get_review_context(draft["id"])
+            has_docx = any(a["artifact_type"] == "DOCX" for a in draft_artifacts)
+            has_pdf = any(a["artifact_type"] == "PDF" for a in draft_artifacts)
+
+            docx_status = "✅ Word Document (.docx) uploaded" if has_docx else "⬜ Word Document (.docx)"
+            pdf_status = "✅ PDF Document (.pdf) uploaded" if has_pdf else "⬜ PDF Document (.pdf)"
+
+            await state.set_state(MealReviewState.awaiting_replacement)
+            card_msg_id = callback.message.message_id if callback.message else None
+            card_chat_id = callback.message.chat.id if callback.message else None
+            await state.update_data(
+                active_source_version_id=plan_version_id,
+                active_replacement_id=draft["id"],
+                review_card_message_id=card_msg_id,
+                review_chat_id=card_chat_id,
             )
+
+            await callback.answer("Replacement session active. Send the corrected files.", show_alert=False)
+            client_name = html.escape(str(version.get("full_name") or "Member"))
+            order_id = html.escape(str(version.get("order_public_id") or version["order_id"]))
+            prompt_text = (
+                f"📎 <b>Replace Files · Session Active</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 <b>{client_name}</b> · Order <code>{order_id}</code>\n"
+                f"📄 Replacing <b>V{version['version_number']}</b> → Creating <b>V{draft['version_number']}</b>\n\n"
+                f"<b>Upload Checklist:</b>\n"
+                f"• {docx_status}\n"
+                f"• {pdf_status}\n\n"
+                f"📤 Send or drag-and-drop the files now (direct send or reply both work).\n"
+                f"Both files must be uploaded before the new version can be approved."
+            )
+            prompt_msg = await callback.message.reply(
+                prompt_text,
+                parse_mode="HTML",
+                reply_markup=replacement_keyboard(plan_version_id),
+            )
+            await state.update_data(prompt_message_id=prompt_msg.message_id)
+            return
+
+        if action == "cancel_replace":
+            data = await state.get_data()
+            source_id = data.get("active_source_version_id") or plan_version_id
+            replacement_id = data.get("active_replacement_id")
+            await repo.cancel_replacement_draft(source_id, replacement_id, reviewer_id=callback.from_user.id)
+            await state.clear()
+            await callback.answer("File replacement cancelled.", show_alert=True)
+            source_ver = await repo.get_version(source_id)
+            v_num = source_ver["version_number"] if source_ver else plan_version_id
+            try:
+                await callback.message.edit_text(
+                    f"❌ <b>Replacement Cancelled</b>\n\n"
+                    f"Version <b>V{v_num}</b> remains active in review. You can approve it or regenerate at any time.",
+                    parse_mode="HTML",
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
             return
 
         if action == "regen":
+            await state.clear()
             version, order, job = await repo.queue_regeneration(plan_version_id, callback.from_user.id)
             await callback.answer("New generation queued")
             try:
@@ -117,6 +176,7 @@ async def review_action(callback: types.CallbackQuery, db: Database):
             return
 
         if action in {"approve", "deliver"}:
+            await state.clear()
             if action == "approve":
                 try:
                     version, order = await repo.approve_version(plan_version_id, callback.from_user.id)
@@ -176,21 +236,49 @@ async def review_action(callback: types.CallbackQuery, db: Database):
 
 
 @router.message(F.document)
-async def replacement_document(message: types.Message, db: Database):
-    """Accept manual Coach replacements only as replies to a live review card."""
-    if message.chat.id != review_group_id():
-        return
+async def replacement_document(message: types.Message, db: Database, state: FSMContext):
+    """Accept manual Coach replacements via active FSM session or direct reply."""
     if not message.from_user or not is_reviewer(message.from_user.id):
         return
-    if not message.reply_to_message:
+
+    group_id = review_group_id()
+    is_group = bool(group_id and message.chat.id == group_id)
+    is_private = message.chat.type == "private"
+    if not (is_group or is_private):
         return
 
     repo = _repo(db)
-    source = await repo.get_version_by_review_message(message.chat.id, message.reply_to_message.message_id)
+    source = None
+    data = await state.get_data()
+    current_state = await state.get_state()
+
+    # Priority 1: Reviewer is actively in replacement session
+    if current_state == MealReviewState.awaiting_replacement.state:
+        source_id = data.get("active_source_version_id")
+        if source_id:
+            source = await repo.get_version(source_id)
+
+    # Priority 2: Message is a reply to the original review card
+    if not source and message.reply_to_message:
+        source = await repo.get_version_by_review_message(message.chat.id, message.reply_to_message.message_id)
+
+    # Priority 3: Message is a reply to the replacement prompt message
+    if not source and message.reply_to_message and data.get("prompt_message_id") == message.reply_to_message.message_id:
+        source_id = data.get("active_source_version_id")
+        if source_id:
+            source = await repo.get_version(source_id)
+
     if not source:
+        if is_private:
+            await message.reply(
+                "ℹ️ <b>Meal Plan Replacement</b>\n\n"
+                "To replace documents for a meal plan, please click <b>📎 Replace Files</b> on the review card in the Coach Review group, or reply directly to the review card.",
+                parse_mode="HTML",
+            )
         return
+
     if source["status"] not in {"REVIEW_PENDING", "CHANGES_REQUESTED"}:
-        return await message.reply("This review card is no longer accepting replacement files.")
+        return await message.reply("This meal plan version is no longer accepting replacement files.")
 
     document = message.document
     filename = document.file_name or "replacement"
@@ -228,16 +316,33 @@ async def replacement_document(message: types.Message, db: Database):
         )
         ready = await repo.replacement_ready(replacement["id"])
         if not ready:
-            other = "PDF" if artifact_type == "DOCX" else "DOCX"
+            other = "PDF (.pdf)" if artifact_type == "DOCX" else "Word (.docx)"
+            received_icon = "📄" if artifact_type == "DOCX" else "📕"
+            waiting_icon = "📕" if artifact_type == "DOCX" else "📄"
+            await state.set_state(MealReviewState.awaiting_replacement)
+            await state.update_data(
+                active_source_version_id=source["id"],
+                active_replacement_id=replacement["id"],
+            )
             return await message.reply(
-                f"✅ {artifact_type} saved as <b>V{replacement['version_number']}</b>. Now reply to the original review card with the corrected <b>{other}</b>.",
+                f"✅ <b>File 1/2 Saved:</b> {received_icon} <b>{artifact_type}</b> (<code>{html.escape(filename)}</code>)\n"
+                f"Draft: <b>V{replacement['version_number']}</b>\n\n"
+                f"⏳ <b>Still needed:</b> {waiting_icon} <b>{other}</b>\n\n"
+                "Please send the remaining file now to complete the replacement.",
                 parse_mode="HTML",
+                reply_markup=replacement_keyboard(source["id"]),
             )
 
         await repo.promote_replacement_for_review(replacement["id"], source_version_id=source["id"])
         await _send_replacement_review_card(message.bot, repo, replacement["id"], source["id"])
+        await state.clear()
+
+        target_group = review_group_id()
+        location_note = "in the Coach Review group" if (is_private and target_group) else "above"
         await message.reply(
-            f"✅ Replacement pair complete. <b>V{replacement['version_number']}</b> is now waiting for Coach approval.",
+            f"🎉 <b>Replacement Complete!</b>\n\n"
+            f"Both corrected <b>.docx</b> and <b>.pdf</b> files have been saved as <b>V{replacement['version_number']}</b>.\n"
+            f"The new review card is now live {location_note} with full action buttons.",
             parse_mode="HTML",
         )
     except (ReviewFileError, ConcurrentUpdate, RecordNotFound) as exc:
@@ -247,3 +352,4 @@ async def replacement_document(message: types.Message, db: Database):
         await message.reply(f"❌ Replacement failed: {html.escape(type(exc).__name__)}")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+

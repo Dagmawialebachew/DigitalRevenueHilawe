@@ -11,7 +11,7 @@ def parse_review_callback(data: str) -> tuple[str, int]:
         if prefix != "mealreview":
             raise ValueError
         plan_version_id = int(raw_id)
-        if action not in {"approve", "regen", "replace", "client", "deliver"} or plan_version_id <= 0:
+        if action not in {"approve", "regen", "replace", "cancel_replace", "client", "deliver"} or plan_version_id <= 0:
             raise ValueError
         return action, plan_version_id
     except (ValueError, AttributeError):

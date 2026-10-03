@@ -23,3 +23,10 @@ def approved_keyboard(plan_version_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📤 Retry / Check Delivery", callback_data=f"mealreview:deliver:{plan_version_id}")],
         [InlineKeyboardButton(text="👤 Client", callback_data=f"mealreview:client:{plan_version_id}")],
     ])
+
+
+def replacement_keyboard(plan_version_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Cancel Replacement", callback_data=f"mealreview:cancel_replace:{plan_version_id}")],
+    ])
+
