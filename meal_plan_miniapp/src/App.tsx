@@ -7,6 +7,7 @@ import { OfferCountdown } from './OfferCountdown'
 import ProfileCheckoutFlow from './ProfileCheckoutFlow'
 import { getTelegramWebApp, hapticError, hapticLight, hapticMedium, hapticSelect, initializeTelegramShell } from './telegram'
 import TopProgressBar from './TopProgressBar'
+import BankAccountCard from './BankAccountCard'
 
 const regions = [
   ['ETHIOPIA', 'ኢትዮጵያ', 'Ethiopia'],
@@ -442,7 +443,13 @@ function PaymentOrderFlow({ language, data, initData, onRefresh }: { language: L
     <p className="lead">{body}</p>
     <div className="payment-amount-card"><small>{language === 'AM' ? 'PLAN / ORDER VALUE' : 'PLAN / ORDER VALUE'}</small><strong>{settlement}</strong></div>
     {plan && <div className="approved-version-card"><span>APPROVED VERSION</span><strong>V{plan.version_number}</strong><small>{plan.detail_source === 'DOCUMENT_OVERRIDE' ? 'COACH EDITED' : 'HILAWE ENGINE + COACH REVIEW'}</small></div>}
-    {waiting && <div className="bank-stack">{(data.payment_accounts || []).map((bank) => <div className="bank-card" key={bank.code}><div><small>{bank.code}</small><strong>{bank.name}</strong></div><code>{bank.account}</code><span>{bank.holder}</span></div>)}</div>}
+    {waiting && (
+      <div className="bank-stack">
+        {(data.payment_accounts || []).map((bank) => (
+          <BankAccountCard key={bank.code} bank={bank} language={language} />
+        ))}
+      </div>
+    )}
     <div className="review-delivery-timeline">
       <div><span className={stepPaymentDone ? 'done' : 'active'}>{stepPaymentDone ? '✓' : '1'}</span><small>PAYMENT</small></div><i />
       <div><span className={stepBuildDone ? 'done' : building ? 'active' : ''}>{stepBuildDone ? '✓' : '2'}</span><small>BUILD</small></div><i />

@@ -792,7 +792,7 @@ def build_cover_html(plan: dict[str, Any], context: DocumentContext, c: dict[str
     targets = plan.get("nutrition_targets") or {}
     is_am = context.normalized_language == "AM"
 
-    title = "የአሰልጣኝ ህላዌ ሰማ ይፋዊ የግል የአመጋገብ ፕላን" if is_am else "Coach Hilawe Semma Official Nutrition Plan"
+    title = "የምግብ እቅድ" if is_am else "Meal Plan"
     sub_title = f"{duration} ቀን · {c.get('nutrition_system', 'የአመጋገብ ስርዓት')}" if is_am else f"{duration} Day · {c.get('nutrition_system', 'Nutrition System')}"
     goal_lbl = profile_label(profile.get("goal") or "", context.normalized_language)
     cuisine_lbl = profile_label(profile.get("cuisine_style") or "", context.normalized_language)
@@ -1766,7 +1766,7 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     css = _build_css()
     body_content = "\n".join(pages_html)
 
-    doc_title = "የአሰልጣኝ ህላዌ ሰማ ይፋዊ የግል የአመጋገብ ፕላን" if context.normalized_language == "AM" else f"{context.client_name} - Coach Hilawe Meal Plan"
+    doc_title = f"{context.client_name} - የምግብ እቅድ" if context.normalized_language == "AM" else f"{context.client_name} - Coach Hilawe Meal Plan"
 
     return f"""<!DOCTYPE html>
 <html lang="{'am' if context.normalized_language == 'AM' else 'en'}">

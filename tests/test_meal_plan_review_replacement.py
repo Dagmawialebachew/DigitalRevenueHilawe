@@ -348,6 +348,94 @@ class MealPlanReviewReplacementTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Replacement Complete", message.reply.call_args[0][0])
             self.assertIn("V2", message.reply.call_args[0][0])
 
+    def test_replacement_keyboard_renders_check_status_button(self):
+        kb = replacement_keyboard(15)
+        self.assertEqual(len(kb.inline_keyboard), 1)
+        buttons = kb.inline_keyboard[0]
+        self.assertEqual(len(buttons), 2)
+        self.assertIn("Cancel", buttons[0].text)
+        self.assertIn("Check Status", buttons[1].text)
+        self.assertEqual(buttons[1].callback_data, "mealreview:check_replace:15")
+
+    async def test_replacement_document_uses_db_fallback_when_fsm_is_lost(self):
+        state = FakeFSMContext(initial_state=None, initial_data={})  # Lost FSM state!
+        with tempfile.TemporaryDirectory() as td:
+            message = MagicMock()
+            message.from_user.id = 123
+            message.chat.id = -1001
+            message.chat.type = "supergroup"
+            message.reply_to_message = None  # No reply!
+            message.document.file_name = "custom_plan.docx"
+            message.document.mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            message.document.file_id = "doc_file_123"
+            message.reply = AsyncMock()
+
+            async def fake_download(file_id, destination):
+                _create_minimal_docx(Path(destination))
+            message.bot.download = AsyncMock(side_effect=fake_download)
+
+            db = MagicMock()
+            repo_mock = MagicMock()
+            # DB fallback resolves the source version
+            repo_mock.find_active_replacement_source = AsyncMock(return_value={"id": 10, "status": "CHANGES_REQUESTED", "version_number": 1})
+            repo_mock.get_or_create_replacement_draft = AsyncMock(return_value={"id": 11, "version_number": 2})
+            repo_mock.get_review_context = AsyncMock(return_value=(
+                {"id": 11, "order_id": 5, "version_number": 2, "full_name": "Abebe"},
+                [],
+            ))
+            repo_mock.store_artifact = AsyncMock()
+            repo_mock.replacement_ready = AsyncMock(return_value=False)
+
+            with patch("meal_plan.review.is_reviewer", return_value=True), \
+                 patch("meal_plan.review.review_group_id", return_value=-1001), \
+                 patch("meal_plan.review._repo", return_value=repo_mock), \
+                 patch("meal_plan.review.version_output_dir", return_value=Path(td)):
+                await replacement_document(message, db, state)
+
+            repo_mock.find_active_replacement_source.assert_awaited_once_with(
+                reviewer_id=123,
+                reply_message_id=None,
+                chat_id=-1001,
+            )
+            repo_mock.store_artifact.assert_awaited_once()
+            message.reply.assert_awaited_once()
+            self.assertIn("File 1/2 Saved", message.reply.call_args[0][0])
+
+    async def test_promote_replacement_for_review_updates_replacement_to_review_pending(self):
+        executed_sqls = []
+
+        async def fake_fetchrow(query, *args):
+            executed_sqls.append((query.strip(), args))
+            if "SELECT * FROM meal_plan_versions WHERE id=$1 FOR UPDATE" in query:
+                return {"id": 11, "order_id": 5, "status": "DRAFT", "version_number": 2}
+            if "UPDATE meal_plan_versions SET status='REVIEW_PENDING'" in query:
+                return {"id": 11, "order_id": 5, "status": "REVIEW_PENDING", "version_number": 2}
+            return None
+
+        async def fake_fetchval(query, *args):
+            executed_sqls.append((query.strip(), args))
+            if "SELECT COUNT(*)" in query:
+                return 2
+            return None
+
+        async def fake_execute(query, *args):
+            executed_sqls.append((query.strip(), args))
+
+        conn = FakeConnection()
+        conn.fetchrow = fake_fetchrow
+        conn.fetchval = fake_fetchval
+        conn.execute = fake_execute
+
+        pool = FakePool(conn)
+        repo = MealPlanReviewRepository(pool)
+        promoted = await repo.promote_replacement_for_review(11, source_version_id=10)
+
+        self.assertEqual(promoted["status"], "REVIEW_PENDING")
+        update_repl_sqls = [q for q, _ in executed_sqls if "UPDATE meal_plan_versions SET status='REVIEW_PENDING'" in q]
+        self.assertTrue(len(update_repl_sqls) >= 1)
+        update_order_sqls = [q for q, _ in executed_sqls if "UPDATE meal_orders SET state='REVIEW_PENDING'" in q]
+        self.assertTrue(len(update_order_sqls) >= 1)
+
 
 if __name__ == "__main__":
     unittest.main()

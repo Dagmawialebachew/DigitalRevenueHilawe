@@ -20,10 +20,19 @@ def artifact_basename(plan_public_id: str, client_name: str, version_number: int
     return f"{plan}-{client}-V{int(version_number)}"
 
 
-def client_artifact_filename(client_name: str, duration_days: int, version_number: int, ext: str = "pdf") -> str:
+def client_artifact_filename(
+    client_name: str,
+    duration_days: int,
+    version_number: int,
+    ext: str = "pdf",
+    unique_id: str | None = None,
+) -> str:
     cleaned_name = re.sub(r"[^\w]+", "_", str(client_name).strip()).strip("_")
     safe_name = cleaned_name or "Client"
     clean_ext = ext.lstrip(".")
+    if unique_id:
+        uid_slug = re.sub(r"[^\w]+", "", str(unique_id))[:8]
+        return f"{safe_name}_የምግብ_እቅድ_{int(duration_days)}_Days_V{int(version_number)}_{uid_slug}.{clean_ext}"
     return f"{safe_name}_የምግብ_እቅድ_{int(duration_days)}_Days_V{int(version_number)}.{clean_ext}"
 
 

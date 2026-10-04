@@ -27,6 +27,9 @@ def approved_keyboard(plan_version_id: int) -> InlineKeyboardMarkup:
 
 def replacement_keyboard(plan_version_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Cancel Replacement", callback_data=f"mealreview:cancel_replace:{plan_version_id}")],
+        [
+            InlineKeyboardButton(text="❌ Cancel Replacement", callback_data=f"mealreview:cancel_replace:{plan_version_id}"),
+            InlineKeyboardButton(text="🔄 Check Status", callback_data=f"mealreview:check_replace:{plan_version_id}"),
+        ],
     ])
 

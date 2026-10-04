@@ -139,6 +139,41 @@ async def review_action(callback: types.CallbackQuery, db: Database, state: FSMC
                 reply_markup=replacement_keyboard(plan_version_id),
             )
             await state.update_data(prompt_message_id=prompt_msg.message_id)
+            try:
+                card_chat = callback.message.chat.id if callback.message else None
+                if card_chat:
+                    await repo.record_replacement_prompt(plan_version_id, chat_id=card_chat, message_id=prompt_msg.message_id)
+            except Exception:
+                pass
+            return
+
+        if action == "check_replace":
+            version = await repo.get_version(plan_version_id)
+            if not version:
+                return await callback.answer("Plan version not found", show_alert=True)
+            async with repo.pool.acquire() as conn:
+                draft = await conn.fetchrow(
+                    """
+                    SELECT * FROM meal_plan_versions
+                    WHERE order_id=$1 AND source='MANUAL_REPLACEMENT' AND status IN ('DRAFT', 'REVIEW_PENDING')
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                    version["order_id"],
+                )
+            if not draft:
+                return await callback.answer("No active replacement draft found for this order.", show_alert=True)
+            _, artifacts = await repo.get_review_context(draft["id"])
+            has_docx = any(a["artifact_type"] == "DOCX" for a in artifacts)
+            has_pdf = any(a["artifact_type"] == "PDF" for a in artifacts)
+            docx_icon = "✅" if has_docx else "⬜"
+            pdf_icon = "✅" if has_pdf else "⬜"
+            status_text = (
+                f"Draft V{draft['version_number']} Status:\n"
+                f"• {docx_icon} Word (.docx)\n"
+                f"• {pdf_icon} PDF (.pdf)\n\n"
+                f"{'Both files received! Ready for review.' if (has_docx and has_pdf) else 'Upload the remaining file to chat.'}"
+            )
+            await callback.answer(status_text, show_alert=True)
             return
 
         if action == "cancel_replace":
@@ -268,11 +303,24 @@ async def replacement_document(message: types.Message, db: Database, state: FSMC
         if source_id:
             source = await repo.get_version(source_id)
 
+    # Priority 4: Database fallback (survives bot restarts, cross-chat DM uploads, and topic differences)
+    if not source and hasattr(repo, "find_active_replacement_source"):
+        try:
+            source = await repo.find_active_replacement_source(
+                reviewer_id=message.from_user.id,
+                reply_message_id=message.reply_to_message.message_id if message.reply_to_message else None,
+                chat_id=message.chat.id,
+            )
+        except TypeError:
+            pass
+
     if not source:
-        if is_private:
+        doc_name = (message.document.file_name or "").lower() if message.document else ""
+        if is_private or any(doc_name.endswith(ext) for ext in (".docx", ".pdf")):
             await message.reply(
                 "ℹ️ <b>Meal Plan Replacement</b>\n\n"
-                "To replace documents for a meal plan, please click <b>📎 Replace Files</b> on the review card in the Coach Review group, or reply directly to the review card.",
+                "No active file replacement session was found for this document.\n\n"
+                "To replace files for a meal plan, please click <b>📎 Replace Files</b> on the client's review card in the Coach Review group first, or reply directly to that card.",
                 parse_mode="HTML",
             )
         return

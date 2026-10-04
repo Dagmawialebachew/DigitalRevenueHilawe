@@ -379,7 +379,7 @@ class MealPlanReviewRepository:
 
                 # Check for blocking review warnings (e.g. uncalibrated recipes, practical warnings)
                 warnings = review_warning_lines(plan_json) if plan_json else []
-                if warnings and not (override_reason and str(override_reason).strip()):
+                if version.get("source") != "MANUAL_REPLACEMENT" and warnings and not (override_reason and str(override_reason).strip()):
                     warning_summary = " | ".join(warnings[:3])
                     raise ValueError(
                         f"Cannot approve plan with unresolved review warnings without an explicit override reason: {warning_summary}"
@@ -661,7 +661,129 @@ class MealPlanReviewRepository:
                     """,
                     source_version_id,
                 )
+                replacement = await conn.fetchrow(
+                    """
+                    UPDATE meal_plan_versions SET status='REVIEW_PENDING',updated_at=NOW()
+                    WHERE id=$1
+                    RETURNING *
+                    """,
+                    replacement_version_id,
+                )
+                await conn.execute(
+                    """
+                    UPDATE meal_orders SET state='REVIEW_PENDING',updated_at=NOW(),version=version+1
+                    WHERE id=$1 AND state IN ('REVIEW_PENDING','CHANGES_REQUESTED')
+                    """,
+                    replacement["order_id"],
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO meal_plan_reviews(plan_version_id,action,metadata)
+                    VALUES($1,'REPLACEMENT_SUBMITTED',$2::jsonb)
+                    """,
+                    replacement_version_id,
+                    json.dumps({"source_version_id": source_version_id}),
+                )
                 return replacement
+
+    async def record_replacement_prompt(self, plan_version_id: int, *, chat_id: int, message_id: int) -> None:
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE meal_plan_reviews
+                SET metadata = metadata || jsonb_build_object('prompt_chat_id', $2::bigint, 'prompt_message_id', $3::bigint)
+                WHERE id = (
+                    SELECT id FROM meal_plan_reviews
+                    WHERE plan_version_id=$1 AND action='REPLACE_FILES'
+                    ORDER BY id DESC LIMIT 1
+                )
+                """,
+                plan_version_id, chat_id, message_id,
+            )
+
+    async def find_active_replacement_source(
+        self,
+        *,
+        reviewer_id: int | None = None,
+        reply_message_id: int | None = None,
+        chat_id: int | None = None,
+    ):
+        """Find the active source version for document replacement.
+        
+        Matches with priority:
+        1. Reply to the review card (via review_chat_id & review_message_id)
+        2. Reply to the replacement prompt message (via prompt_message_id metadata)
+        3. Active DRAFT replacement draft initiated by reviewer_id within 24 hours
+        4. Fallback to most recent DRAFT replacement draft in the system within 12 hours
+        """
+        async with self.pool.acquire() as conn:
+            if reply_message_id and chat_id:
+                source = await conn.fetchrow(
+                    """
+                    SELECT * FROM meal_plan_versions
+                    WHERE review_chat_id=$1 AND review_message_id=$2
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                    chat_id, reply_message_id,
+                )
+                if source:
+                    return source
+                source_from_prompt = await conn.fetchrow(
+                    """
+                    SELECT s.*
+                    FROM meal_plan_reviews r
+                    JOIN meal_plan_versions s ON s.id = r.plan_version_id
+                    WHERE r.action = 'REPLACE_FILES'
+                      AND (r.metadata->>'prompt_message_id')::bigint = $1
+                    ORDER BY r.id DESC LIMIT 1
+                    """,
+                    reply_message_id,
+                )
+                if source_from_prompt:
+                    return source_from_prompt
+
+            if reviewer_id:
+                source = await conn.fetchrow(
+                    """
+                    SELECT s.*
+                    FROM meal_plan_versions d
+                    JOIN meal_orders o ON o.id=d.order_id
+                    JOIN meal_plan_versions s ON s.order_id=o.id AND s.id<>d.id AND s.status IN ('CHANGES_REQUESTED', 'REVIEW_PENDING')
+                    WHERE d.source='MANUAL_REPLACEMENT'
+                      AND d.status='DRAFT'
+                      AND d.created_at >= NOW() - INTERVAL '24 hours'
+                      AND (
+                          EXISTS (
+                              SELECT 1 FROM meal_plan_reviews r
+                              WHERE r.plan_version_id=s.id
+                                AND r.reviewer_telegram_id=$1
+                                AND r.action='REPLACE_FILES'
+                          )
+                          OR EXISTS (
+                              SELECT 1 FROM meal_plan_artifacts a
+                              WHERE a.plan_version_id=d.id
+                                AND a.created_by=$1
+                          )
+                      )
+                    ORDER BY d.id DESC LIMIT 1
+                    """,
+                    reviewer_id,
+                )
+                if source:
+                    return source
+
+            return await conn.fetchrow(
+                """
+                SELECT s.*
+                FROM meal_plan_versions d
+                JOIN meal_orders o ON o.id=d.order_id
+                JOIN meal_plan_versions s ON s.order_id=o.id AND s.id<>d.id AND s.status IN ('CHANGES_REQUESTED', 'REVIEW_PENDING')
+                WHERE d.source='MANUAL_REPLACEMENT'
+                  AND d.status='DRAFT'
+                  AND d.created_at >= NOW() - INTERVAL '12 hours'
+                ORDER BY d.id DESC LIMIT 1
+                """
+            )
 
     async def cancel_replacement_draft(
         self,

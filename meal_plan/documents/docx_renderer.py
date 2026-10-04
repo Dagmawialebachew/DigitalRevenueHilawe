@@ -262,13 +262,15 @@ def _cover(doc: Document, plan: dict[str, Any], context: DocumentContext) -> Non
     p2 = doc.add_paragraph()
     p2.paragraph_format.space_before = Pt(38)
     p2.paragraph_format.space_after = Pt(2)
-    r2 = p2.add_run(c["personalized"])
+    cover_title = "የምግብ እቅድ" if context.normalized_language == "AM" else c["personalized"]
+    r2 = p2.add_run(cover_title)
     _set_run_font(r2, size=27, bold=True, color=INK)
 
     duration = int((plan.get("product") or {}).get("duration_days") or 7)
     p3 = doc.add_paragraph()
     p3.paragraph_format.space_after = Pt(24)
-    r3 = p3.add_run(f"{duration} {c.get('day_unit', 'DAY')}  ·  {c['nutrition_system']}")
+    cover_sub = f"{duration} {c.get('day_unit', 'DAY')}  ·  {c['personalized']}  ·  {c['nutrition_system']}" if context.normalized_language == "AM" else f"{duration} {c.get('day_unit', 'DAY')}  ·  {c['nutrition_system']}"
+    r3 = p3.add_run(cover_sub)
     _set_run_font(r3, size=10, bold=True, color=GRAPHITE)
 
     line_table = doc.add_table(rows=1, cols=2)

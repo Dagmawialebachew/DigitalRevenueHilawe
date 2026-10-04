@@ -13,6 +13,7 @@ import {
 } from './api'
 import { hapticError, hapticLight, hapticMedium, hapticSelect, hapticSuccess, syncTelegramBackButton } from './telegram'
 import TopProgressBar from './TopProgressBar'
+import BankAccountCard from './BankAccountCard'
 
 type Props = {
   initData: string
@@ -198,6 +199,47 @@ function originalAnchorPrice(price: PriceOption | undefined) {
   return null
 }
 
+function getSavingsPill(
+  curr: string | null | undefined,
+  days: number | undefined,
+  svc: string | undefined,
+  language: Language,
+) {
+  if (!curr || !days) return null
+
+  if (curr === 'ETB') {
+    if (days === 7) return language === 'AM' ? '1,500 Br ቅናሽ (33%)' : 'Save 1,500 Br (33% OFF)'
+    if (days === 14) return language === 'AM' ? '2,000 Br ቅናሽ (35%)' : 'Save 2,000 Br (35% OFF)'
+    if (days === 30 && svc === 'FOLLOW_UP') return language === 'AM' ? '4,500 Br ቅናሽ (36%)' : 'Save 4,500 Br (36% OFF)'
+    if (days === 30) return language === 'AM' ? '3,500 Br ቅናሽ (35%)' : 'Save 3,500 Br (35% OFF)'
+  } else {
+    if (days === 7) return language === 'AM' ? '$10 ቅናሽ (34%)' : 'Save $10 (34% OFF)'
+    if (days === 14) return language === 'AM' ? '$16 ቅናሽ (35%)' : 'Save $16 (35% OFF)'
+    if (days === 30 && svc === 'FOLLOW_UP') return language === 'AM' ? '$40 ቅናሽ (34%)' : 'Save $40 (34% OFF)'
+    if (days === 30) return language === 'AM' ? '$26 ቅናሽ (35%)' : 'Save $26 (35% OFF)'
+  }
+  return null
+}
+
+function CoachGuaranteeCard({ language }: { language: Language }) {
+  return (
+    <div className="coach-guarantee-card">
+      <div className="guarantee-badge">
+        <span className="shield-icon">🛡️</span>
+        <strong>{language === 'AM' ? '100% የእርካታ ዋስትና' : '100% Satisfaction Guarantee'}</strong>
+      </div>
+      <p className="guarantee-text">
+        {language === 'AM'
+          ? 'እያንዳንዱ የምግብ ፕላን ለሰውነትዎና ለግብዎ በሚስማማ መልኩ በCoach Hilawe እና በስነ-ምግብ ቡድናችን በጥንቃቄ ተገምግሞና ተስተካክሎ ነው የሚደርስዎት።'
+          : 'Every meal plan is individually calibrated and manually verified by Coach Hilawe and our clinical nutrition team before release.'}
+      </p>
+      <span className="verified-pill">
+        <span className="check-dot">✓</span> {language === 'AM' ? 'በCoach Hilawe የተረጋገጠ' : 'Verified by Coach Hilawe'}
+      </span>
+    </div>
+  )
+}
+
 export default function ProfileCheckoutFlow({ initData, language, firstName, answers, profile, intakeState }: Props) {
   const t = text[language]
   const saved = (answers.plan_configuration || {}) as Partial<Config>
@@ -316,7 +358,11 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       <h1>{language === 'AM' ? 'የክፍያ መመሪያዎ ወደ Telegram bot(@CoachHilaweBot) ተልኳል' : 'Your payment instructions are ready in Telegram'}</h1>
       <p className="lead">{language === 'AM' ? 'ከታች ካሉት CBE ወይም Abyssinia አካውንቶች ወደ አንዱ የተጠቀሰውን መጠን ያስተላልፉ። ከዚያ Telegram ውስጥ “Send receipt” ቁልፍን ተጭነው screenshot ይላኩ።' : 'Transfer the amount below to either CBE or Bank of Abyssinia. Then return to Telegram, tap “Send receipt,” and send a clear screenshot.'}</p>
       <div className="payment-amount-card"><small>{language === 'AM' ? 'የሚልኩት መጠን' : 'AMOUNT TO TRANSFER'}</small><strong>{settlement}</strong></div>
-      <div className="bank-stack">{paymentResult.payment_accounts.map((bank) => <div className="bank-card" key={bank.code}><div><small>{bank.code}</small><strong>{bank.name}</strong></div><code>{bank.account}</code><span>{bank.holder}</span></div>)}</div>
+      <div className="bank-stack">
+        {paymentResult.payment_accounts.map((bank) => (
+          <BankAccountCard key={bank.code} bank={bank} language={language} />
+        ))}
+      </div>
       <div className="payment-next-card"><span className="pulse-dot" /><div><small>TELEGRAM</small><strong>{language === 'AM' ? 'ደረሰኙን በBot ይላኩ' : 'Send the receipt in the bot'}</strong></div></div>
       <p className="demo-note">{language === 'AM' ? 'Mini Appን መዝጋት ይችላሉ። ክፍያው ሲረጋገጥ ሁኔታው በራሱ ይቀየራል።' : 'You can close the Mini App. When payment is approved, the order status will update automatically.'}</p>
     </section>
@@ -325,10 +371,27 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
   if (result) {
     return <section className="phase4-stage checkout-result">
       <TopProgressBar active={loading} />
+      <div className="checkout-scarcity-strip" style={{ marginBottom: 16 }}>
+        <span className="flame-icon">🔥</span>
+        <span>
+          {language === 'AM'
+            ? 'የመጀመሪያው ዙር (Pilot)፦ 5 ቦታዎች ብቻ። ልዩ የቅናሽ ዋጋ በሰዓት ቆጣሪው ያበቃል።'
+            : 'Round 1 Pilot: Capped at 5 clients only. Special launch price ends with timer.'}
+        </span>
+      </div>
       <div className={`completion-mark ${result.pricing_status === 'READY' ? '' : 'soft'}`}>{result.pricing_status === 'READY' ? '✓' : '…'}</div>
       <p className="eyebrow">CHECKOUT · {result.pricing_status.replace(/_/g, ' ')}</p>
       <h1>{result.pricing_status === 'READY' ? t.checkoutReady : result.pricing_status === 'MANUAL_REVIEW_REQUIRED' ? t.manualPricing : t.pricingMissing}</h1>
-      {result.price?.amount && <div className="hero-price">{result.price.currency === 'ETB' ? `${Number(result.price.amount).toLocaleString()} Br` : `$${Number(result.price.amount).toLocaleString()}`}</div>}
+      {result.price?.amount && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
+          <div className="hero-price" style={{ margin: 0 }}>
+            {result.price.currency === 'ETB' ? `${Number(result.price.amount).toLocaleString()} Br` : `$${Number(result.price.amount).toLocaleString()}`}
+          </div>
+          {getSavingsPill(result.price.currency, config.duration_days, config.service_type, language) && (
+            <span className="savings-pill">{getSavingsPill(result.price.currency, config.duration_days, config.service_type, language)}</span>
+          )}
+        </div>
+      )}
       <div className="summary-grid compact-summary">
         <Summary label={language === 'AM' ? 'ቀናት' : 'Duration'} value={`${config.duration_days}`} />
         <Summary label={language === 'AM' ? 'ምግብ / ቀን' : 'Meals / day'} value={`${config.meals_per_day}`} />
@@ -336,6 +399,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
         <Summary label={language === 'AM' ? 'አገልግሎት' : 'Service'} value={config.service_type === 'FOLLOW_UP' ? 'Follow-Up' : 'Meal Plan'} />
       </div>
       <FastingCalendarPanel context={result.fasting_calendar} language={language} />
+      <CoachGuaranteeCard language={language} />
       <p className="lead checkout-note">{result.pricing_status === 'READY' ? (language === 'AM' ? 'ዋጋዎ ተረጋግጧል። ቀጥለው የCBE / Abyssinia የክፍያ መመሪያዎን ይክፈቱ።' : 'Your price is confirmed. Continue to open the CBE / Abyssinia payment instructions.') : result.pricing_status === 'MANUAL_REVIEW_REQUIRED' ? t.manualPricing : t.pricingMissing}</p>
       {result.pricing_status === 'READY' && (
         <button
@@ -476,6 +540,14 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     </>}
 
     {step === 'SUMMARY' && <>
+      <div className="checkout-scarcity-strip" style={{ marginBottom: 16 }}>
+        <span className="flame-icon">🔥</span>
+        <span>
+          {language === 'AM'
+            ? 'የመጀመሪያው ዙር (Pilot)፦ 5 ቦታዎች ብቻ። ልዩ የቅናሽ ዋጋ በሰዓት ቆጣሪው ያበቃል።'
+            : 'Round 1 Pilot: Capped at 5 clients only. Special launch price ends with timer.'}
+        </span>
+      </div>
       <p className="eyebrow">PLAN CONFIGURATION</p><h1>{t.summaryTitle}</h1><p className="lead">{t.summaryBody}</p>
       <div className="summary-grid">
         <Summary label={language === 'AM' ? 'ቀናት' : 'Duration'} value={`${config.duration_days}`} />
@@ -483,7 +555,16 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
         <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Start date'} value={`${formatEthiopian(config.start_date, language)} / ${formatGregorian(config.start_date, language)}`} />
         <Summary label={language === 'AM' ? 'አገልግሎት' : 'Service'} value={config.service_type === 'FOLLOW_UP' ? 'Meal Plan + Follow-Up' : 'Meal Plan'} />
       </div>
-      <div className="summary-price"><span>{language === 'AM' ? 'ዋጋ' : 'PRICE'}</span><strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'በreview ይረጋገጣል' : 'Manual confirmation') : formatPrice(selectedPrice)}</strong></div>
+      <div className="summary-price">
+        <span>{language === 'AM' ? 'ዋጋ' : 'PRICE'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'በreview ይረጋገጣል' : 'Manual confirmation') : formatPrice(selectedPrice)}</strong>
+          {selectedPrice && getSavingsPill(selectedPrice.currency, config.duration_days, config.service_type, language) && (
+            <span className="savings-pill">{getSavingsPill(selectedPrice.currency, config.duration_days, config.service_type, language)}</span>
+          )}
+        </div>
+      </div>
+      <CoachGuaranteeCard language={language} />
       {pricingMode === 'AUTOMATIC' && !selectedPrice && <p className="inline-warning">{t.pricingMissing}</p>}
       {pricingMode === 'MANUAL' && <p className="inline-warning">{t.manualPricing}</p>}
       <button
