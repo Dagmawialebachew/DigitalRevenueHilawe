@@ -468,11 +468,14 @@ async def get_user_testimonials(request: web.Request) -> web.Response:
 async def get_pending_payout_stats(request: web.Request) -> web.Response:
     """
     GET /api/admin/payouts/pending
-    Calculates dual-stream settlement status governed by the Signed Partnership Agreement:
+    Calculates tri-stream settlement status governed by the Partnership Agreement:
       - Stream A (Digital Products): Fixed 70% Coach Hilawe / 30% Dagmawi Tewodros
       - Stream B (Hilawe Transformation Club): 
           * Initial Stage (< 50,000 ETB cumulative gross): 60% Coach / 40% Dagmawi
           * Mature Stage (>= 50,000 ETB cumulative gross): 65% Coach / 35% Dagmawi
+      - Stream C (Meal Plan Automation System):
+          * Initial Stage (< 100,000 ETB cumulative gross): 60% Coach / 40% Dagmawi
+          * Mature Stage (>= 100,000 ETB cumulative gross): 65% Coach / 35% Dagmawi
       - Infrastructure Cap: 5,000 ETB/month (Section 5.1)
       - Apportionment: Pro-rata deduction across active streams
     """
@@ -484,7 +487,7 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         )
         last_payout_ts = last_payout_ts or datetime.min
 
-        # 2. Extract itemized Pending Balances (Product vs Club streams) since checkpoint
+        # 2. Extract itemized Pending Balances (Product vs Club vs Meal streams) since checkpoint
         pending_row = await db.fetchrow("""
             SELECT 
                 COALESCE((
@@ -502,14 +505,24 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
                 COALESCE((
                     SELECT COUNT(*) FROM club_payments 
                     WHERE status = 'approved' AND (processed_at > $1 OR (processed_at IS NULL AND created_at > $1))
-                ), 0) as club_count
+                ), 0) as club_count,
+                COALESCE((
+                    SELECT SUM(COALESCE(settlement_amount, expected_amount)) FROM meal_payments 
+                    WHERE status = 'APPROVED' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                ), 0) as meal_total,
+                COALESCE((
+                    SELECT COUNT(*) FROM meal_payments 
+                    WHERE status = 'APPROVED' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                ), 0) as meal_count
         """, last_payout_ts)
         
         pending_products = Decimal(str(pending_row['products_total']))
         pending_products_count = int(pending_row['products_count'])
         pending_club = Decimal(str(pending_row['club_total']))
         pending_club_count = int(pending_row['club_count'])
-        pending_gross_total = pending_products + pending_club
+        pending_meal = Decimal(str(pending_row.get('meal_total', 0)))
+        pending_meal_count = int(pending_row.get('meal_count', 0))
+        pending_gross_total = pending_products + pending_club + pending_meal
 
         # 3. Cumulative All-Time Club Metrics for 50,000 ETB Milestone (Section 6.2)
         club_stats = await db.fetchrow("""
@@ -526,6 +539,22 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         club_coach_rate = Decimal('0.65') if club_is_mature else Decimal('0.60')
         club_dag_rate = Decimal('0.35') if club_is_mature else Decimal('0.40')
         club_progress_pct = min(Decimal('100'), (club_cumulative_all_time / club_target_milestone * 100)) if club_cumulative_all_time > 0 else Decimal('0')
+
+        # 3b. Cumulative All-Time Meal Plan Metrics for 100,000 ETB Milestone (Stream C)
+        meal_stats = await db.fetchrow("""
+            SELECT 
+                COALESCE(SUM(COALESCE(settlement_amount, expected_amount)), 0) as cumulative_gross,
+                COALESCE(COUNT(*), 0) as total_plans
+            FROM meal_payments 
+            WHERE status = 'APPROVED'
+        """)
+        meal_cumulative_all_time = Decimal(str(meal_stats['cumulative_gross']))
+        meal_target_milestone = Decimal('100000.00')
+        meal_is_mature = meal_cumulative_all_time >= meal_target_milestone
+        meal_stage = "mature_35_65" if meal_is_mature else "initial_40_60"
+        meal_coach_rate = Decimal('0.65') if meal_is_mature else Decimal('0.60')
+        meal_dag_rate = Decimal('0.35') if meal_is_mature else Decimal('0.40')
+        meal_progress_pct = min(Decimal('100'), (meal_cumulative_all_time / meal_target_milestone * 100)) if meal_cumulative_all_time > 0 else Decimal('0')
 
         # 4. Monthly Operating Deductions Tracking (Uncapped actuals: servers, USD rates, product costs)
         infra_stats = await db.fetchrow("""
@@ -545,40 +574,49 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         """, last_payout_ts)
         pending_deductions = Decimal(str(unsettled_burn_row['pending_burn']))
 
-        # 6. Pro-Rata Apportionment of Pending Deductions
+        # 6. Pro-Rata Apportionment of Pending Deductions across 3 streams
         if pending_gross_total > 0 and pending_deductions > 0:
             prod_ratio = pending_products / pending_gross_total
+            club_ratio = pending_club / pending_gross_total
             products_deductions = round(pending_deductions * prod_ratio, 2)
-            club_deductions = pending_deductions - products_deductions
+            club_deductions = round(pending_deductions * club_ratio, 2)
+            meal_deductions = pending_deductions - products_deductions - club_deductions
         else:
             products_deductions = Decimal('0')
             club_deductions = Decimal('0')
+            meal_deductions = Decimal('0')
 
         net_products = max(Decimal('0'), pending_products - products_deductions)
         net_club = max(Decimal('0'), pending_club - club_deductions)
+        net_meal = max(Decimal('0'), pending_meal - meal_deductions)
 
-        # 7. Exact Partner Splits (Digital Products: 70/30 | Club: 60/40 or 65/35)
+        # 7. Exact Partner Splits (Products: 70/30 | Club: 60/40 or 65/35 | Meal Plan: 60/40 or 65/35)
         prod_coach_share = round(net_products * Decimal('0.70'), 2)
         prod_dag_share = net_products - prod_coach_share
 
         club_coach_share = round(net_club * club_coach_rate, 2)
         club_dag_share = net_club - club_coach_share
 
-        total_coach_payout = prod_coach_share + club_coach_share
-        total_dag_payout = prod_dag_share + club_dag_share
-        net_distributable_total = net_products + net_club
+        meal_coach_share = round(net_meal * meal_coach_rate, 2)
+        meal_dag_share = net_meal - meal_coach_share
+
+        total_coach_payout = prod_coach_share + club_coach_share + meal_coach_share
+        total_dag_payout = prod_dag_share + club_dag_share + meal_dag_share
+        net_distributable_total = net_products + net_club + net_meal
 
         # 8. Lifetime Aggregates
         lifetime_stats = await db.fetchrow("""
             SELECT 
                 (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as lt_products_gross,
                 (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') as lt_club_gross,
+                (SELECT COALESCE(SUM(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED') as lt_meal_gross,
                 (SELECT COALESCE(SUM(operational_deductions), 0) FROM payout_history) as lt_burn,
                 (SELECT COALESCE(SUM(coach_share + dagmawi_share), 0) FROM payout_history) as lt_paid
         """)
         lt_products_gross = Decimal(str(lifetime_stats['lt_products_gross']))
         lt_club_gross = Decimal(str(lifetime_stats['lt_club_gross']))
-        lt_gross_total = lt_products_gross + lt_club_gross
+        lt_meal_gross = Decimal(str(lifetime_stats.get('lt_meal_gross', 0)))
+        lt_gross_total = lt_products_gross + lt_club_gross + lt_meal_gross
         lt_burn = Decimal(str(lifetime_stats['lt_burn']))
         lt_paid = Decimal(str(lifetime_stats['lt_paid']))
         reserve_balance = lt_gross_total - lt_burn - lt_paid
@@ -630,6 +668,23 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
                 "clause": "Section 6.2 (Initial 60/40 until 50k ETB, then 65/35)"
             },
 
+            # Stream C: Meal Plan System (Stream C 40/60 -> 35/65)
+            "meal_stream": {
+                "gross": float(pending_meal),
+                "count": pending_meal_count,
+                "deductions": float(meal_deductions),
+                "net": float(net_meal),
+                "stage": meal_stage,
+                "coach_rate": float(meal_coach_rate),
+                "dagmawi_rate": float(meal_dag_rate),
+                "coach_share": float(meal_coach_share),
+                "dagmawi_share": float(meal_dag_share),
+                "cumulative_all_time": float(meal_cumulative_all_time),
+                "target_milestone": float(meal_target_milestone),
+                "progress_pct": float(round(meal_progress_pct, 1)),
+                "clause": "Stream C (Initial 40/60 until 100k ETB, then 35/65)"
+            },
+
             # Operating Expenses (Uncapped actuals: servers, USD rates, product costs)
             "operating_expenses": {
                 "current_month_burn": float(current_month_burn),
@@ -640,13 +695,14 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
             "lifetime_gross": float(lt_gross_total),
             "lifetime_products_gross": float(lt_products_gross),
             "lifetime_club_gross": float(lt_club_gross),
+            "lifetime_meal_gross": float(lt_meal_gross),
             "lifetime_burn": float(lt_burn),
             "reserve_balance": float(reserve_balance),
             "trend_data": [float(row['coach_share'] + row['dagmawi_share']) for row in reversed(history_points)],
             "trend_labels": [row['payout_date'].strftime('%m/%d') for row in reversed(history_points)]
         })
     except Exception:
-        LOG.exception("Dual-Stream KPI Logic Failure")
+        LOG.exception("Tri-Stream KPI Logic Failure")
         return web.json_response({"error": "sync_error"}, status=500)
 
 
@@ -671,7 +727,7 @@ async def confirm_payout(request: web.Request) -> web.Response:
             )
             last_payout_ts = last_payout_ts or datetime.min
 
-            # Query unsettled approved amounts
+            # Query unsettled approved amounts across all 3 streams
             pending_row = await db.fetchrow("""
                 SELECT 
                     COALESCE((
@@ -681,34 +737,51 @@ async def confirm_payout(request: web.Request) -> web.Response:
                     COALESCE((
                         SELECT SUM(amount) FROM club_payments 
                         WHERE status = 'approved' AND (processed_at > $1 OR (processed_at IS NULL AND created_at > $1))
-                    ), 0) as club_total
+                    ), 0) as club_total,
+                    COALESCE((
+                        SELECT SUM(COALESCE(settlement_amount, expected_amount)) FROM meal_payments 
+                        WHERE status = 'APPROVED' AND (approved_at > $1 OR (approved_at IS NULL AND created_at > $1))
+                    ), 0) as meal_total
             """, last_payout_ts)
 
             products_gross = Decimal(str(data.get('products_amount') if data.get('products_amount') is not None else pending_row['products_total']))
             club_gross = Decimal(str(data.get('club_amount') if data.get('club_amount') is not None else pending_row['club_total']))
-            total_gross = products_gross + club_gross
+            meal_gross = Decimal(str(data.get('meal_amount') if data.get('meal_amount') is not None else pending_row.get('meal_total', 0)))
+            total_gross = products_gross + club_gross + meal_gross
 
             deductions = Decimal(str(data.get('deductions', 0) or 0))
 
-            # Cumulative Club Milestone Check (Section 6.2)
+            # Cumulative Club Milestone Check (Section 6.2 - 50k ETB)
             club_stats = await db.fetchval("SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved'")
             club_cumulative = Decimal(str(club_stats or 0))
-            is_mature = club_cumulative >= Decimal('50000.00')
-            club_stage = "mature_65_35" if is_mature else "initial_60_40"
-            club_coach_rate = Decimal('0.65') if is_mature else Decimal('0.60')
-            club_dag_rate = Decimal('0.35') if is_mature else Decimal('0.40')
+            is_club_mature = club_cumulative >= Decimal('50000.00')
+            club_stage = "mature_65_35" if is_club_mature else "initial_60_40"
+            club_coach_rate = Decimal('0.65') if is_club_mature else Decimal('0.60')
+            club_dag_rate = Decimal('0.35') if is_club_mature else Decimal('0.40')
 
-            # Pro-rata deduction distribution
+            # Cumulative Meal Plan Milestone Check (Stream C - 100k ETB)
+            meal_stats = await db.fetchval("SELECT COALESCE(SUM(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED'")
+            meal_cumulative = Decimal(str(meal_stats or 0))
+            is_meal_mature = meal_cumulative >= Decimal('100000.00')
+            meal_stage = "mature_35_65" if is_meal_mature else "initial_40_60"
+            meal_coach_rate = Decimal('0.65') if is_meal_mature else Decimal('0.60')
+            meal_dag_rate = Decimal('0.35') if is_meal_mature else Decimal('0.40')
+
+            # Pro-rata deduction distribution across 3 streams
             if total_gross > 0 and deductions > 0:
                 prod_weight = products_gross / total_gross
+                club_weight = club_gross / total_gross
                 prod_deduct = round(deductions * prod_weight, 2)
-                club_deduct = deductions - prod_deduct
+                club_deduct = round(deductions * club_weight, 2)
+                meal_deduct = deductions - prod_deduct - club_deduct
             else:
                 prod_deduct = Decimal('0')
                 club_deduct = Decimal('0')
+                meal_deduct = Decimal('0')
 
             net_products = max(Decimal('0'), products_gross - prod_deduct)
             net_club = max(Decimal('0'), club_gross - club_deduct)
+            net_meal = max(Decimal('0'), meal_gross - meal_deduct)
 
             prod_coach_share = round(net_products * Decimal('0.70'), 2)
             prod_dag_share = net_products - prod_coach_share
@@ -716,9 +789,12 @@ async def confirm_payout(request: web.Request) -> web.Response:
             club_coach_share = round(net_club * club_coach_rate, 2)
             club_dag_share = net_club - club_coach_share
 
-            coach_total_share = prod_coach_share + club_coach_share
-            dag_total_share = prod_dag_share + club_dag_share
-            net_distributable = net_products + net_club
+            meal_coach_share = round(net_meal * meal_coach_rate, 2)
+            meal_dag_share = net_meal - meal_coach_share
+
+            coach_total_share = prod_coach_share + club_coach_share + meal_coach_share
+            dag_total_share = prod_dag_share + club_dag_share + meal_dag_share
+            net_distributable = net_products + net_club + net_meal
 
             async with db._pool.acquire() as conn:
                 async with conn.transaction():
@@ -727,12 +803,14 @@ async def confirm_payout(request: web.Request) -> web.Response:
                         (gross_revenue, operational_deductions, net_profit, 
                          coach_share, dagmawi_share, tier_applied, expense_note, entry_type,
                          products_gross, club_gross, club_stage, club_cumulative_at_payout,
+                         meal_plan_gross, meal_plan_stage, meal_plan_cumulative_at_payout,
                          infra_deductions, production_deductions)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
                     """, total_gross, deductions, net_distributable,
-                        coach_total_share, dag_total_share, 2 if is_mature else 1,
+                        coach_total_share, dag_total_share, 2 if is_club_mature else 1,
                         note, 'payout',
                         products_gross, club_gross, club_stage, club_cumulative,
+                        meal_gross, meal_stage, meal_cumulative,
                         deductions, Decimal('0'))
 
                     await conn.execute("""
@@ -751,7 +829,9 @@ async def confirm_payout(request: web.Request) -> web.Response:
                 "dagmawi_share": float(dag_total_share),
                 "products_gross": float(products_gross),
                 "club_gross": float(club_gross),
-                "club_stage": club_stage
+                "club_stage": club_stage,
+                "meal_gross": float(meal_gross),
+                "meal_stage": meal_stage
             })
 
         else:

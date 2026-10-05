@@ -52,27 +52,63 @@ async def admin_dashboard(event: types.Message | types.CallbackQuery, db: Databa
         
     stats = await db.get_admin_stats_bot()
     
-    # 2. Extract Data & Calculate Revenue Split
+    # 2. Extract Data & Calculate Revenue Split across the 3 streams
     pending_val = stats['pending_count']
     status_emoji = "✅" if pending_val == 0 else "🚨"
     status_text = "Operational" if pending_val == 0 else "ACTION REQUIRED"
 
-    product_rev = stats['revenue'] or 0
-    club_rev = stats['club_revenue'] or 0
-    gross_rev = product_rev + club_rev
+    product_rev = float(stats['revenue'] or 0)
+    club_rev = float(stats['club_revenue'] or 0)
+    meal_rev = float(stats.get('meal_revenue') or 0)
+    gross_rev = product_rev + club_rev + meal_rev
+
+    # Partner split calculations
+    # Stream A: Products (70% Coach / 30% Dagmawi)
+    prod_coach = product_rev * 0.70
+    prod_dag = product_rev * 0.30
+
+    # Stream B: Club (50k milestone -> 60/40 vs 65/35)
+    club_is_mature = club_rev >= 50000.0
+    club_dag_rate = 0.35 if club_is_mature else 0.40
+    club_coach_rate = 0.65 if club_is_mature else 0.60
+    club_dag = club_rev * club_dag_rate
+    club_coach = club_rev * club_coach_rate
+    club_stage_label = "65/35" if club_is_mature else "60/40"
+
+    # Stream C: Meal Plan (100k milestone -> 40/60 vs 35/65)
+    meal_is_mature = meal_rev >= 100000.0
+    meal_dag_rate = 0.35 if meal_is_mature else 0.40
+    meal_coach_rate = 0.65 if meal_is_mature else 0.60
+    meal_dag = meal_rev * meal_dag_rate
+    meal_coach = meal_rev * meal_coach_rate
+    meal_stage_label = "35/65" if meal_is_mature else "40/60"
+    meal_progress = min(100.0, (meal_rev / 100000.0) * 100.0) if meal_rev > 0 else 0.0
+
+    coach_total = prod_coach + club_coach + meal_coach
+    dagmawi_total = prod_dag + club_dag + meal_dag
+
+    prod_pend = stats.get('products_pending', 0)
+    club_pend = stats.get('club_pending', 0)
+    meal_pend = stats.get('meal_pending', 0)
 
     # 3. Assemble Dashboard Context (Distinct Financial Breakdown)
     dashboard_text = (
         "👑 *FOUNDERS COMMAND CENTER*\n"
         "————————————————————\n"
-        f"👥 *Total Users:* `{stats['users']}`\n"
-        f"💳 *Successful Sales:* `{stats['sales']}`\n"
+        f"👥 *Total Users:* `{stats['users']:,}`\n"
+        f"💳 *Successful Sales:* `{stats['sales']:,}`\n"
         "————————————————————\n"
-        f"🛍 *Product Sales:* `{product_rev} ETB`\n"
-        f"💫 *Club Revenue:* `{club_rev} ETB`\n"
-        f"💰 *Gross Revenue:* `{gross_rev} ETB`\n"
+        f"🛍 *Product Sales (70/30):* `{product_rev:,.2f} ETB`\n"
+        f"💫 *Club Revenue ({club_stage_label}):* `{club_rev:,.2f} ETB`\n"
+        f"🥗 *Meal Plan ({meal_stage_label}):* `{meal_rev:,.2f} ETB`\n"
+        f"💰 *Gross Revenue:* `{gross_rev:,.2f} ETB`\n"
         "————————————————————\n"
-        f"🕒 *Pending Approvals:* `{pending_val}`\n"
+        "💼 *Partner Accrual (Pre-Payout):*\n"
+        f"├ 🧔 *Coach Hilawe:* `{coach_total:,.2f} ETB`\n"
+        f"└ 👨‍💻 *Dagmawi (You):* `{dagmawi_total:,.2f} ETB`\n"
+        "————————————————————\n"
+        f"🎯 *Meal Plan 100k Milestone:* `{meal_rev:,.0f}/100,000 ETB ({meal_progress:.1f}%)`\n"
+        f"🕒 *Pending Approvals:* `{pending_val}` (🛍 {prod_pend} | 💫 {club_pend} | 🥗 {meal_pend})\n"
         "————————————————————\n"
         f"Status: {status_emoji} *{status_text}*\n"
         f"⏱ _Last Update: {datetime.now().strftime('%H:%M:%S')}_"

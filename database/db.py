@@ -197,6 +197,9 @@ ADD COLUMN IF NOT EXISTS products_gross NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS club_gross NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS club_stage VARCHAR(50) DEFAULT 'initial_60_40',
 ADD COLUMN IF NOT EXISTS club_cumulative_at_payout NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS meal_plan_gross NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS meal_plan_stage VARCHAR(50) DEFAULT 'initial_40_60',
+ADD COLUMN IF NOT EXISTS meal_plan_cumulative_at_payout NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS infra_deductions NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS production_deductions NUMERIC DEFAULT 0;
 
@@ -465,15 +468,22 @@ class Database:
         return await self._pool.fetchval(query, user_id, product_id, proof_id, amount)
 
     async def get_admin_stats_bot(self) -> asyncpg.Record:
-        """Fetches elite-level business intelligence including club subscription revenue."""
+        """Fetches elite-level business intelligence including club subscription and meal plan revenue."""
         query = """
             SELECT 
                 (SELECT count(*) FROM users) as users,
-                (SELECT count(*) FROM payments WHERE status = 'approved') as sales,
+                ((SELECT count(*) FROM payments WHERE status = 'approved') +
+                 (SELECT count(*) FROM club_payments WHERE status = 'approved') +
+                 (SELECT count(*) FROM meal_payments WHERE status = 'APPROVED')) as sales,
                 (SELECT COALESCE(sum(amount), 0) FROM payments WHERE status = 'approved') as revenue,
                 (SELECT COALESCE(sum(amount), 0) FROM club_payments WHERE status = 'approved') as club_revenue,
+                (SELECT COALESCE(sum(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED') as meal_revenue,
+                (SELECT count(*) FROM payments WHERE status = 'pending') as products_pending,
+                (SELECT count(*) FROM club_payments WHERE status = 'pending') as club_pending,
+                (SELECT count(*) FROM meal_payments WHERE status IN ('PENDING', 'VERIFYING')) as meal_pending,
                 ((SELECT count(*) FROM payments WHERE status = 'pending') + 
-                 (SELECT count(*) FROM club_payments WHERE status = 'pending')) as pending_count
+                 (SELECT count(*) FROM club_payments WHERE status = 'pending') +
+                 (SELECT count(*) FROM meal_payments WHERE status IN ('PENDING', 'VERIFYING'))) as pending_count
         """
         return await self._pool.fetchrow(query)
     
@@ -883,18 +893,26 @@ class Database:
 
     async def get_payment_kpis(self) -> asyncpg.Record:
         """
-        Returns KPI metrics for payments tab.
+        Returns KPI metrics for payments tab itemizing all 3 revenue channels.
         """
         query = """
             SELECT 
-                COALESCE(SUM(amount) FILTER (WHERE status = 'approved'), 0) as total_revenue,
-                COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
-                COALESCE(AVG(EXTRACT(EPOCH FROM (approved_at - created_at)) / 60), 0) as avg_approval_time_minutes,
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') as products_revenue,
+                (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') as club_revenue,
+                (SELECT COALESCE(SUM(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED') as meal_revenue,
+                ((SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved') +
+                 (SELECT COALESCE(SUM(amount), 0) FROM club_payments WHERE status = 'approved') +
+                 (SELECT COALESCE(SUM(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED')) as total_revenue,
+                ((SELECT count(*) FROM payments WHERE status = 'pending') + 
+                 (SELECT count(*) FROM club_payments WHERE status = 'pending') +
+                 (SELECT count(*) FROM meal_payments WHERE status IN ('PENDING', 'VERIFYING'))) as pending_count,
+                COALESCE((SELECT AVG(EXTRACT(EPOCH FROM (approved_at - created_at)) / 60) FROM payments WHERE approved_at IS NOT NULL), 0) as avg_approval_time_minutes,
                 CASE 
-                    WHEN COUNT(*) = 0 THEN 0
-                    ELSE ROUND((COUNT(*) FILTER (WHERE status = 'rejected')::numeric / COUNT(*)::numeric), 3)
+                    WHEN (SELECT count(*) FROM payments) = 0 THEN 0
+                    ELSE ROUND(((SELECT count(*) FROM payments WHERE status = 'rejected')::numeric / (SELECT count(*) FROM payments)::numeric), 3)
                 END as rejection_rate
             FROM payments
+            LIMIT 1
         """
         return await self._pool.fetchrow(query)
     
