@@ -89,6 +89,7 @@ async def get_revenue_stats(request: web.Request) -> web.Response:
             "labels": [str(r["date"]) for r in rows],
             "revenue_products": [float(r.get("revenue_products", 0)) for r in rows],
             "revenue_club": [float(r.get("revenue_club", 0)) for r in rows],
+            "revenue_meal": [float(r.get("revenue_meal", 0)) for r in rows],
             "users": [int(r["new_users"]) for r in rows],
             "days_limit": days
         }
@@ -96,7 +97,7 @@ async def get_revenue_stats(request: web.Request) -> web.Response:
     except Exception:
         LOG.exception("get_revenue_stats failed")
         return web.json_response({
-            "labels": [], "revenue_products": [], "revenue_club": [], "users": [], "days_limit": days
+            "labels": [], "revenue_products": [], "revenue_club": [], "revenue_meal": [], "users": [], "days_limit": days
         }, status=500)
 
 
@@ -889,6 +890,9 @@ async def get_payout_history(request: web.Request) -> web.Response:
                 COALESCE(club_gross, 0) as club_gross,
                 COALESCE(club_stage, 'initial_60_40') as club_stage,
                 COALESCE(club_cumulative_at_payout, 0) as club_cumulative_at_payout,
+                COALESCE(meal_plan_gross, 0) as meal_plan_gross,
+                COALESCE(meal_plan_stage, 'initial_40_60') as meal_plan_stage,
+                COALESCE(meal_plan_cumulative_at_payout, 0) as meal_plan_cumulative_at_payout,
                 COALESCE(infra_deductions, 0) as infra_deductions,
                 COALESCE(production_deductions, 0) as production_deductions
             FROM payout_history 

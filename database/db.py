@@ -726,6 +726,15 @@ class Database:
                 AND created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
                 GROUP BY 1
             ),
+            daily_meal_revenue AS (
+                SELECT
+                    created_at::date AS day,
+                    SUM(COALESCE(settlement_amount, expected_amount)) AS rev_meal
+                FROM meal_payments
+                WHERE status = 'APPROVED'
+                AND created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
+                GROUP BY 1
+            ),
             daily_users AS (
                 SELECT
                     created_at::date AS day,
@@ -738,10 +747,12 @@ class Database:
                 to_char(ds.day, 'MM/DD') AS date,
                 COALESCE(p.rev_products, 0)::float AS revenue_products,
                 COALESCE(c.rev_club, 0)::float    AS revenue_club,
+                COALESCE(m.rev_meal, 0)::float    AS revenue_meal,
                 COALESCE(u.user_count, 0)::int    AS new_users
             FROM date_series ds
             LEFT JOIN daily_product_revenue p ON ds.day = p.day
             LEFT JOIN daily_club_revenue    c ON ds.day = c.day
+            LEFT JOIN daily_meal_revenue    m ON ds.day = m.day
             LEFT JOIN daily_users           u ON ds.day = u.day
             ORDER BY ds.day ASC;
         """
@@ -750,14 +761,19 @@ class Database:
 
     async def get_payment_distribution(self) -> asyncpg.Record:
         """
-        Counts payments by status for the donut chart.
+        Counts payments across products, club, and meal plans by status for the donut chart.
         """
         query = """
             SELECT 
-                COUNT(*) FILTER (WHERE status = 'pending') as pending,
-                COUNT(*) FILTER (WHERE status = 'approved') as approved,
-                COUNT(*) FILTER (WHERE status = 'rejected') as rejected
-            FROM payments
+                ((SELECT COUNT(*) FROM payments WHERE status = 'pending') +
+                 (SELECT COUNT(*) FROM club_payments WHERE status = 'pending') +
+                 (SELECT COUNT(*) FROM meal_payments WHERE status IN ('PENDING', 'VERIFYING'))) as pending,
+                ((SELECT COUNT(*) FROM payments WHERE status = 'approved') +
+                 (SELECT COUNT(*) FROM club_payments WHERE status = 'approved') +
+                 (SELECT COUNT(*) FROM meal_payments WHERE status = 'APPROVED')) as approved,
+                ((SELECT COUNT(*) FROM payments WHERE status = 'rejected') +
+                 (SELECT COUNT(*) FROM club_payments WHERE status = 'rejected') +
+                 (SELECT COUNT(*) FROM meal_payments WHERE status = 'REJECTED')) as rejected
         """
         return await self._pool.fetchrow(query)
 
@@ -769,15 +785,19 @@ class Database:
                 -- TOTAL NODES
                 (SELECT count(*) FROM users) as active_users,
                 
-                -- PENDING SYNC (Combined standard guides + club claims)
+                -- PENDING SYNC (Combined standard guides + club claims + meal plan claims)
                 ((SELECT count(*) FROM payments WHERE status = 'pending') + 
-                 (SELECT count(*) FROM club_payments WHERE status = 'pending')) as pending_payments,
+                 (SELECT count(*) FROM club_payments WHERE status = 'pending') +
+                 (SELECT count(*) FROM meal_payments WHERE status IN ('PENDING', 'VERIFYING'))) as pending_payments,
                 
                 -- PRODUCT REVENUE
                 (SELECT COALESCE(sum(amount), 0) FROM payments WHERE status = 'approved') as total_revenue,
                 
                 -- CLUB REVENUE / PROFIT LAYER
                 (SELECT COALESCE(sum(amount), 0) FROM club_payments WHERE status = 'approved') as club_revenue,
+
+                -- MEAL PLAN REVENUE
+                (SELECT COALESCE(sum(COALESCE(settlement_amount, expected_amount)), 0) FROM meal_payments WHERE status = 'APPROVED') as meal_revenue,
                 
                 -- THE "PURITY" CONVERSION RATE (Users who bought a standard product / Total Users)
                 (SELECT 
