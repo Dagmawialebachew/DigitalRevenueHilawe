@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -291,7 +292,7 @@ class ApiPilotCapTests(unittest.IsolatedAsyncioTestCase):
             "meals_per_day": 3,
             "duration_days": 7,
             "service_type": "PLAN",
-            "start_date": "2026-10-05",
+            "start_date": (date.today() + timedelta(days=2)).isoformat(),
         })
 
         identity = MagicMock()
