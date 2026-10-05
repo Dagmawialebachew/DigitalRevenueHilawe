@@ -48,7 +48,7 @@ export function OfferCountdown({ language }: { language: Language }) {
   const seconds = totalSeconds % 60
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 
-  const label = language === 'AM' ? 'የቅናሽ ሰዓት ቆጣሪ' : 'Special offer ends in'
+  const label = language === 'AM' ? 'ቅናሹ የሚያበቃበት ሰአት' : 'Special offer ends in'
 
   return (
     <div className="offer-countdown-pill" aria-label="Urgency Countdown">
