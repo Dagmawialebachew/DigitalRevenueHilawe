@@ -157,7 +157,7 @@ class Phase5ReleaseQATests(unittest.TestCase):
             self.assertTrue(pdf_path.read_bytes().startswith(b"%PDF"))
 
     def test_release_gate_migrations_sequence_integrity(self):
-        """Verifies migrations 0001 through 0007 are discoverable and in order."""
+        """Verifies migrations 0001 through 0008 are discoverable and in order."""
         migrations_dir = Path(__file__).resolve().parents[1] / "database" / "migrations"
         found_migrations = sorted(p.name for p in migrations_dir.glob("[0-9][0-9][0-9][0-9]_*.sql"))
         self.assertEqual(
@@ -170,9 +170,10 @@ class Phase5ReleaseQATests(unittest.TestCase):
                 "0005_neon_name_cleanup_and_history_repair.sql",
                 "0006_update_meal_pricing.sql",
                 "0007_add_tsige_fasting.sql",
+                "0008_add_meal_plan_payout_ledger.sql",
             ],
         )
-        for expected in ("0001", "0002", "0003", "0004", "0005", "0006", "0007"):
+        for expected in ("0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"):
             self.assertIn(expected, EXPECTED_ENGINE_MIGRATIONS)
 
 
