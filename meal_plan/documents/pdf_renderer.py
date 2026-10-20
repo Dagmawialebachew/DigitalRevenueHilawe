@@ -124,10 +124,22 @@ def _p(text: Any, style: ParagraphStyle, fonts: dict[str, str], *, bold: bool = 
     return Paragraph(_fontify(text, fonts, bold=bold), style)
 
 
+def _draw_coach_watermark(canvas, fonts: dict[str, str]):
+    canvas.saveState()
+    canvas.translate(PAGE_W / 2.0, PAGE_H / 2.0)
+    canvas.rotate(35)
+    canvas.setFillColor(colors.HexColor("#0F172A"))
+    canvas.setFillAlpha(0.038)
+    canvas.setFont(fonts["latin_bold"], 52)
+    canvas.drawCentredString(0, 0, "Coach Hilawe")
+    canvas.restoreState()
+
+
 def _footer_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str], is_client_delivery: bool = False):
     canvas.saveState()
     canvas.setFillColor(_hex(IVORY))
     canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+    _draw_coach_watermark(canvas, fonts)
     canvas.setFillColor(_hex(ORANGE))
     canvas.rect(MARGIN_X, PAGE_H - 10.5 * mm, 18 * mm, 1.6 * mm, fill=1, stroke=0)
     canvas.setFillColor(_hex(GRAPHITE))
@@ -148,27 +160,49 @@ def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str
     canvas.saveState()
     canvas.setFillColor(_hex(IVORY))
     canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+    _draw_coach_watermark(canvas, fonts)
     canvas.setFillColor(_hex(ORANGE))
     canvas.rect(0, 0, 5.5 * mm, PAGE_H, fill=1, stroke=0)
     canvas.setFillColor(_hex(ORANGE_SOFT))
     canvas.roundRect(118 * mm, 30 * mm, 72 * mm, 108 * mm, 8 * mm, fill=1, stroke=0)
-    image_path = Path(context.coach_image_path).expanduser() if context.coach_image_path else None
+
+    from .helpers import find_coach_image_path
+    image_path = Path(context.coach_image_path).expanduser() if context.coach_image_path else find_coach_image_path()
+    image_drawn = False
     if image_path and image_path.exists():
         try:
+            # Draw circular coach avatar photo instead of letter H
+            canvas.saveState()
+            path = canvas.beginPath()
+            path.circle(155 * mm, 84 * mm, 26 * mm)
+            canvas.clipPath(path, stroke=0)
             image = ImageReader(str(image_path))
-            canvas.drawImage(image, 126 * mm, 42 * mm, width=58 * mm, height=84 * mm, preserveAspectRatio=True, anchor='c', mask='auto')
+            canvas.drawImage(
+                image,
+                (155 - 26) * mm,
+                (84 - 26) * mm,
+                width=52 * mm,
+                height=52 * mm,
+                preserveAspectRatio=True,
+                anchor='c',
+            )
+            canvas.restoreState()
+            canvas.saveState()
+            canvas.setStrokeColor(_hex(ORANGE))
+            canvas.setLineWidth(2)
+            canvas.circle(155 * mm, 84 * mm, 26 * mm, fill=0, stroke=1)
+            canvas.restoreState()
+            image_drawn = True
         except Exception:
-            canvas.setFillColor(_hex(ORANGE))
-            canvas.circle(155 * mm, 84 * mm, 26 * mm, fill=1, stroke=0)
-            canvas.setFillColor(colors.white)
-            canvas.setFont(fonts["latin_bold"], 19)
-            canvas.drawCentredString(155 * mm, 80 * mm, "H")
-    else:
+            image_drawn = False
+
+    if not image_drawn:
         canvas.setFillColor(_hex(ORANGE))
         canvas.circle(155 * mm, 84 * mm, 26 * mm, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
         canvas.setFont(fonts["latin_bold"], 19)
         canvas.drawCentredString(155 * mm, 80 * mm, "H")
+
     canvas.setFillColor(_hex(GRAPHITE))
     is_am = context.normalized_language == "AM"
     brand = "አሰልጣኝ ህላዌ" if is_am else "COACH HILAWE"
@@ -178,6 +212,7 @@ def _cover_canvas(canvas, doc, *, context: DocumentContext, fonts: dict[str, str
     else:
         canvas.drawString(18 * mm, 12 * mm, f"{context.plan_public_id}  ·  V{context.version_number}")
     canvas.restoreState()
+
 
 
 

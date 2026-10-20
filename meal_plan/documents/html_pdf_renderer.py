@@ -64,6 +64,27 @@ def _get_embedded_fonts_css() -> str:
     return _FONTS_CACHE
 
 
+_COACH_PHOTO_B64: str | None = None
+
+
+def _get_coach_photo_base64() -> str:
+    """Return base64 data URI of Coach Hilawe photo for zero-dependency HTML rendering."""
+    global _COACH_PHOTO_B64
+    if _COACH_PHOTO_B64 is not None:
+        return _COACH_PHOTO_B64
+
+    from .helpers import find_coach_image_path
+    p = find_coach_image_path()
+    if p and p.exists():
+        try:
+            b64 = base64.b64encode(p.read_bytes()).decode("ascii")
+            _COACH_PHOTO_B64 = f"data:image/webp;base64,{b64}"
+            return _COACH_PHOTO_B64
+        except Exception:
+            pass
+    return ""
+
+
 def find_chromium_executable() -> str | None:
     """Auto-detect Chromium-based browser (Chrome, Edge, Brave) across platforms."""
     # 1. Check environment variables
@@ -227,6 +248,28 @@ body {{
   justify-content: space-between;
   background: #FFFFFF;
   overflow: hidden;
+}}
+
+.page::before {{
+  content: 'Coach Hilawe';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-35deg);
+  font-family: 'NotoSerifCustom', serif;
+  font-size: 72pt;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(15, 23, 42, 0.038);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 0;
+}}
+
+.page > * {{
+  position: relative;
+  z-index: 1;
 }}
 
 .page:last-child {{
@@ -535,17 +578,27 @@ h1.page-title {{
 }}
 
 .brand-monogram {{
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   background: #D97706;
   color: #FFFFFF;
-  border-radius: 8px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'NotoSerifCustom', serif;
   font-size: 22px;
   font-weight: 700;
+}}
+
+.brand-coach-avatar {{
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid #D97706;
+  box-shadow: 0 3px 10px rgba(217, 119, 6, 0.28);
+  display: block;
 }}
 
 .brand-text-hilawe {{
@@ -812,12 +865,18 @@ def build_cover_html(plan: dict[str, Any], context: DocumentContext, c: dict[str
     brand_title = "አሰልጣኝ ህላዌ ሰማ" if is_am else "Coach Hilawe Semma"
     brand_sub = "የአካል ብቃት እና የአመጋገብ ስርዓት" if is_am else "Fitness & Nutrition System"
 
+    coach_photo = _get_coach_photo_base64()
+    if coach_photo:
+        seal_avatar_html = f'<img class="brand-coach-avatar" src="{coach_photo}" alt="Coach Hilawe" />'
+    else:
+        seal_avatar_html = '<div class="brand-monogram">ህ</div>'
+
     footer_meta = f"ስሪት {context.version_number}" if is_client and is_am else f"Version {context.version_number}" if is_client else f"{context.plan_public_id} · V{context.version_number}"
 
     return f"""
     <div class="page cover-page">
       <div class="cover-brand-seal">
-        <div class="brand-monogram">ህ</div>
+        {seal_avatar_html}
         <div>
           <div class="brand-text-hilawe">{escape(brand_title)}</div>
           <div class="brand-sub-hilawe">{escape(brand_sub)}</div>
@@ -1623,7 +1682,10 @@ def build_hydration_html(context: DocumentContext, c: dict[str, str], is_client:
             {escape(c.get("coach_text", "ለውጥ የሚመጣው ከወጥነት እንጂ ከአንድ ቀን ፍጹምነት አይደለም። መዋቅሩን ይከተሉ፣ አስፈላጊ ሲሆን የተፈቀዱትን አማራጮች ይጠቀሙ፣ እና እድገትዎን በሳምንታት ሂደት ይመዝኑ።"))}
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4mm; padding-top: 3mm; border-top: 1px dashed #FCD34D; font-size: 11px; color: #92400E;">
-            <div><strong>{escape(brand_name)}</strong></div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              {f'<img src="{_get_coach_photo_base64()}" alt="Coach Hilawe" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid #D97706;" />' if _get_coach_photo_base64() else ''}
+              <strong>{escape(brand_name)}</strong>
+            </div>
             <div>{"ይፋዊ የደንበኛ ሰነድ" if is_am else "Official Client Document"}</div>
           </div>
         </div>

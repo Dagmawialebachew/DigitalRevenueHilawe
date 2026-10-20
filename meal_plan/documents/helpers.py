@@ -153,3 +153,20 @@ def review_warning_lines(plan: dict[str, Any], language: str = "EN") -> list[str
         seen.add(normalized.lower())
         output.append(normalized)
     return output
+
+
+def find_coach_image_path(explicit_path: str | Path | None = None) -> Path | None:
+    """Resolve path to Coach Hilawe's photo asset across miniapp or documents folders."""
+    if explicit_path:
+        p = Path(explicit_path).expanduser()
+        if p.exists():
+            return p
+    candidates = [
+        Path(__file__).resolve().parent / "coach-hilawe.webp",
+        Path(__file__).resolve().parent.parent.parent / "meal_plan_miniapp" / "public" / "coach-hilawe.webp",
+        Path("d:/The hobby 2/DigitalRevenueHilawe/meal_plan_miniapp/public/coach-hilawe.webp"),
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
