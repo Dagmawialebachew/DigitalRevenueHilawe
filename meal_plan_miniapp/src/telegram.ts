@@ -3,6 +3,7 @@ export type TelegramWebApp = {
   ready: () => void
   expand: () => void
   close?: () => void
+  openTelegramLink?: (url: string) => void
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
   HapticFeedback?: {
@@ -85,5 +86,22 @@ export function syncTelegramBackButton(visible: boolean, onBack?: () => void): (
   } else {
     btn.hide()
     return () => {}
+  }
+}
+
+export function openCoachTelegramBot() {
+  const app = getTelegramWebApp()
+  const botUrl = 'https://t.me/CoachHilaweBot'
+  if (app?.openTelegramLink) {
+    app.openTelegramLink(botUrl)
+  } else {
+    window.location.href = botUrl
+  }
+}
+
+export function closeTelegramApp() {
+  const app = getTelegramWebApp()
+  if (app?.close) {
+    app.close()
   }
 }

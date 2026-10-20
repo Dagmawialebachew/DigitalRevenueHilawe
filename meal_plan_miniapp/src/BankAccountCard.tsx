@@ -7,6 +7,15 @@ type Props = {
   language: Language
 }
 
+function formatAccountDisplay(account: string): string {
+  // Group digits into readable chunks of 4 for easy visual verification
+  const clean = account.replace(/\s+/g, '')
+  if (/^\d+$/.test(clean)) {
+    return clean.replace(/(\d{4})(?=\d)/g, '$1 ')
+  }
+  return account
+}
+
 export default function BankAccountCard({ bank, language }: Props) {
   const [copied, setCopied] = useState(false)
 
@@ -15,7 +24,6 @@ export default function BankAccountCard({ bank, language }: Props) {
     try {
       await navigator.clipboard.writeText(bank.account)
     } catch {
-      // Fallback for environments where clipboard API is restricted
       const el = document.createElement('textarea')
       el.value = bank.account
       document.body.appendChild(el)
@@ -25,7 +33,7 @@ export default function BankAccountCard({ bank, language }: Props) {
     }
     hapticSuccess()
     setCopied(true)
-    window.setTimeout(() => setCopied(false), 2200)
+    window.setTimeout(() => setCopied(false), 2400)
   }
 
   const isCbe = bank.code.toUpperCase().includes('CBE')
@@ -48,7 +56,10 @@ export default function BankAccountCard({ bank, language }: Props) {
       <div className="bank-card-header">
         <div className="bank-card-title-group">
           <span className="bank-code-badge">{bank.code}</span>
-          <strong className="bank-name">{bank.name}</strong>
+          <div className="bank-name-wrap">
+            <strong className="bank-name">{bank.name}</strong>
+            <span className="bank-verified-tag">{language === 'AM' ? 'ቀጥታ ማስተላለፊያ' : 'Direct Transfer'}</span>
+          </div>
         </div>
         <button
           type="button"
@@ -67,28 +78,31 @@ export default function BankAccountCard({ bank, language }: Props) {
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
-              <span>{language === 'AM' ? 'ቅዳ' : 'Copy'}</span>
+              <span>{language === 'AM' ? 'ቁጥር ቅዳ' : 'Copy'}</span>
             </>
           )}
         </button>
       </div>
 
       <div className="bank-card-body">
-        <div className="account-number-wrap">
-          <code className="account-number">{bank.account}</code>
+        <div className="account-number-box">
+          <span className="account-label">{language === 'AM' ? 'የአካውንት ቁጥር' : 'ACCOUNT NUMBER'}</span>
+          <div className="account-number-row">
+            <span className="account-digits">{formatAccountDisplay(bank.account)}</span>
+            <span className="copy-action-pill">{copied ? (language === 'AM' ? 'ተቀድቷል' : 'COPIED') : (language === 'AM' ? 'ለመቅዳት ይንኩ' : 'TAP TO COPY')}</span>
+          </div>
         </div>
       </div>
 
       <div className="bank-card-footer">
         <div className="account-holder-info">
-          <small className="holder-label">{language === 'AM' ? 'የአካውንት ስም' : 'ACCOUNT NAME'}</small>
+          <span className="holder-label">{language === 'AM' ? 'የአካውንት ባለቤት ስም' : 'ACCOUNT HOLDER NAME'}</span>
           <strong className="holder-name">{bank.holder}</strong>
         </div>
-        <small className="tap-hint">
-          {copied
-            ? (language === 'AM' ? '✓ ቁጥሩ ተቀድቷል' : '✓ Number in clipboard')
-            : (language === 'AM' ? 'ለመቅዳት ይጫኑ' : 'Tap to copy')}
-        </small>
+        <div className="status-indicator">
+          <span className="live-indicator-dot" />
+          <small>{language === 'AM' ? 'ንቁ አካውንት' : 'Active Account'}</small>
+        </div>
       </div>
     </div>
   )

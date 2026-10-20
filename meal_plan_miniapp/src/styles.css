@@ -42,7 +42,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   flex-direction: column;
 }
 
-.topbar { position: sticky; top: var(--app-safe-top); z-index: 20; display: flex; align-items: center; justify-content: space-between; min-height: 56px; background: linear-gradient(180deg, rgba(247,244,237,.98) 72%, rgba(247,244,237,0)); padding-bottom: 8px; }
+.topbar {
+  position: sticky;
+  top: var(--app-safe-top);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  background: rgba(247, 244, 237, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(24, 21, 18, 0.06);
+  padding: 6px 0;
+  margin-bottom: 6px;
+}
 .brand-lockup { display: flex; align-items: stretch; gap: 10px; }
 .signal-line { width: 3px; border-radius: 10px; background: var(--orange); }
 .brand-lockup strong { display: block; letter-spacing: .18em; font-size: 14px; }
@@ -505,14 +519,97 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 .duration-grid strong { display: block; margin-top: 6px; font-size: 25px; letter-spacing: -.04em; }
 .duration-grid small { display: block; margin-top: 9px; color: var(--orange-strong); font-size: 8px; font-weight: 900; letter-spacing: .13em; }
 
-.service-grid { display: grid; gap: 11px; margin-top: 25px; }
-.service-grid button { min-height: 155px; border: 1px solid var(--line); border-radius: 25px; background: var(--surface); color: var(--ink); padding: 18px; text-align: left; cursor: pointer; }
-.service-grid button.selected { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(237,116,25,.08); }
-.service-grid button.premium { background: linear-gradient(145deg, #fffaf4, #f6e8d9); }
-.service-grid span { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 11px; background: var(--orange-soft); color: var(--orange-strong); font-size: 11px; font-weight: 900; }
-.service-grid strong { display: block; margin-top: 17px; font-size: 20px; }
-.service-grid small { display: block; margin-top: 6px; color: var(--ink); font-size: 13px; font-weight: 850; }
-.service-grid em { display: block; margin-top: 9px; color: var(--muted); font-style: normal; font-size: 10px; line-height: 1.5; }
+/* Service Selection Grid */
+.service-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.service-grid .service-option-card,
+.service-grid button {
+  min-height: auto;
+  border: 1.5px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 20px 22px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.service-grid button.selected {
+  border-color: var(--orange);
+  background: #fffdfa;
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.12), 0 4px 16px rgba(237, 116, 25, 0.06);
+}
+
+.service-grid button.premium {
+  background: linear-gradient(145deg, #fffaf4 0%, #f7efe4 100%);
+  border-color: rgba(237, 116, 25, 0.3);
+}
+
+.service-grid button.premium.selected {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(237, 116, 25, 0.16), 0 8px 24px rgba(237, 116, 25, 0.08);
+}
+
+.service-step-badge,
+.service-grid button > span:first-child {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--orange-soft);
+  color: var(--orange-strong);
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.service-step-badge.plus {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.service-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.service-card-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 850;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.service-card-price {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.service-card-desc {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.5;
+}
 
 .summary-grid { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .summary-grid > div { min-height: 88px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); padding: 14px; }
@@ -532,30 +629,343 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 .hero-price { margin: 23px 0 2px; font-size: clamp(47px, 13vw, 72px); line-height: 1; letter-spacing: -.06em; font-weight: 950; }
 .checkout-note { margin-top: 19px; }
 
-/* Phase 5 — payment flow */
-.phase5-payment-stage { padding-top: clamp(34px, 7vh, 72px); animation: stage-in .28s ease both; }
-.payment-amount-card { margin: 24px 0 14px; padding: 22px; border-radius: 26px; background: var(--ink); color: #fff; }
-.payment-amount-card small { display: block; color: #cfc6bb; font-size: 9px; letter-spacing: .13em; font-weight: 900; }
-.payment-amount-card strong { display: block; margin-top: 6px; font-size: clamp(38px, 11vw, 62px); letter-spacing: -.05em; }
-.bank-stack { display: grid; gap: 10px; margin-top: 12px; }
-.bank-card { padding: 17px; border: 1px solid var(--line); border-radius: 21px; background: var(--surface); }
-.bank-card > div { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-.bank-card small { color: var(--orange-strong); font-size: 9px; font-weight: 950; letter-spacing: .12em; }
-.bank-card strong { font-size: 12px; text-align: right; }
-.bank-card code { display: block; margin-top: 13px; padding: 11px 12px; border-radius: 13px; background: var(--paper); color: var(--ink); font-size: 15px; font-weight: 850; word-break: break-all; }
-.bank-card span { display: block; margin-top: 7px; color: var(--muted); font-size: 10px; }
-.payment-next-card { margin-top: 15px; display: flex; align-items: center; gap: 13px; padding: 16px; border: 1px solid #e3d4c4; border-radius: 20px; background: var(--orange-soft); }
-.payment-next-card small { display: block; color: #a96a3b; font-size: 8px; font-weight: 900; letter-spacing: .14em; }
-.payment-next-card strong { display: block; margin-top: 3px; font-size: 12px; }
-.payment-timeline { display: grid; grid-template-columns: 28px 1fr 28px 1fr 28px; align-items: center; gap: 7px; margin: 26px 0 18px; }
-.payment-timeline > span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: #e9e3da; color: #9c9389; font-size: 9px; font-weight: 900; }
-.payment-timeline > span.active { background: var(--orange); color: #fff; }
-.payment-timeline > span.done { background: var(--ink); color: #fff; }
-.payment-timeline > i { height: 1px; background: var(--line); }
-.payment-timeline > small { grid-row: 2; margin-top: 3px; color: var(--muted); font-size: 7px; font-weight: 900; letter-spacing: .08em; text-align: center; }
-.payment-timeline > small:nth-of-type(1) { grid-column: 1; }
-.payment-timeline > small:nth-of-type(2) { grid-column: 3; }
-.payment-timeline > small:nth-of-type(3) { grid-column: 5; }
+/* Phase 5 — Payment Flow (World-Class Redesign) */
+.phase5-payment-stage {
+  padding-top: 18px;
+  animation: stage-in .28s ease both;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payment-hero-header {
+  text-align: left;
+}
+
+.payment-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.payment-status-pill .pulse-dot.green {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.payment-headline {
+  font-size: clamp(26px, 7vw, 36px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.payment-sublead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Luxury Amount Card */
+.luxury-amount-card {
+  border-radius: 24px;
+  background: linear-gradient(145deg, #181512 0%, #0d0c0a 100%);
+  border: 1px solid rgba(237, 116, 25, 0.28);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.24);
+  padding: 22px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.luxury-amount-card::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(237, 116, 25, 0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.amount-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.amount-label {
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  color: #e59344;
+  text-transform: uppercase;
+}
+
+.amount-display-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 6px;
+}
+
+.amount-value {
+  font-size: clamp(38px, 11vw, 56px);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+}
+
+.currency-badge {
+  font-size: 12px;
+  font-weight: 850;
+  color: #ffd666;
+  background: rgba(255, 214, 102, 0.15);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.amount-trust-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #dfd7cc;
+}
+
+/* REPEATED CALLOUT: Telegram Screenshot Alert Card */
+.tg-screenshot-alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1c2738 0%, #151e2b 100%);
+  border: 1.5px solid #288ee8;
+  box-shadow: 0 4px 20px rgba(40, 142, 232, 0.22);
+  color: #fff;
+  text-align: left;
+}
+
+.tg-alert-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #229ed9;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(34, 158, 217, 0.4);
+}
+
+.tg-alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tg-alert-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: #64b5f6;
+  letter-spacing: -0.01em;
+}
+
+.tg-alert-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e3edf7;
+  font-weight: 600;
+}
+
+.bank-card-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+
+.bank-card-section-label span {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.bank-stack {
+  display: grid;
+  gap: 12px;
+}
+
+/* Verification Protocol Card */
+.verification-steps-card {
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  text-align: left;
+}
+
+.steps-header {
+  margin-bottom: 14px;
+}
+
+.steps-eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  color: var(--orange);
+}
+
+.steps-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.verification-step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.step-item .step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--orange-soft);
+  color: var(--orange-strong);
+  font-size: 11px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.step-item .step-num.highlight {
+  background: #229ed9;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(34, 158, 217, 0.35);
+}
+
+.step-item strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.step-item p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.step-item.highlight-step {
+  background: rgba(34, 158, 217, 0.06);
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(34, 158, 217, 0.35);
+}
+
+.tg-highlight-text {
+  color: #0277bd !important;
+}
+
+/* Action CTAs */
+.payment-actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.tg-primary-button {
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #229ed9 0%, #157eb5 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(34, 158, 217, 0.38);
+  transition: all 0.2s ease;
+}
+
+.tg-primary-button:hover,
+.tg-primary-button:active {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(34, 158, 217, 0.48);
+}
+
+.secondary-close-button {
+  width: 100%;
+  min-height: 48px;
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.secondary-close-button:hover,
+.secondary-close-button:active {
+  background: #f0ece3;
+}
+
+.payment-security-note {
+  margin: 6px 0 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
 
 /* Phase 8 — Coach review + approved-plan delivery */
 .review-delivery-timeline {
@@ -1077,20 +1487,50 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   font-weight: 600;
 }
 
+.price-strike-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.price-original {
+  display: inline !important;
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  text-decoration: line-through;
+  color: #9b9389 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
 .price-current {
   color: #181512;
-  font-size: 15px;
-  font-weight: 850;
+  font-size: 17px;
+  font-weight: 900;
 }
 
 .vip-badge {
-  font-size: 9px;
-  font-weight: 850;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #181512;
-  color: #ffd700;
-  letter-spacing: 0.04em;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  height: auto !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.06em !important;
+  padding: 3px 9px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #1f1a14 0%, #0d0b09 100%) !important;
+  color: #ffc400 !important;
+  border: 1px solid rgba(255, 196, 0, 0.35) !important;
+  text-transform: uppercase;
+  white-space: nowrap !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   margin-left: 6px;
 }
 
@@ -1204,25 +1644,17 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 }
 
 /* ========================================================
-   BANK ACCOUNT CARDS & 1-CLICK COPY
+   BANK ACCOUNT CARDS & 1-CLICK COPY (Obsidian Luxury Redesign)
    ======================================================== */
-.bank-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 100%;
-  margin: 18px 0;
-}
-
 .interactive-bank-card {
   position: relative;
   overflow: hidden;
-  border-radius: 20px;
-  padding: 18px 20px;
+  border-radius: 22px;
+  padding: 20px;
   cursor: pointer;
   user-select: none;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   border: 1.5px solid transparent;
 }
 
@@ -1230,53 +1662,35 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   transform: scale(0.985);
 }
 
-/* CBE Theme: Deep Royal Purple & Radiant Gold */
+/* CBE Theme: Deep Royal Obsidian Purple & Gold Foil */
 .bank-theme-cbe {
-  background: linear-gradient(135deg, #1b0d2b 0%, #2e1647 60%, #441f69 100%);
-  border-color: rgba(226, 178, 62, 0.32);
+  background: linear-gradient(145deg, #160c22 0%, #251238 55%, #381952 100%);
+  border-color: rgba(255, 215, 0, 0.32);
   color: #fff;
 }
 
 .bank-theme-cbe .bank-code-badge {
-  background: rgba(226, 178, 62, 0.2);
-  color: #ffd666;
-  border: 1px solid rgba(226, 178, 62, 0.45);
-}
-
-.bank-theme-cbe .account-number {
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-.bank-theme-cbe .holder-name {
-  color: #fffaea;
+  background: rgba(255, 215, 0, 0.18);
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.45);
 }
 
 /* Abyssinia Theme: Obsidian Gold & Warm Amber */
 .bank-theme-abyssinia {
-  background: linear-gradient(135deg, #1f1807 0%, #3a2c0a 60%, #4e3c12 100%);
+  background: linear-gradient(145deg, #181308 0%, #2a1f0a 55%, #423010 100%);
   border-color: rgba(245, 185, 39, 0.38);
   color: #fff;
 }
 
 .bank-theme-abyssinia .bank-code-badge {
-  background: rgba(245, 185, 39, 0.2);
+  background: rgba(245, 185, 39, 0.18);
   color: #f7ce68;
   border: 1px solid rgba(245, 185, 39, 0.45);
 }
 
-.bank-theme-abyssinia .account-number {
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-.bank-theme-abyssinia .holder-name {
-  color: #fffbf0;
-}
-
 .interactive-bank-card.is-copied {
-  border-color: #38bdf8 !important;
-  box-shadow: 0 0 24px rgba(56, 189, 248, 0.35) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 28px rgba(16, 185, 129, 0.4) !important;
 }
 
 .bank-card-header {
@@ -1297,14 +1711,28 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   padding: 3px 8px;
   border-radius: 8px;
   font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.06em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.bank-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .bank-name {
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 850;
   letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.bank-verified-tag {
+  font-size: 9px;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: 0.04em;
 }
 
 .copy-button {
@@ -1318,7 +1746,7 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   backdrop-filter: blur(8px);
   color: #fff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 850;
   cursor: pointer;
   transition: all 0.18s ease;
 }
@@ -1333,7 +1761,7 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   background: #10b981;
   border-color: #34d399;
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.45);
 }
 
 .copy-check {
@@ -1345,26 +1773,57 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
   margin-bottom: 14px;
 }
 
-.account-number-wrap {
-  display: inline-block;
-  padding: 8px 14px;
-  background: rgba(0, 0, 0, 0.32);
-  border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+.account-number-box {
+  background: #09080c;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.account-number {
-  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
-  font-size: 17px;
+.account-label {
+  font-size: 9px;
   font-weight: 850;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.account-number-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.account-digits {
+  font-family: 'SF Mono', 'Roboto Mono', Monaco, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  color: #ffffff !important;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  word-break: break-all;
+}
+
+.copy-action-pill {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #229ed9;
+  background: rgba(34, 158, 217, 0.12);
+  border: 1px solid rgba(34, 158, 217, 0.28);
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .bank-card-footer {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 12px;
 }
 
@@ -1375,21 +1834,33 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 }
 
 .holder-label {
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 9px;
+  font-weight: 800;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .holder-name {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 13.5px;
+  font-weight: 850;
+  color: #fffaea;
 }
 
-.tap-hint {
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.65);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.live-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
 }
 
 /* ========================================================

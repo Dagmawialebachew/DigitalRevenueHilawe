@@ -11,7 +11,16 @@ import {
   PriceOption,
   startPayment,
 } from './api'
-import { hapticError, hapticLight, hapticMedium, hapticSelect, hapticSuccess, syncTelegramBackButton } from './telegram'
+import {
+  closeTelegramApp,
+  hapticError,
+  hapticLight,
+  hapticMedium,
+  hapticSelect,
+  hapticSuccess,
+  openCoachTelegramBot,
+  syncTelegramBackButton,
+} from './telegram'
 import TopProgressBar from './TopProgressBar'
 import BankAccountCard from './BankAccountCard'
 
@@ -336,6 +345,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     try {
       const response = await startPayment(initData, config)
       setPaymentResult(response)
+      window.scrollTo({ top: 0, behavior: 'instant' })
       hapticSuccess()
     } catch (cause) {
       hapticError()
@@ -351,21 +361,150 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     const settlement = payment?.settlement_amount && payment?.settlement_currency
       ? (payment.settlement_currency === 'ETB' ? `${Number(payment.settlement_amount).toLocaleString()} Br` : `$${Number(payment.settlement_amount).toLocaleString()}`)
       : '—'
-    return <section className="phase5-payment-stage">
-      <TopProgressBar active={loading} />
-      <div className="completion-mark">✓</div>
-      <p className="eyebrow">PAYMENT · READY</p>
-      <h1>{language === 'AM' ? 'የክፍያ መመሪያዎ ወደ Telegram bot(@CoachHilaweBot) ተልኳል' : 'Your payment instructions are ready in Telegram'}</h1>
-      <p className="lead">{language === 'AM' ? 'ከታች ካሉት CBE ወይም Abyssinia አካውንቶች ወደ አንዱ የተጠቀሰውን መጠን ያስተላልፉ። ከዚያ Telegram ውስጥ “Send receipt” ቁልፍን ተጭነው screenshot ይላኩ።' : 'Transfer the amount below to either CBE or Bank of Abyssinia. Then return to Telegram, tap “Send receipt,” and send a clear screenshot.'}</p>
-      <div className="payment-amount-card"><small>{language === 'AM' ? 'የሚልኩት መጠን' : 'AMOUNT TO TRANSFER'}</small><strong>{settlement}</strong></div>
-      <div className="bank-stack">
-        {paymentResult.payment_accounts.map((bank) => (
-          <BankAccountCard key={bank.code} bank={bank} language={language} />
-        ))}
-      </div>
-      <div className="payment-next-card"><span className="pulse-dot" /><div><small>TELEGRAM</small><strong>{language === 'AM' ? 'ደረሰኙን በBot ይላኩ' : 'Send the receipt in the bot'}</strong></div></div>
-      <p className="demo-note">{language === 'AM' ? 'Mini Appን መዝጋት ይችላሉ። ክፍያው ሲረጋገጥ ሁኔታው በራሱ ይቀየራል።' : 'You can close the Mini App. When payment is approved, the order status will update automatically.'}</p>
-    </section>
+
+    return (
+      <section className="phase5-payment-stage">
+        <TopProgressBar active={loading} />
+
+        {/* 1. Status Header */}
+        <div className="payment-hero-header">
+          <div className="payment-status-pill">
+            <span className="pulse-dot green" />
+            <span>{language === 'AM' ? 'ክፍያ ይጠበቃል · ቦታዎ ተይዟል' : 'ORDER CONFIRMED · RESERVED'}</span>
+          </div>
+          <h1 className="payment-headline">
+            {language === 'AM' ? 'የባንክ ክፍያዎን ያጠናቅቁ' : 'Complete Your Bank Transfer'}
+          </h1>
+          <p className="payment-sublead">
+            {language === 'AM'
+              ? 'ከታች ወደ አንዱ የባንክ አካውንት የተጠቀሰውን መጠን ያስተላልፉ። ከዚያ Screenshot ወደ @CoachHilaweBot ይላኩ።'
+              : 'Transfer the exact amount below to either CBE or BOA. Then send the receipt screenshot to @CoachHilaweBot.'}
+          </p>
+        </div>
+
+        {/* 2. Minimalist Luxury Amount Card */}
+        <div className="luxury-amount-card">
+          <div className="amount-card-inner">
+            <span className="amount-label">
+              {language === 'AM' ? 'የሚተላለፈው ትክክለኛ መጠን' : 'EXACT AMOUNT TO TRANSFER'}
+            </span>
+            <div className="amount-display-row">
+              <strong className="amount-value">{settlement}</strong>
+              <span className="currency-badge">ETB</span>
+            </div>
+            <div className="amount-trust-footer">
+              <span className="trust-shield">🛡️</span>
+              <span>{language === 'AM' ? 'ያለ ምንም ተጨማሪ ክፍያ · ልዩ የPilot ዋጋ' : 'Locked Pilot Price · Zero Extra Fees'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. REPEATED CALLOUT #1: High Visibility Telegram Screenshot Alert */}
+        <div className="tg-screenshot-alert-card">
+          <div className="tg-alert-icon-box">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .39z"/>
+            </svg>
+          </div>
+          <div className="tg-alert-content">
+            <strong className="tg-alert-title">
+              {language === 'AM'
+                ? 'ክፍያውን እንደፈጸሙ Screenshot ይላኩ!'
+                : 'Send Screenshot to @CoachHilaweBot'}
+            </strong>
+            <p className="tg-alert-text">
+              {language === 'AM'
+                ? 'ክፍያውን እንደፈጸሙ የደረሰኙን Screenshot በማንሳት ወደ Telegram Bot (@CoachHilaweBot) መላክዎን አይርሱ!'
+                : 'As soon as you complete the transfer, take a clear screenshot of your receipt and send it to @CoachHilaweBot on Telegram.'}
+            </p>
+          </div>
+        </div>
+
+        {/* 4. Bank Account Cards */}
+        <div className="bank-card-section-label">
+          <span>{language === 'AM' ? 'የባንክ አካውንቶች (ለመቅዳት ይጫኑ)' : 'BANK ACCOUNTS (TAP TO COPY)'}</span>
+        </div>
+        <div className="bank-stack">
+          {paymentResult.payment_accounts.map((bank) => (
+            <BankAccountCard key={bank.code} bank={bank} language={language} />
+          ))}
+        </div>
+
+        {/* 5. REPEATED CALLOUT #2: Step-by-Step Telegram Verification Protocol */}
+        <div className="verification-steps-card">
+          <div className="steps-header">
+            <span className="steps-eyebrow">VERIFICATION PROTOCOL</span>
+            <strong className="steps-title">
+              {language === 'AM' ? 'የክፍያ ማረጋገጫ 3 ቀላል ደረጃዎች' : '3 Easy Steps to Activate'}
+            </strong>
+          </div>
+          <ol className="verification-step-list">
+            <li className="step-item">
+              <span className="step-num">1</span>
+              <div>
+                <strong>{language === 'AM' ? 'ገንዘቡን ያስተላልፉ' : 'Transfer the Amount'}</strong>
+                <p>{language === 'AM' ? 'ከላይ ከተዘረዘሩት CBE ወይም Abyssinia አካውንቶች ወደ አንዱ ያስተላልፉ።' : 'Send exact amount using mobile banking or ATM to CBE or BOA.'}</p>
+              </div>
+            </li>
+            <li className="step-item">
+              <span className="step-num">2</span>
+              <div>
+                <strong>{language === 'AM' ? 'Screenshot ያንሱ' : 'Capture Receipt Screenshot'}</strong>
+                <p>{language === 'AM' ? 'የተሳካውን ክፍያ የሚያሳይ የሞባይል ባንኪንግ ደረሰኝ ወይም የSMS ማረጋገጫ screenshot ያንሱ።' : 'Take a clear screenshot of the successful transfer receipt or SMS confirmation.'}</p>
+              </div>
+            </li>
+            <li className="step-item highlight-step">
+              <span className="step-num highlight">3</span>
+              <div>
+                <strong className="tg-highlight-text">
+                  {language === 'AM' ? 'ደረሰኙን ወደ @CoachHilaweBot ይላኩ' : 'Send Screenshot to @CoachHilaweBot'}
+                </strong>
+                <p>
+                  {language === 'AM'
+                    ? 'ወደ Telegram Bot (@CoachHilaweBot) ተመልሰው ደረሰኙን ይላኩ። በደቂቃዎች ውስጥ ተረጋግጦ ፕላንዎ ይደርስዎታል።'
+                    : 'Return to Telegram and send your receipt screenshot directly to @CoachHilaweBot. Verification is completed within minutes.'}
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        {/* 6. Action CTAs */}
+        <div className="payment-actions-group">
+          <button
+            type="button"
+            className="tg-primary-button"
+            onClick={() => openCoachTelegramBot()}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .39z"/>
+            </svg>
+            <span>
+              {language === 'AM'
+                ? 'ደረሰኝ ለመላክ ወደ @CoachHilaweBot ይሂዱ'
+                : 'Open @CoachHilaweBot to Send Screenshot'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="secondary-close-button"
+            onClick={() => closeTelegramApp()}
+          >
+            {language === 'AM'
+              ? 'ክፍያ ፈጽሜያለሁ · Mini Appን ዝጋ'
+              : 'I Have Paid · Close Mini App'}
+          </button>
+        </div>
+
+        {/* 7. Bottom Assurance */}
+        <p className="payment-security-note">
+          🔒 {language === 'AM'
+            ? 'አካውንትዎ በCoach Hilawe Bot (@CoachHilaweBot) ደህንነቱ በተጠበቀ ሁኔታ የተገናኘ ነው። ደረሰኙ ሲደርሰን ማረጋገጫ በBot ይላክልዎታል።'
+            : 'Your order is securely linked to Coach Hilawe Bot (@CoachHilaweBot). Confirmation will be sent immediately upon receipt verification.'}
+        </p>
+      </section>
+    )
   }
 
   if (result) {
@@ -512,28 +651,43 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       </div>
       <h1>{t.serviceTitle}</h1><p className="lead">{t.serviceBody}</p>
       <div className="service-grid">
-        <button className={config.service_type === 'PLAN' ? 'selected' : ''} onClick={() => setConfig({ ...config, service_type: 'PLAN' })}>
-          <span>01</span>
-          <strong>{t.planOnly}</strong>
-          <small>{formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'PLAN'))}</small>
+        <button
+          type="button"
+          className={`service-option-card ${config.service_type === 'PLAN' ? 'selected' : ''}`}
+          onClick={() => setConfig({ ...config, service_type: 'PLAN' })}
+        >
+          <span className="service-step-badge">01</span>
+          <strong className="service-card-title">{t.planOnly}</strong>
+          <span className="service-card-price">
+            {formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'PLAN'))}
+          </span>
         </button>
-        <button className={config.service_type === 'FOLLOW_UP' ? 'selected premium' : ''} onClick={() => setConfig({ ...config, service_type: 'FOLLOW_UP' })}>
-          <span>+</span>
-          <div>
-            <strong>{t.followUp}</strong>
+
+        <button
+          type="button"
+          className={`service-option-card ${config.service_type === 'FOLLOW_UP' ? 'selected premium' : ''}`}
+          onClick={() => setConfig({ ...config, service_type: 'FOLLOW_UP' })}
+        >
+          <span className="service-step-badge plus">+</span>
+          <div className="service-title-row">
+            <strong className="service-card-title">{t.followUp}</strong>
             <span className="vip-badge">VIP COACHING</span>
           </div>
-          <div className="price-strike-wrap" style={{ marginTop: 4 }}>
+          <div className="price-strike-wrap">
             {pricingMode !== 'MANUAL' && (
               <span className="price-original">
                 {prices[0]?.currency === 'ETB' ? '12,500 Br' : '$119'}
               </span>
             )}
-            <small className="price-current" style={{ margin: 0 }}>
-              {pricingMode === 'MANUAL' ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote') : formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'FOLLOW_UP'))}
-            </small>
+            <span className="price-current">
+              {pricingMode === 'MANUAL'
+                ? (language === 'AM' ? 'ዋጋ ይረጋገጣል' : 'Manual quote')
+                : formatPrice(prices.find((item) => item.duration_days === 30 && item.service_type === 'FOLLOW_UP'))}
+            </span>
           </div>
-          <em>{language === 'AM' ? 'ሳምንታዊ 1-on-1 check-in + አስፈላጊ ማስተካከያ (2 ቦታዎች ብቻ)' : 'Weekly 1-on-1 check-ins + adjustments (Strictly 2 spots)'}</em>
+          <em className="service-card-desc">
+            {language === 'AM' ? 'ሳምንታዊ 1-on-1 check-in + አስፈላጊ ማስተካከያ (2 ቦታዎች ብቻ)' : 'Weekly 1-on-1 check-ins + adjustments (Strictly 2 spots)'}
+          </em>
         </button>
       </div>
       <FlowButtons back={() => go('DURATION')} next={() => go('SUMMARY')} backText={t.back} nextText={t.continue} />
