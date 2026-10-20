@@ -505,9 +505,9 @@ def render_pdf(
     is_client_delivery: bool = False,
     keep_html: bool = True,
 ) -> Path:
-    """Render ultra-modern HTML-to-PDF document via Chromium with ReportLab fallback."""
+    """Render ultra-modern HTML-to-PDF document via Chromium."""
+    from .html_pdf_renderer import render_html_pdf
     try:
-        from .html_pdf_renderer import render_html_pdf
         return render_html_pdf(
             plan,
             context,
@@ -516,11 +516,17 @@ def render_pdf(
             keep_html=keep_html,
         )
     except Exception as exc:
+        import os
         import logging
-        logging.getLogger(__name__).warning("HTML-to-PDF engine unavailable, falling back to ReportLab: %s", exc)
-        return _render_pdf_reportlab(
-            plan,
-            context,
-            output_path,
-            is_client_delivery=is_client_delivery,
-        )
+        allow_fallback = os.getenv("MEAL_PLAN_ALLOW_REPORTLAB_FALLBACK", "false").strip().lower() in {"1", "true", "yes"}
+        if allow_fallback:
+            logging.getLogger(__name__).warning("HTML-to-PDF engine unavailable, falling back to ReportLab: %s", exc)
+            return _render_pdf_reportlab(
+                plan,
+                context,
+                output_path,
+                is_client_delivery=is_client_delivery,
+            )
+        logging.getLogger(__name__).error("Headless Chromium Luxury HTML PDF rendering failed: %s", exc)
+        raise RuntimeError(f"Headless Chromium Luxury HTML PDF rendering failed: {exc}") from exc
+

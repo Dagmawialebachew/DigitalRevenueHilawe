@@ -6,7 +6,7 @@ from typing import Any
 from .docx_renderer import render_docx
 from .helpers import artifact_basename, build_manifest, sha256_file, write_json
 from .models import DocumentContext, RenderedArtifact, RenderedArtifactSet
-from .pdf_renderer import render_pdf
+from .html_pdf_renderer import render_html_pdf as render_pdf
 from .storage import version_output_dir
 
 

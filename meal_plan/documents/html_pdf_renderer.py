@@ -65,15 +65,15 @@ def _get_embedded_fonts_css() -> str:
 
 
 def find_chromium_executable() -> str | None:
-    """Auto-detect Chromium-based browser (Chrome or Edge) across platforms."""
+    """Auto-detect Chromium-based browser (Chrome, Edge, Brave) across platforms."""
     # 1. Check environment variables
-    for env_var in ("CHROME_PATH", "CHROMIUM_PATH", "EDGE_PATH"):
+    for env_var in ("CHROME_PATH", "CHROMIUM_PATH", "EDGE_PATH", "BRAVE_PATH"):
         val = os.environ.get(env_var)
         if val and Path(val).exists():
             return val
 
     # 2. Check PATH
-    for name in ("chrome", "google-chrome", "chromium", "msedge", "edge"):
+    for name in ("chrome", "google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "msedge", "edge", "brave", "brave-browser"):
         found = shutil.which(name)
         if found and Path(found).exists():
             return found
@@ -83,8 +83,12 @@ def find_chromium_executable() -> str | None:
         Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
         Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
         Path(os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")),
-        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
         Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
+        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe")),
+        Path(r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        Path(r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe")),
     ]
     for p in win_paths:
         if p.exists():
@@ -93,9 +97,12 @@ def find_chromium_executable() -> str | None:
     # 4. Known Linux locations
     linux_paths = [
         Path("/usr/bin/google-chrome"),
+        Path("/usr/bin/google-chrome-stable"),
         Path("/usr/bin/chromium"),
         Path("/usr/bin/chromium-browser"),
         Path("/snap/bin/chromium"),
+        Path("/usr/bin/microsoft-edge"),
+        Path("/usr/bin/brave-browser"),
     ]
     for p in linux_paths:
         if p.exists():
@@ -105,12 +112,15 @@ def find_chromium_executable() -> str | None:
     mac_paths = [
         Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
         Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+        Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
     ]
     for p in mac_paths:
         if p.exists():
             return str(p)
 
     return None
+
 
 
 # Daily coaching wisdom tips to keep meal pages balanced and aesthetically full
@@ -1812,6 +1822,7 @@ def render_html_pdf(
         "--no-sandbox",
         "--disable-dev-shm-usage",
         "--disable-software-rasterizer",
+        "--run-all-compositor-stages-before-draw",
         "--no-pdf-header-footer",
         f"--print-to-pdf={pdf_path.resolve()}",
         str(html_path.resolve()),
