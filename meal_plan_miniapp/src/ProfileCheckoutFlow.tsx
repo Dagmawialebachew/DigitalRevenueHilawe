@@ -23,6 +23,7 @@ import {
 } from './telegram'
 import TopProgressBar from './TopProgressBar'
 import BankAccountCard from './BankAccountCard'
+import { trackMovement } from './telemetry'
 
 type Props = {
   initData: string
@@ -33,7 +34,7 @@ type Props = {
   intakeState: string
 }
 
-type Step = 'PROFILE' | 'MEALS' | 'START' | 'DURATION' | 'SERVICE' | 'SUMMARY'
+type Step = 'PROFILE' | 'MEALS' | 'START' | 'DURATION' | 'SERVICE'
 
 type Config = {
   meals_per_day: 3 | 4 | 5
@@ -252,7 +253,11 @@ function CoachGuaranteeCard({ language }: { language: Language }) {
 export default function ProfileCheckoutFlow({ initData, language, firstName, answers, profile, intakeState }: Props) {
   const t = text[language]
   const saved = (answers.plan_configuration || {}) as Partial<Config>
-  const [step, setStep] = useState<Step>(intakeState === 'CHECKOUT_READY' && saved.duration_days ? 'SUMMARY' : 'PROFILE')
+  const [step, setStep] = useState<Step>(
+    intakeState === 'CHECKOUT_READY' && saved.duration_days
+      ? (saved.duration_days === 30 ? 'SERVICE' : 'DURATION')
+      : 'PROFILE'
+  )
   const [config, setConfig] = useState<Config>({
     meals_per_day: saved.meals_per_day || 4,
     start_date: saved.start_date || tomorrowISO(),
@@ -299,7 +304,6 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
       START: 'MEALS',
       DURATION: 'START',
       SERVICE: 'DURATION',
-      SUMMARY: config.duration_days === 30 ? 'SERVICE' : 'DURATION',
     }
     const prev = prevMap[step]
     if (prev) {
@@ -316,6 +320,15 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     const cleanup = syncTelegramBackButton(isNested, goBack)
     return cleanup
   }, [step, result, paymentResult, config.duration_days])
+
+  useEffect(() => {
+    trackMovement(step === 'PROFILE' ? 'PROFILE' : 'CHECKOUT', step, {
+      duration_days: config.duration_days,
+      service_type: config.service_type,
+      meals_per_day: config.meals_per_day,
+      target_kcal: profile?.target_kcal,
+    })
+  }, [step, config.duration_days, config.service_type])
 
   async function submit() {
     if (loading || submitLockRef.current) return
@@ -344,6 +357,10 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
     hapticMedium()
     try {
       const response = await startPayment(initData, config)
+      trackMovement('PAYMENT', 'PAYMENT_STARTED', {
+        duration_days: config.duration_days,
+        service_type: config.service_type,
+      }, true)
       setPaymentResult(response)
       window.scrollTo({ top: 0, behavior: 'instant' })
       hapticSuccess()
@@ -562,7 +579,7 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
 
   return <section className="phase4-stage">
     <TopProgressBar active={loading} />
-    <div className="phase4-progress"><span className={step === 'PROFILE' ? 'active' : 'done'}>01</span><i /><span className={['MEALS','START'].includes(step) ? 'active' : ['DURATION','SERVICE','SUMMARY'].includes(step) ? 'done' : ''}>02</span><i /><span className={['DURATION','SERVICE'].includes(step) ? 'active' : step === 'SUMMARY' ? 'done' : ''}>03</span><i /><span className={step === 'SUMMARY' ? 'active' : ''}>04</span></div>
+    <div className="phase4-progress"><span className={step === 'PROFILE' ? 'active' : 'done'}>01</span><i /><span className={['MEALS','START'].includes(step) ? 'active' : ['DURATION','SERVICE'].includes(step) ? 'done' : ''}>02</span><i /><span className={['DURATION','SERVICE'].includes(step) ? 'active' : ''}>03</span></div>
 
     <div key={step} className={`step-animated-shell ${direction}`}>
       {step === 'PROFILE' && <>
@@ -637,7 +654,13 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
           </button>
         )
       })}</div>
-      <FlowButtons back={() => go('START')} next={() => go(config.duration_days === 30 ? 'SERVICE' : 'SUMMARY')} backText={t.back} nextText={t.continue} />
+      <FlowButtons
+        back={() => go('START')}
+        next={() => (config.duration_days === 30 ? go('SERVICE') : void submit())}
+        backText={t.back}
+        nextText={config.duration_days === 30 ? t.continue : (language === 'AM' ? 'ወደ ክፍያ ቀጥል' : 'Continue to Checkout')}
+        disabled={loading}
+      />
     </>}
 
     {step === 'SERVICE' && <>
@@ -690,55 +713,13 @@ export default function ProfileCheckoutFlow({ initData, language, firstName, ans
           </em>
         </button>
       </div>
-      <FlowButtons back={() => go('DURATION')} next={() => go('SUMMARY')} backText={t.back} nextText={t.continue} />
-    </>}
-
-    {step === 'SUMMARY' && <>
-      <div className="checkout-scarcity-strip" style={{ marginBottom: 16 }}>
-        <span className="flame-icon">🔥</span>
-        <span>
-          {language === 'AM'
-            ? 'የመጀመሪያው ዙር (Pilot)፦ 5 ቦታዎች ብቻ። ልዩ የቅናሽ ዋጋ በሰዓት ቆጣሪው ያበቃል።'
-            : 'Round 1 Pilot: Capped at 5 clients only. Special launch price ends with timer.'}
-        </span>
-      </div>
-      <p className="eyebrow">PLAN CONFIGURATION</p><h1>{t.summaryTitle}</h1><p className="lead">{t.summaryBody}</p>
-      <div className="summary-grid">
-        <Summary label={language === 'AM' ? 'ቀናት' : 'Duration'} value={`${config.duration_days}`} />
-        <Summary label={language === 'AM' ? 'ምግብ / ቀን' : 'Meals / day'} value={`${config.meals_per_day}`} />
-        <Summary label={language === 'AM' ? 'መጀመሪያ' : 'Start date'} value={`${formatEthiopian(config.start_date, language)} / ${formatGregorian(config.start_date, language)}`} />
-        <Summary label={language === 'AM' ? 'አገልግሎት' : 'Service'} value={config.service_type === 'FOLLOW_UP' ? 'Meal Plan + Follow-Up' : 'Meal Plan'} />
-      </div>
-      <div className="summary-price">
-        <span>{language === 'AM' ? 'ዋጋ' : 'PRICE'}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <strong>{pricingMode === 'MANUAL' ? (language === 'AM' ? 'በreview ይረጋገጣል' : 'Manual confirmation') : formatPrice(selectedPrice)}</strong>
-          {selectedPrice && getSavingsPill(selectedPrice.currency, config.duration_days, config.service_type, language) && (
-            <span className="savings-pill">{getSavingsPill(selectedPrice.currency, config.duration_days, config.service_type, language)}</span>
-          )}
-        </div>
-      </div>
-      <CoachGuaranteeCard language={language} />
-      {pricingMode === 'AUTOMATIC' && !selectedPrice && <p className="inline-warning">{t.pricingMissing}</p>}
-      {pricingMode === 'MANUAL' && <p className="inline-warning">{t.manualPricing}</p>}
-      <button
-        className={`primary-button tall ${loading ? 'is-loading' : ''}`}
+      <FlowButtons
+        back={() => go('DURATION')}
+        next={() => void submit()}
+        backText={t.back}
+        nextText={language === 'AM' ? 'ወደ ክፍያ ቀጥል' : 'Continue to Checkout'}
         disabled={loading}
-        onClick={() => void submit()}
-      >
-        {loading ? (
-          <>
-            <span className="button-spinner inverted" />
-            <span>{t.loadingPrice}</span>
-          </>
-        ) : (
-          <>
-            <span>{t.prepareCheckout}</span>
-            <span>→</span>
-          </>
-        )}
-      </button>
-      <button className="back-button centered" onClick={() => go(config.duration_days === 30 ? 'SERVICE' : 'DURATION')}>← {t.back}</button>
+      />
     </>}
     </div>
     {error && <div className="inline-error">{error}</div>}

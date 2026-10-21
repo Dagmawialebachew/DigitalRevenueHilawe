@@ -22,6 +22,7 @@ import {
   syncTelegramBackButton,
 } from './telegram'
 import TopProgressBar from './TopProgressBar'
+import { trackMovement } from './telemetry'
 
 type Props = {
   initData: string
@@ -108,6 +109,10 @@ export default function IntakeFlow({
     return cleanup
   }, [step, answers])
 
+  useEffect(() => {
+    trackMovement('INTAKE', step, { progress })
+  }, [step])
+
   async function commit(patch: IntakeAnswers, next: Step) {
     if (isCommittingRef.current) return
     isCommittingRef.current = true
@@ -136,6 +141,7 @@ export default function IntakeFlow({
     setError('')
     hapticMedium()
     setDirection('forward')
+    trackMovement('INTAKE', 'ASSESSMENT_COMPLETE', {}, true)
     try {
       await saveIntakeAnswers(initData, patch, 'ASSESSMENT_COMPLETE')
       const merged = { ...answers, ...patch }

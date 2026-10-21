@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Language, PaymentAccount } from './api'
 import { hapticSuccess } from './telegram'
+import { trackMovement } from './telemetry'
 
 type Props = {
   bank: PaymentAccount
@@ -21,6 +22,7 @@ export default function BankAccountCard({ bank, language }: Props) {
 
   async function handleCopy(e?: React.MouseEvent) {
     if (e) e.stopPropagation()
+    trackMovement('PAYMENT', 'BANK_ACCOUNT_COPIED', { bank_code: bank.code, bank_name: bank.name }, true)
     try {
       await navigator.clipboard.writeText(bank.account)
     } catch {

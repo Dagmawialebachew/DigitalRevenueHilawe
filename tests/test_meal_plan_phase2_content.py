@@ -54,8 +54,10 @@ class Phase2GlossaryContractTests(unittest.TestCase):
             self.assertIn(rid, RECIPE_CALIBRATIONS, f"Recipe ID {rid} missing from RECIPE_CALIBRATIONS")
 
             en, am = RECIPE_GLOSSARY[rid]
-            self.assertTrue(en.startswith("Coach Hilawe"), f"Recipe EN name '{en}' must start with Coach Hilawe")
-            self.assertTrue(am.startswith("የአሰልጣኝ ህላዌ"), f"Recipe AM name '{am}' must start with የአሰልጣኝ ህላዌ")
+            self.assertTrue(len(en) > 0, f"Recipe EN name must not be empty for {rid}")
+            self.assertTrue(len(am) > 0, f"Recipe AM name must not be empty for {rid}")
+            self.assertFalse(en.startswith("Coach Hilawe"), f"Recipe EN name '{en}' should not have Coach prefix")
+            self.assertFalse(am.startswith("የአሰልጣኝ ህላዌ"), f"Recipe AM name '{am}' should not have Coach prefix")
 
             cal = RECIPE_CALIBRATIONS[rid]
             self.assertEqual(cal["calibration_status"], "CALIBRATED")

@@ -16,7 +16,7 @@ class PilotBroadcastFormattingTests(unittest.TestCase):
     def test_paid_male_formatting(self):
         text, kb = format_pilot_broadcast_message("ዳዊት ከበደ", "MALE", has_bought=True, mini_app_url="https://example.com/app")
         self.assertIn("ዳዊት", text)
-        self.assertIn("እየሰራህ", text)
+        self.assertIn("የስፖርት ፕሮግራሜን", text)
         self.assertIn("80%", text)
         self.assertIn("5 ሰዎችን ብቻ", text)
         self.assertNotIn("ጽጌ", text)
@@ -26,7 +26,7 @@ class PilotBroadcastFormattingTests(unittest.TestCase):
     def test_paid_female_formatting(self):
         text, kb = format_pilot_broadcast_message("ሰላም አለሙ", "FEMALE", has_bought=True, mini_app_url="https://example.com/app")
         self.assertIn("ሰላም", text)
-        self.assertIn("እየደከምሽ", text)
+        self.assertIn("የስፖርት ፕሮግራሜን", text)
         self.assertIn("80%", text)
         self.assertIn("5 ሰዎችን ብቻ", text)
         self.assertNotIn("ጽጌ", text)
@@ -35,7 +35,7 @@ class PilotBroadcastFormattingTests(unittest.TestCase):
     def test_unpaid_male_formatting(self):
         text, kb = format_pilot_broadcast_message("ዮናስ", "MALE", has_bought=False)
         self.assertIn("ዮናስ", text)
-        self.assertIn("ቆይተሃል", text)
+        self.assertIn("80%", text)
         self.assertIn("5 ሰዎችን ብቻ", text)
         self.assertNotIn("ጽጌ", text)
         self.assertIn("ዮናስ", kb.inline_keyboard[0][0].text)
@@ -43,7 +43,7 @@ class PilotBroadcastFormattingTests(unittest.TestCase):
     def test_unpaid_female_formatting(self):
         text, kb = format_pilot_broadcast_message("ሄለን", "FEMALE", has_bought=False)
         self.assertIn("ሄለን", text)
-        self.assertIn("ቆይተሻል", text)
+        self.assertIn("80%", text)
         self.assertIn("5 ሰዎችን ብቻ", text)
         self.assertNotIn("ጽጌ", text)
         self.assertIn("ሄለን", kb.inline_keyboard[0][0].text)

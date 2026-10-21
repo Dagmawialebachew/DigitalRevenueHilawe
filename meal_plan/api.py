@@ -868,6 +868,59 @@ async def download_approved_pdf(request: web.Request) -> web.StreamResponse:
     return response
 
 
+async def track_meal_event(request: web.Request) -> web.Response:
+    """POST /api/meal/track - Lightweight, non-blocking telemetry event ingestion."""
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    if not isinstance(payload, dict):
+        return web.json_response({"ok": False, "error": "Expected JSON object"}, status=400)
+
+    stage = str(payload.get("stage") or "GENERAL")
+    step = str(payload.get("step") or "UNKNOWN")
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    user_info = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+
+    telegram_id = None
+    full_name = user_info.get("first_name") or user_info.get("full_name")
+    username = user_info.get("username")
+
+    init_data = payload.get("init_data")
+    if init_data and isinstance(init_data, str):
+        try:
+            bot = request.app.get("bot")
+            if bot and getattr(bot, "token", None):
+                identity = validate_telegram_init_data(init_data, bot.token, max_age_seconds=86400 * 7)
+                telegram_id = identity.telegram_id
+                if not full_name:
+                    full_name = identity.first_name
+                if not username:
+                    username = identity.username
+        except Exception:
+            pass
+
+    if not telegram_id and user_info.get("telegram_id"):
+        try:
+            telegram_id = int(user_info["telegram_id"])
+        except (ValueError, TypeError):
+            pass
+
+    if telegram_id:
+        from meal_plan.telemetry import record_telemetry_event
+        record_telemetry_event(
+            telegram_id=telegram_id,
+            stage=stage,
+            step=step,
+            metadata=metadata,
+            full_name=full_name,
+            username=username,
+        )
+
+    return web.json_response({"ok": True})
+
+
 def setup_meal_plan_routes(app: web.Application) -> None:
     app.router.add_get("/api/meal/health", meal_health)
     app.router.add_post("/api/meal/bootstrap", bootstrap)
@@ -881,3 +934,13 @@ def setup_meal_plan_routes(app: web.Application) -> None:
     app.router.add_post("/api/meal/followup/checkin", submit_followup_checkin)
     app.router.add_post("/api/meal/renewal/start", start_renewal)
     app.router.add_post("/api/meal/plan/pdf", download_approved_pdf)
+    app.router.add_post("/api/meal/track", track_meal_event)
+
+    async def _on_startup_telemetry(app_inst: web.Application):
+        db = app_inst.get("db")
+        pool = getattr(db, "_pool", None) if db else None
+        if pool:
+            from meal_plan.telemetry import start_telemetry_flusher
+            start_telemetry_flusher(pool)
+
+    app.on_startup.append(_on_startup_telemetry)

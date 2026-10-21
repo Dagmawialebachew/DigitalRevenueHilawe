@@ -213,10 +213,20 @@ def setup_admin_routes(app: web.Application):
     app.router.add_get("/api/admin/testimonials", get_user_testimonials)
     app.router.add_get("/api/admin/testimonials/stats", get_testimonial_kpis)
     
-    # --- Transaction & Payout Management ---
-    app.router.add_get('/api/admin/payouts/pending', get_pending_payout_stats)
-    app.router.add_get('/api/admin/payouts/history', get_payout_history)
-    app.router.add_post("/api/admin/payouts/confirm", confirm_payout)
+    # --- Meal Plan Telemetry & Live Radar ---
+    app.router.add_get("/api/admin/meal/telemetry", get_meal_telemetry_analytics)
+
+
+async def get_meal_telemetry_analytics(request: web.Request) -> web.Response:
+    """GET /api/admin/meal/telemetry?hours=24 - Real-time meal plan funnel & user radar."""
+    db = request.app["db"]
+    try:
+        hours = int(request.query.get("hours", "24"))
+    except (ValueError, TypeError):
+        hours = 24
+    from meal_plan.telemetry import get_telemetry_analytics
+    data = await get_telemetry_analytics(db, hours=hours)
+    return web.json_response(data)
 
 
 # --- Analysis & Secondary APIs ---------------------------------------------

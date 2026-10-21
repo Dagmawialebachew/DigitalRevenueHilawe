@@ -8,6 +8,7 @@ import ProfileCheckoutFlow from './ProfileCheckoutFlow'
 import { getTelegramWebApp, hapticError, hapticLight, hapticMedium, hapticSelect, initializeTelegramShell } from './telegram'
 import TopProgressBar from './TopProgressBar'
 import BankAccountCard from './BankAccountCard'
+import { setTelemetryUser, trackMovement } from './telemetry'
 
 const regions = [
   ['ETHIOPIA', 'ኢትዮጵያ', 'Ethiopia'],
@@ -43,6 +44,12 @@ export default function App() {
 
     try {
       const data = await bootstrap(telegram.initData)
+      setTelemetryUser(data.user)
+      trackMovement('LAUNCH', 'APP_OPENED', {
+        country_required: data.intake.country_required,
+        intake_state: data.intake.state,
+        current_step: data.intake.current_step,
+      }, true)
       setLanguage(data.user.language)
       setState({ status: 'ready', data, initData: telegram.initData })
     } catch (error) {
@@ -63,6 +70,7 @@ export default function App() {
     if (next === language) return
     hapticSelect()
     setLanguage(next)
+    trackMovement('LAUNCH', 'LANGUAGE_SWITCHED', { language: next })
     if (state.status !== 'ready') return
     try {
       await saveLanguage(state.initData, next)
@@ -83,6 +91,7 @@ export default function App() {
     setPendingRegion(region)
     setSaving(true)
     hapticMedium()
+    trackMovement('LAUNCH', 'COUNTRY_SELECTED', { region, country_name: otherCountry }, true)
     try {
       const result = await saveCountry(state.initData, region, region === 'OTHER' ? otherCountry : undefined)
       setState({

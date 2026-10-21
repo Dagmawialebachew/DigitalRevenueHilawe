@@ -447,7 +447,7 @@ footer { margin-top: auto; padding-top: 36px; text-align: center; color: #aaa39b
 .phase4-stage, .health-hold-stage { padding-top: 24px; animation: stage-in .28s ease both; }
 .health-hold-stage { padding-top: clamp(44px, 9vh, 86px); }
 .health-shield.large { width: 68px; height: 68px; border-radius: 24px; font-size: 32px; }
-.phase4-progress { display: grid; grid-template-columns: auto 1fr auto 1fr auto 1fr auto; gap: 8px; align-items: center; margin: 4px 0 34px; }
+.phase4-progress { display: grid; grid-template-columns: auto 1fr auto 1fr auto; gap: 8px; align-items: center; margin: 4px 0 34px; }
 .phase4-progress span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: #ebe5dc; color: #999087; font-size: 9px; font-weight: 900; }
 .phase4-progress span.active { background: var(--ink); color: white; }
 .phase4-progress span.done { background: var(--orange-soft); color: var(--orange-strong); }
