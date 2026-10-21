@@ -312,3 +312,118 @@ async def execute_live_pilot_broadcast(callback: types.CallbackQuery, bot: Bot, 
         f"🚫 Inactive/Blocked: <code>{failed:,}</code>",
         parse_mode="HTML",
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# SHORT FIX BROADCAST (FOR USERS FACING ACCESS ISSUES)
+# ─────────────────────────────────────────────────────────────
+
+def format_fix_broadcast_message(mini_app_url: str | None = None) -> tuple[str, InlineKeyboardMarkup]:
+    """Short 3-sentence message notifying users that access is fixed, with pilot cap notice."""
+    text = (
+        "<b>ቅድም የምግብ ፕላኑ «አልሰራ አለኝ» ላላችሁ ይሄው አሁን ተስተካክሏል! ✅</b>\n\n"
+        "አሁን ክፍት ስለሆነ ከታች ያለውን በተን ተጭናችሁ በቀጥታ መጀመር ትችላላችሁ። 👇\n\n"
+        "<i>(ለ5 ሰው ብቻ ነው የሚዘጋጀው!)</i>"
+    )
+    resolved_url = mini_app_url or frontend_url()
+    btn_text = "🥗 የምግብ ፕላኑን ክፈት"
+    if frontend_url_is_valid(resolved_url) and not resolved_url.startswith("http://localhost"):
+        button = InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=resolved_url))
+    else:
+        button = InlineKeyboardButton(text=btn_text, callback_data="meal_pilot_app_open")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    return text, kb
+
+
+@router.message(Command("fix_broadcast", "meal_fix_broadcast"))
+async def admin_fix_broadcast_preview(message: types.Message, db: Database):
+    """Admin command to preview and dispatch the short fix announcement."""
+    if not _authorized_admin(message.from_user.id):
+        return
+
+    text, kb = format_fix_broadcast_message()
+    await message.answer(f"👀 <b>[BROADCAST PREVIEW]</b>\n\n{text}", reply_markup=kb, parse_mode="HTML")
+
+    count_row = await db._pool.fetchrow("SELECT COUNT(1) as total FROM users WHERE telegram_id > 0")
+    total_users = count_row["total"] if count_row else 0
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text=f"🚀 Broadcast to All ({total_users:,} Users)", callback_data="fix_bc:all")
+    builder.button(text="❌ Cancel", callback_data="fix_bc:cancel")
+    builder.adjust(1)
+
+    await message.answer(
+        f"📢 <b>Fix Broadcast Ready!</b>\n"
+        f"👥 <b>Target Audience:</b> <code>{total_users:,}</code> registered users.\n\n"
+        f"Click below to send this notification now:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data.startswith("fix_bc:"))
+async def execute_fix_broadcast(callback: types.CallbackQuery, bot: Bot, db: Database):
+    """Dispatches the short fix announcement to all registered users."""
+    admin_id = callback.from_user.id
+    if not _authorized_admin(admin_id):
+        return await callback.answer("⚠️ Access Denied", show_alert=True)
+
+    action = callback.data.split(":")[1]
+    if action == "cancel":
+        await callback.message.edit_text("🚫 Fix broadcast cancelled.")
+        return await callback.answer()
+
+    if action != "all":
+        return
+
+    await callback.answer("Starting broadcast...")
+    rows = await db._pool.fetch("SELECT telegram_id FROM users WHERE telegram_id > 0")
+    targets = [r["telegram_id"] for r in rows]
+    total = len(targets)
+
+    if total == 0:
+        return await callback.message.answer("⚠️ No users found in database.")
+
+    status_msg = await callback.message.answer(
+        f"🚀 <b>Broadcasting Fix Message to {total:,} users...</b>\n"
+        f"Progress: 0/{total}\n"
+        f"✅ Sent: 0 | 🚫 Failed: 0",
+        parse_mode="HTML",
+    )
+
+    text, kb = format_fix_broadcast_message()
+    sent = 0
+    failed = 0
+
+    for idx, uid in enumerate(targets, start=1):
+        try:
+            await bot.send_message(chat_id=uid, text=text, reply_markup=kb, parse_mode="HTML")
+            sent += 1
+        except (TelegramForbiddenError, TelegramAPIError):
+            failed += 1
+        except Exception as exc:
+            failed += 1
+            logger.debug("Failed sending fix broadcast to %s: %s", uid, exc)
+
+        await asyncio.sleep(0.04)
+
+        if idx % 50 == 0 or idx == total:
+            try:
+                await status_msg.edit_text(
+                    f"🚀 <b>Broadcasting Fix Message to {total:,} users...</b>\n"
+                    f"Progress: {idx}/{total}\n"
+                    f"✅ Sent: {sent} | 🚫 Failed: {failed}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+
+    await callback.message.answer(
+        f"🏁 <b>Fix Broadcast Complete!</b>\n\n"
+        f"👥 Total Targeted: <code>{total:,}</code>\n"
+        f"✅ Delivered: <code>{sent:,}</code>\n"
+        f"🚫 Inactive/Blocked: <code>{failed:,}</code>",
+        parse_mode="HTML",
+    )
+

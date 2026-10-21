@@ -55,6 +55,15 @@ class PilotBroadcastFormattingTests(unittest.TestCase):
         text_female, _ = format_pilot_broadcast_message(None, "FEMALE", has_bought=False)
         self.assertIn("እህቴ", text_female)
 
+    def test_fix_broadcast_formatting(self):
+        from meal_plan.pilot_broadcast import format_fix_broadcast_message
+        text, kb = format_fix_broadcast_message("https://example.com/app")
+        self.assertIn("አልሰራ አለኝ", text)
+        self.assertIn("ለ5 ሰው ብቻ", text)
+        self.assertIn("<i>", text)
+        self.assertIn("🥗 የምግብ ፕላኑን ክፈት", kb.inline_keyboard[0][0].text)
+        self.assertEqual(kb.inline_keyboard[0][0].web_app.url, "https://example.com/app")
+
 
 class PilotBroadcastDatabaseAndAuthTests(unittest.IsolatedAsyncioTestCase):
     def test_admin_authorization(self):
