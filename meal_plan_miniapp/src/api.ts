@@ -1,4 +1,7 @@
-const API_BASE = (import.meta.env.VITE_MEAL_API_BASE_URL || '').replace(/\/$/, '')
+const API_BASE = (
+  import.meta.env.VITE_MEAL_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:8081' : 'https://digitalrevenuehilawe.onrender.com')
+).replace(/\/$/, '')
 
 type ApiErrorBody = {
   error?: { code?: string; message?: string; details?: unknown }

@@ -907,6 +907,12 @@ async def track_meal_event(request: web.Request) -> web.Response:
         except (ValueError, TypeError):
             pass
 
+    if not telegram_id and payload.get("visitor_id"):
+        try:
+            telegram_id = int(payload["visitor_id"])
+        except (ValueError, TypeError):
+            pass
+
     if telegram_id:
         from meal_plan.telemetry import record_telemetry_event
         record_telemetry_event(

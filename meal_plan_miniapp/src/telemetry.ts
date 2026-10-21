@@ -1,6 +1,9 @@
 import { getTelegramWebApp } from './telegram'
 
-const API_BASE = (import.meta.env.VITE_MEAL_API_BASE_URL || '').replace(/\/$/, '')
+const API_BASE = (
+  import.meta.env.VITE_MEAL_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:8081' : 'https://digitalrevenuehilawe.onrender.com')
+).replace(/\/$/, '')
 
 export type TelemetryStage = 'LAUNCH' | 'INTAKE' | 'PROFILE' | 'CHECKOUT' | 'PAYMENT' | 'DELIVERY'
 
@@ -14,6 +17,17 @@ let cachedUser: TelemetryUser | null = null
 
 export function setTelemetryUser(user: TelemetryUser) {
   cachedUser = user
+}
+
+function getOrGenerateVisitorId(): number {
+  if (typeof window === 'undefined') return 999999
+  const key = 'hilawe_visitor_id'
+  let id = localStorage.getItem(key)
+  if (!id) {
+    id = String(Math.floor(100000000 + Math.random() * 900000000))
+    localStorage.setItem(key, id)
+  }
+  return parseInt(id, 10)
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -30,12 +44,19 @@ export function trackMovement(
   immediate = false
 ) {
   const initData = getTelegramWebApp()?.initData || ''
+  const effectiveUser = cachedUser || {
+    telegram_id: getOrGenerateVisitorId(),
+    first_name: 'Visitor',
+    username: null,
+  }
+
   pendingPayload = {
     init_data: initData,
     stage,
     step,
     metadata: metadata || {},
-    user: cachedUser,
+    user: effectiveUser,
+    visitor_id: effectiveUser.telegram_id,
     client_ts: new Date().toISOString(),
   }
 
