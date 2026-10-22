@@ -1884,14 +1884,18 @@ def render_html_pdf(
         "--no-sandbox",
         "--disable-dev-shm-usage",
         "--disable-software-rasterizer",
-        "--run-all-compositor-stages-before-draw",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--no-first-run",
+        "--hide-scrollbars",
+        "--virtual-time-budget=10000",
         "--no-pdf-header-footer",
         f"--print-to-pdf={pdf_path.resolve()}",
         str(html_path.resolve()),
     ]
 
     with _RENDER_SEMAPHORE:
-        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45)
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
     if res.returncode != 0 or not pdf_path.exists() or pdf_path.stat().st_size == 0:
         err_msg = res.stderr or res.stdout or f"Chromium exited with code {res.returncode}"
         raise RuntimeError(f"Headless Chromium PDF print failed: {err_msg}")

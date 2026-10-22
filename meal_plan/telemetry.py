@@ -355,9 +355,13 @@ async def get_telemetry_analytics(db: Any, hours: int = 24) -> Dict[str, Any]:
             "answers_summary": " • ".join(summary_parts) if summary_parts else "Quiz Started",
             "target_kcal": kcal,
             "has_order": r["duration_days"] is not None,
+            "order_amount": float(r["order_amount"]) if r["order_amount"] is not None else None,
+            "order_currency": r["order_currency"] or "ETB",
             "payment_status": r["payment_status"],
             "bank_code": r["bank_code"],
             "has_proof": bool(r["has_proof"]),
+            "answers": answers,
+            "nutrition_profile": profile,
         }
 
         if uid in seen_uids:

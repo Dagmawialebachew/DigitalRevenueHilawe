@@ -553,7 +553,7 @@ def render_pdf(
     except Exception as exc:
         import os
         import logging
-        allow_fallback = os.getenv("MEAL_PLAN_ALLOW_REPORTLAB_FALLBACK", "false").strip().lower() in {"1", "true", "yes"}
+        allow_fallback = os.getenv("MEAL_PLAN_ALLOW_REPORTLAB_FALLBACK", "true").strip().lower() in {"1", "true", "yes"}
         if allow_fallback:
             logging.getLogger(__name__).warning("HTML-to-PDF engine unavailable, falling back to ReportLab: %s", exc)
             return _render_pdf_reportlab(

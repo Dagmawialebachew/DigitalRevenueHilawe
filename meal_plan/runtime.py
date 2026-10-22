@@ -113,11 +113,14 @@ def meal_plan_access_allowed(telegram_id: int) -> bool:
 
 
 def review_group_id() -> int:
-    raw = os.getenv("MEAL_PLAN_REVIEW_GROUP_ID", "0").strip()
+    raw = os.getenv("MEAL_PLAN_REVIEW_GROUP_ID", "").strip()
     try:
-        return int(raw)
+        val = int(raw)
+        if val != 0:
+            return val
     except ValueError:
-        return 0
+        pass
+    return payment_review_chat_id()
 
 
 def reviewer_ids() -> tuple[int, ...]:
