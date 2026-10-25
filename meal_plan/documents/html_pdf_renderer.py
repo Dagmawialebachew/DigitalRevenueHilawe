@@ -51,9 +51,17 @@ def _get_embedded_fonts_css() -> str:
     for (family, weight), font_path in font_files.items():
         if font_path.exists():
             b64 = base64.b64encode(font_path.read_bytes()).decode("ascii")
+            alias = "Noto Serif Ethiopic" if "Serif" in family else "Noto Sans Ethiopic"
             css_rules.append(f"""
 @font-face {{
   font-family: '{family}';
+  src: url('data:font/truetype;charset=utf-8;base64,{b64}') format('truetype');
+  font-weight: {weight};
+  font-style: normal;
+  font-display: block;
+}}
+@font-face {{
+  font-family: '{alias}';
   src: url('data:font/truetype;charset=utf-8;base64,{b64}') format('truetype');
   font-weight: {weight};
   font-style: normal;
@@ -225,7 +233,7 @@ def _build_css() -> str:
 }}
 
 body {{
-  font-family: 'NotoSansCustom', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSansCustom', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #0F172A;
   background: #FFFFFF;
   font-size: 13.5px;
@@ -331,8 +339,8 @@ body {{
 }}
 
 /* Typography */
-h1.page-title {{
-  font-family: 'NotoSerifCustom', serif;
+h1.page-title, h1, h2, h3, h4 {{
+  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSerifCustom', serif;
   font-size: 24px;
   font-weight: 700;
   color: #0F172A;
@@ -514,10 +522,11 @@ h1.page-title {{
   margin-top: 2mm;
 }}
 
-.hydration-check-box .htitle {{
+.hydration-check-box .htitle, .water-tracker-label {{
   font-size: 10.5px;
   font-weight: 700;
   color: #166534;
+  white-space: nowrap;
 }}
 
 .hydration-cups {{
@@ -531,9 +540,16 @@ h1.page-title {{
   border: 1.5px solid #16A34A;
   border-radius: 50%;
   display: inline-block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  background: #FFFFFF;
 }}
 
 /* Tables */
+table, th, td, .modern-table, .modern-table th, .modern-table td {{
+  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSansCustom', sans-serif;
+}}
+
 .modern-table {{
   width: 100%;
   border-collapse: collapse;
@@ -836,10 +852,10 @@ def _render_running_header(context: DocumentContext, c: dict[str, str], is_clien
 
 def _render_running_footer(context: DocumentContext, page_num: int, total_pages: int, is_client: bool) -> str:
     if context.normalized_language == "AM":
-        notice = f"ይህ ፕላን የተዘጋጀው ለ<strong>{escape(context.client_name)}</strong> ብቻ ነው። ያለ አሰልጣኝ ህላዌ ሰማ ፈቃድ ማባዛት፣ ማሰራጨት ወይም መሸጥ በህግ ያስቀጣል።"
+        notice = f"ይህ ፕላን የተዘጋጀው ለ {escape(context.client_name)} ብቻ ነው። ያለ አሰልጣኝ ህላዌ ሰማ ፈቃድ ማባዛት፣ ማሰራጨት ወይም መሸጥ በህግ ያስቀጣል።"
         pg_label = f"ገጽ {page_num} / {total_pages}"
     else:
-        notice = f"Prepared exclusively for <strong>{escape(context.client_name)}</strong>. Unauthorized redistribution or resale is strictly prohibited."
+        notice = f"Prepared exclusively for {escape(context.client_name)}. Unauthorized redistribution or resale is strictly prohibited."
         pg_label = f"Page {page_num} / {total_pages}"
     return f"""
     <div class="running-footer">
@@ -858,7 +874,10 @@ def build_cover_html(plan: dict[str, Any], context: DocumentContext, c: dict[str
     title = "የምግብ እቅድ" if is_am else "Meal Plan"
     sub_title = f"{duration} ቀን · {c.get('nutrition_system', 'የአመጋገብ ስርዓት')}" if is_am else f"{duration} Day · {c.get('nutrition_system', 'Nutrition System')}"
     goal_lbl = profile_label(profile.get("goal") or "", context.normalized_language)
-    cuisine_lbl = profile_label(profile.get("cuisine_style") or "", context.normalized_language)
+    raw_cuisine = profile.get("cuisine_style") or profile.get("cuisine") or "ethiopian"
+    cuisine_lbl = profile_label(raw_cuisine, context.normalized_language)
+    if not cuisine_lbl or cuisine_lbl == "-":
+        cuisine_lbl = "የሀበሻ ምግቦች" if is_am else "Habesha / Traditional"
     target_kcal = f"{rounded(targets.get('target_kcal'))} {c.get('macro_kcal', 'ካሎሪ' if is_am else 'kcal')}"
     protein_g = f"{rounded(targets.get('protein_g'))} {c.get('g_unit', 'ግ' if is_am else 'g')}"
 
@@ -983,12 +1002,22 @@ def build_glance_html(plan: dict[str, Any], context: DocumentContext, c: dict[st
         (c.get("fasting", "ጾም"), profile_label(profile.get("orthodox_fasting"), context.normalized_language)),
     ]
 
+    clean_summary_rows = []
+    for k, v in summary_rows:
+        v_str = str(v or "").strip()
+        if not v_str or v_str in ("-", "|", "||", "| |", "PAG", "| | PAG"):
+            continue
+        v_str = re.sub(r'\|\s*\|\s*PAG', '', v_str).strip()
+        if not v_str or v_str == "-":
+            continue
+        clean_summary_rows.append((k, v_str))
+
     summary_table_rows = "".join(f"""
       <tr>
         <td style="font-weight: 700; width: 35%; background: #F8FAFC; color: #0F172A;">{escape(k)}</td>
         <td style="color: #334155;">{escape(v)}</td>
       </tr>
-    """ for k, v in summary_rows)
+    """ for k, v in clean_summary_rows)
 
     return f"""
     <div class="page">
@@ -1118,6 +1147,70 @@ def build_rotation_html(plan: dict[str, Any], context: DocumentContext, c: dict[
         </div>
         """
 
+    duration_days = int((plan.get("product") or {}).get("duration_days") or 7)
+    total_weeks = max(1, duration_days // 7)
+
+    all_phase_cards = [
+        {
+            "week_title": "ሳምንት 01" if is_am else "Week 01",
+            "badge_title": "ምዕራፍ 1" if is_am else "Phase 1",
+            "badge_style": "background: #E0F2FE; color: #0369A1;",
+            "sub": "መሰረታዊ ግንባታ" if is_am else "Foundation",
+            "bullets": [
+                "ወጥ የሆነ የምግብ ሰዓትና የውሃ አወሳሰድ ልማድ መመስረት።" if is_am else "Establish meal timing consistency and hydration baseline.",
+                "የምግብ መጠኖችን በመዳፍ እና ሲኒ መለካት መልመድ።" if is_am else "Calibrate precise portioning using familiar household measures.",
+            ],
+        },
+        {
+            "week_title": "ሳምንት 02" if is_am else "Week 02",
+            "badge_title": "ምዕራፍ 2" if is_am else "Phase 2",
+            "badge_style": "background: #FEF3C7; color: #B45309;",
+            "sub": "ልውውጥ እና ቅልጥፍና" if is_am else "Swap Diversity",
+            "bullets": [
+                "ተመሳሳይ ምግቦችን ያለ ማክሮ መዛባት መለዋወጥ።" if is_am else "Introduce calculated food swaps without macro deviation.",
+                "የስራና የልምምድ ቀናትን የሃይል ሚዛን መጠበቅ።" if is_am else "Optimize daily energy availability and recovery.",
+            ],
+        },
+        {
+            "week_title": "ሳምንት 03" if is_am else "Week 03",
+            "badge_title": "ምዕራፍ 3" if is_am else "Phase 3",
+            "badge_style": "background: #DCFCE7; color: #15803D;",
+            "sub": "ሜታቦሊክ ማስተካከያ" if is_am else "Re-calibration",
+            "bullets": [
+                "የክብደት መቀዛቀዝን (Plateau) መከላከል እና ማፋጠን።" if is_am else "Prevent metabolic plateau and maintain steady progress.",
+                "የጥጋብ እና የረሃብ ምልክቶችን መቆጣጠር።" if is_am else "Refine intuitive satiety and effortless adherence.",
+            ],
+        },
+        {
+            "week_title": "ሳምንት 04" if is_am else "Week 04",
+            "badge_title": "ምዕራፍ 4" if is_am else "Phase 4",
+            "badge_style": "background: #F3E8FF; color: #7E22CE;",
+            "sub": "ከፍተኛ ውጤት" if is_am else "Peak Conditioning",
+            "bullets": [
+                "የተገኙትን ውጤቶች ማጠናከር እና ዘላቂ ልማድ ማድረግ።" if is_am else "Consolidate body composition into permanent habits.",
+                "ለቀጣዩ የለውጥ ምዕራፍ የሰውነት ዝግጁነት ማረጋገጥ።" if is_am else "Finalize milestone assessments for long-term lifestyle.",
+            ],
+        },
+    ]
+
+    active_phase_cards = all_phase_cards[:total_weeks]
+    grid_style = "grid-template-columns: 1fr;" if total_weeks == 1 else "grid-template-columns: 1fr 1fr;"
+    phase_cards_html = []
+    for p in active_phase_cards:
+        b_items = "".join(f"<li>{b}</li>" for b in p["bullets"])
+        phase_cards_html.append(f"""
+            <div class="phase-card">
+              <div class="phase-header">
+                <span class="phase-title">{p['week_title']}</span>
+                <span class="phase-badge" style="{p['badge_style']}">{p['badge_title']}</span>
+              </div>
+              <div style="font-size: 10.5px; font-weight: 700; color: #0F172A; margin-bottom: 1mm;">{p['sub']}</div>
+              <ul class="phase-bullets">
+                {b_items}
+              </ul>
+            </div>
+        """)
+
     return f"""
     <div class="page">
       <div>
@@ -1148,54 +1241,8 @@ def build_rotation_html(plan: dict[str, Any], context: DocumentContext, c: dict[
           <div style="font-family: 'NotoSerifCustom', serif; font-size: 12.5px; font-weight: 700; color: #0F172A; margin-bottom: 2mm;">
             {"የሳምንታት የለውጥ ጉዞ እና የደረጃ ካርታ" if is_am else "Multi-Week Progression Roadmap"}
           </div>
-          <div class="phase-grid">
-            <div class="phase-card">
-              <div class="phase-header">
-                <span class="phase-title">{"ሳምንት 01" if is_am else "Week 01"}</span>
-                <span class="phase-badge" style="background: #E0F2FE; color: #0369A1;">{"ምዕራፍ 1" if is_am else "Phase 1"}</span>
-              </div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #0F172A; margin-bottom: 1mm;">{"መሰረታዊ ግንባታ" if is_am else "Foundation"}</div>
-              <ul class="phase-bullets">
-                <li>{"ወጥ የሆነ የምግብ ሰዓትና የውሃ አወሳሰድ ልማድ መመስረት።" if is_am else "Establish meal timing consistency and hydration baseline."}</li>
-                <li>{"የምግብ መጠኖችን በመዳፍ እና ሲኒ መለካት መልመድ።" if is_am else "Calibrate precise portioning using familiar household measures."}</li>
-              </ul>
-            </div>
-
-            <div class="phase-card">
-              <div class="phase-header">
-                <span class="phase-title">{"ሳምንት 02" if is_am else "Week 02"}</span>
-                <span class="phase-badge" style="background: #FEF3C7; color: #B45309;">{"ምዕራፍ 2" if is_am else "Phase 2"}</span>
-              </div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #0F172A; margin-bottom: 1mm;">{"ልውውጥ እና ቅልጥፍና" if is_am else "Swap Diversity"}</div>
-              <ul class="phase-bullets">
-                <li>{"ተመሳሳይ ምግቦችን ያለ ማክሮ መዛባት መለዋወጥ።" if is_am else "Introduce calculated food swaps without macro deviation."}</li>
-                <li>{"የስራና የልምምድ ቀናትን የሃይል ሚዛን መጠበቅ።" if is_am else "Optimize daily energy availability and recovery."}</li>
-              </ul>
-            </div>
-
-            <div class="phase-card">
-              <div class="phase-header">
-                <span class="phase-title">{"ሳምንት 03" if is_am else "Week 03"}</span>
-                <span class="phase-badge" style="background: #DCFCE7; color: #15803D;">{"ምዕራፍ 3" if is_am else "Phase 3"}</span>
-              </div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #0F172A; margin-bottom: 1mm;">{"ሜታቦሊክ ማስተካከያ" if is_am else "Re-calibration"}</div>
-              <ul class="phase-bullets">
-                <li>{"የክብደት መቀዛቀዝን (Plateau) መከላከል እና ማፋጠን።" if is_am else "Prevent metabolic plateau and maintain steady progress."}</li>
-                <li>{"የጥጋብ እና የረሃብ ምልክቶችን መቆጣጠር።" if is_am else "Refine intuitive satiety and effortless adherence."}</li>
-              </ul>
-            </div>
-
-            <div class="phase-card">
-              <div class="phase-header">
-                <span class="phase-title">{"ሳምንት 04" if is_am else "Week 04"}</span>
-                <span class="phase-badge" style="background: #F3E8FF; color: #7E22CE;">{"ምዕራፍ 4" if is_am else "Phase 4"}</span>
-              </div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #0F172A; margin-bottom: 1mm;">{"ከፍተኛ ውጤት" if is_am else "Peak Conditioning"}</div>
-              <ul class="phase-bullets">
-                <li>{"የተገኙትን ውጤቶች ማጠናከር እና ዘላቂ ልማድ ማድረግ።" if is_am else "Consolidate body composition into permanent habits."}</li>
-                <li>{"ለቀጣዩ የለውጥ ምዕራፍ የሰውነት ዝግጁነት ማረጋገጥ።" if is_am else "Finalize milestone assessments for long-term lifestyle."}</li>
-              </ul>
-            </div>
+          <div class="phase-grid" style="{grid_style}">
+            {"".join(phase_cards_html)}
           </div>
         </div>
 
@@ -1228,11 +1275,19 @@ def build_day_html(
     totals = day.get("totals") or {}
     meals = day.get("meals") or []
     day_num = int(day.get("day_index", day_idx)) + 1
-    day_name = day_label(str(day.get("day_name") or "Day"), context.normalized_language)
-    date_str = str(day.get("date") or "")
+    raw_day_name = str(day.get("day_name") or "").strip()
+    date_str = str(day.get("date") or "").strip()
 
-    # Header kicker & title
-    prefix = c.get("day_prefix", "ቀን" if is_am else "DAY")
+    if (not raw_day_name or raw_day_name.lower() in ("day", "none", "")) and date_str:
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            raw_day_name = dt.strftime("%A")
+        except Exception:
+            raw_day_name = "Monday"
+
+    day_name = day_label(raw_day_name or "Monday", context.normalized_language)
+    prefix = (c.get("day_prefix") or ("ቀን" if is_am else "DAY")).strip()
     title_text = f"{prefix} {day_num:02d} · {day_name}"
     if date_str:
         title_text += f" ({date_str})"
@@ -1284,6 +1339,18 @@ def build_day_html(
                 items = meal.get("items") or []
                 if items:
                     meal_title = local_food_name(str(items[0].get("food_id") or ""), meal_title, context.normalized_language)
+        if "ፋል" in meal_title:
+            meal_title = meal_title.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+
+        meal_fids = {str(it.get("food_id") or "") for it in (meal.get("items") or [])}
+        if "A015" in meal_fids and "P014" not in meal_fids:
+            if "የአኩሪ አተር ወተት" in meal_title:
+                meal_title = meal_title.replace("የአኩሪ አተር ወተት", "ወተት")
+            if "soy milk" in meal_title.lower():
+                meal_title = re.sub(r"soy milk", "milk", meal_title, flags=re.I)
+        if "A015" in meal_fids and "A014" not in meal_fids:
+            if "እርጎ" in meal_title or template_id in ("MN-B02", "MF-B02", "MF-B07", "R025") or "yogurt" in meal_title.lower():
+                meal_title = "አጃ (ኦትስ) ከወተት፣ ሙዝ እና ለውዝ ጋር" if is_am else "Oatmeal with milk, banana and peanuts"
 
         m_macros = meal.get("macros") or {}
         if is_am:
@@ -1294,34 +1361,125 @@ def build_day_html(
         # Food items
         item_lines = []
         for item in meal.get("items") or []:
+            fid = str(item.get("food_id") or "")
             if item.get("recipe_id"):
                 name = local_recipe_name(item["recipe_id"], str(item.get("recipe_name") or item.get("food_name") or "Recipe"), context.normalized_language)
             else:
-                name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), context.normalized_language)
-            grams = f"{rounded(item.get('grams'))} {g_lbl}"
-            familiar = str(item.get("familiar_am") or item.get("familiar") or "").strip()
-            if familiar:
-                if is_am:
-                    from meal_plan.generation.formatting import familiar_portion
-                    familiar_str = familiar_portion(1.0, familiar, language="AM")
+                name = local_food_name(fid, str(item.get("food_name") or "Food"), context.normalized_language)
+                if fid in ("T001", "T002"):
+                    m_title_lower = meal_title.lower()
+                    has_cooked = any(w in m_title_lower for w in ("wot", "tibs", "firfir", "stew", "alicha", "shiro", "misir", "ወጥ", "ጥብስ", "ፍርፍር", "አልጫ", "እንቁላል", "የበሬ", "የዶሮ", "ስጋ", "ዓሣ", "የተጠበሰ", "tilapia", "fish"))
+                    if has_cooked:
+                        name = ("የሱፍ ዘይት (ለማብሰያ)" if fid == "T002" else "የወይራ ዘይት (ለማብሰያ)") if is_am else ("Sunflower oil (for cooking)" if fid == "T002" else "Olive oil (for cooking)")
+
+            raw_grams = float(item.get('grams') or 0)
+            if fid == "A011":
+                egg_cnt = max(1, int(round(raw_grams / 50.0)))
+                grams_clean = egg_cnt * 50
+                grams = f"{grams_clean} {g_lbl}"
+                familiar_str = f"{egg_cnt} ፍሬ" if is_am else f"{egg_cnt} whole eggs"
+            elif fid == "A015":
+                grams = f"{rounded(raw_grams)} {g_lbl}"
+                if round(raw_grams) == 200:
+                    familiar_str = "በግምት ሶስት አራተኛ ትልቅ ብርጭቆ" if is_am else "about ¾ large glass"
+                elif round(raw_grams) == 250:
+                    familiar_str = "1 ትልቅ ብርጭቆ" if is_am else "1 large glass"
                 else:
-                    familiar_str = familiar
-                item_lines.append(f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams} <span style="color: #64748B;">({escape(familiar_str)})</span></div>')
+                    familiar_str = familiar_portion(raw_grams / 250.0, "1 large glass", language="AM" if is_am else "EN")
             else:
-                item_lines.append(f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams}</div>')
+                grams = f"{rounded(raw_grams)} {g_lbl}"
+                if fid == "C001":
+                    inj_g = round(raw_grams)
+                    if inj_g >= 220:
+                        familiar_str = "2 መካከለኛ የተጠቀለለ እንጀራ" if is_am else "2 medium rolled pieces"
+                    elif inj_g >= 160:
+                        familiar_str = "1 ከግማሽ መካከለኛ የተጠቀለለ እንጀራ" if is_am else "1 ½ medium rolled pieces"
+                    elif inj_g >= 100:
+                        familiar_str = "1 መካከለኛ የተጠቀለለ እንጀራ" if is_am else "1 medium rolled piece"
+                    elif inj_g >= 40:
+                        familiar_str = "ግማሽ መካከለኛ የተጠቀለለ እንጀራ" if is_am else "½ medium rolled piece"
+                    else:
+                        familiar_str = familiar_portion(raw_grams / 120.0, "1 medium rolled piece", language="AM" if is_am else "EN")
+                else:
+                    familiar = str(item.get("familiar_am") or item.get("familiar") or "").strip()
+                    if familiar:
+                        if is_am:
+                            from meal_plan.generation.formatting import familiar_portion
+                            familiar_str = familiar_portion(1.0, familiar, language="AM")
+                        else:
+                            familiar_str = familiar
+                    else:
+                        familiar_str = ""
+
+            if familiar_str:
+                line_html = f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams} <span style="color: #64748B;">({escape(familiar_str)})</span></div>'
+            else:
+                line_html = f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams}</div>'
+
+            # Clean double em-dashes —— so they render as clean single en-dash: ' — '
+            line_html = re.sub(r"—{2,}", " — ", line_html)
+            line_html = re.sub(r"—\s*—", " — ", line_html)
+            line_html = re.sub(r"--+", " — ", line_html)
+            line_html = re.sub(r"\s+—\s+", " — ", line_html)
+            item_lines.append(line_html)
 
         # Swap option
         swap_html = ""
         exchanges = meal.get("exchange_options") or []
-        if exchanges and exchanges[0].get("options"):
-            opt = exchanges[0]["options"][0]
+        meal_fids = {str(it.get("food_id") or "") for it in (meal.get("items") or [])}
+
+        chosen_ex = None
+        # 1. Look for primary carb swap first (Injera, Potato, Rice, Oats, Bread)
+        for ex in exchanges:
+            for_fid = str(ex.get("for_food_id") or "")
+            if for_fid in ("C001", "C010", "C011", "C003", "C007", "C005", "C008") and ex.get("options"):
+                valid_opts = [o for o in ex["options"] if str(o.get("food_id") or "") not in meal_fids]
+                if valid_opts:
+                    chosen_ex = dict(ex)
+                    chosen_ex["options"] = valid_opts
+                    break
+
+        # 2. Look for primary protein swap (Ayib, Eggs, Meat, Fish)
+        if not chosen_ex:
+            for ex in exchanges:
+                for_fid = str(ex.get("for_food_id") or "")
+                if for_fid in ("A018", "A011", "A001", "A002", "A007", "A008", "P010", "P001") and ex.get("options"):
+                    valid_opts = [o for o in ex["options"] if str(o.get("food_id") or "") not in meal_fids]
+                    if valid_opts:
+                        chosen_ex = dict(ex)
+                        chosen_ex["options"] = valid_opts
+                        break
+
+        # 3. Fallback to any valid swap
+        if not chosen_ex and exchanges:
+            for ex in exchanges:
+                valid_opts = [o for o in ex.get("options", []) if str(o.get("food_id") or "") not in meal_fids]
+                if valid_opts:
+                    chosen_ex = dict(ex)
+                    chosen_ex["options"] = valid_opts
+                    break
+
+        if chosen_ex and chosen_ex.get("options"):
+            from .helpers import format_swap_text
+            opt = dict(chosen_ex["options"][0])
+            opt["for_food_id"] = chosen_ex.get("for_food_id") or ""
             if opt.get("recipe_id"):
-                swap_name = local_recipe_name(opt["recipe_id"], str(opt.get("recipe_name") or opt.get("food_name") or ""), context.normalized_language)
+                opt["food_name"] = local_recipe_name(opt["recipe_id"], str(opt.get("recipe_name") or opt.get("food_name") or ""), "EN")
+                opt["food_name_am"] = local_recipe_name(opt["recipe_id"], str(opt.get("recipe_name") or opt.get("food_name") or ""), "AM")
             else:
-                swap_name = local_food_name(str(opt.get("food_id") or ""), str(opt.get("food_name") or ""), context.normalized_language)
-            swap_grams = f"{rounded(opt.get('exchange_weight_g'))} {g_lbl}"
-            swap_lbl = c.get("swap", "ተቀያሪ ምግብ" if is_am else "SWAP")
-            swap_html = f'<div class="meal-swap">🔄 <strong>{escape(swap_lbl)}:</strong> {escape(swap_name)} ({swap_grams})</div>'
+                fid = str(opt.get("food_id") or "")
+                opt["food_name"] = local_food_name(fid, str(opt.get("food_name") or ""), "EN")
+                opt["food_name_am"] = local_food_name(fid, str(opt.get("food_name_am") or opt.get("food_name") or ""), "AM")
+
+            if not opt.get("swap_type"):
+                opt["swap_type"] = chosen_ex.get("swap_type") or ""
+
+            swap_text = format_swap_text(meal, opt, is_am=is_am)
+            swap_text = re.sub(r"—{2,}", " — ", swap_text)
+            swap_text = re.sub(r"—\s*—", " — ", swap_text)
+            swap_text = re.sub(r"--+", " — ", swap_text)
+            swap_text = re.sub(r"\s+—\s+", " — ", swap_text)
+            swap_html = f'<div class="meal-swap">{escape(swap_text)}</div>'
 
         meal_cards_html.append(f"""
         <div class="meal-card">
@@ -1343,9 +1501,10 @@ def build_day_html(
     tips_pool = _DAILY_COACH_TIPS_AM if is_am else _DAILY_COACH_TIPS_EN
     tip = tips_pool[day_idx % len(tips_pool)]
 
-    # Hydration tracker filler
-    h_cups = "".join('<span class="cup-circle"></span>' for _ in range(8))
-    htitle = "የቀኑ የውሃ መከታተያ (8 ብርጭቆዎች / 2.5+ ሊትር)" if is_am else "Daily Hydration Checklist (8 Glasses / 2.5+ L)"
+    # Hydration tracker filler with clean SVG droplet glyph
+    droplet_svg = '<svg style="vertical-align: -2px; margin-right: 5px; display: inline-block;" width="14" height="14" viewBox="0 0 24 24" fill="#0284C7"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'
+    h_cups = "".join('<span class="cup-circle"></span>' for _ in range(10))
+    htitle = f"{droplet_svg} 2.5 ሊትር / ቀን (10 መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ.)" if is_am else f"{droplet_svg} 2.5 L / day (10 medium glasses — 250 ml each)"
 
     return f"""
     <div class="page">
@@ -1368,7 +1527,7 @@ def build_day_html(
         </div>
 
         <div class="hydration-check-box">
-          <div class="htitle">{htitle}</div>
+          <div class="htitle water-tracker-label">{htitle}</div>
           <div class="hydration-cups">{h_cups}</div>
         </div>
       </div>
@@ -1389,6 +1548,76 @@ def build_checkin_worksheet_html(
     is_am = context.normalized_language == "AM"
     scale_boxes = "".join(f'<div class="worksheet-scale-box">{i}</div>' for i in range(1, 11))
 
+    duration_days = int((plan.get("product") or {}).get("duration_days") or 7)
+    total_weeks = max(1, duration_days // 7)
+
+    milestones_data = [
+        {
+            "color": "#0284C7",
+            "title": "ሳምንት 01 · ቀን 07 Check-In" if is_am else "Week 01 · Day 07 Check-In",
+            "badge": "ምዕራፍ 1" if is_am else "Phase 1",
+            "badge_bg": "#E0F2FE", "badge_fg": "#0369A1",
+        },
+        {
+            "color": "#D97706",
+            "title": "ሳምንት 02 · ቀን 14 Check-In" if is_am else "Week 02 · Day 14 Check-In",
+            "badge": "ምዕራፍ 2" if is_am else "Phase 2",
+            "badge_bg": "#FEF3C7", "badge_fg": "#B45309",
+        },
+        {
+            "color": "#16A34A",
+            "title": "ሳምንት 03 · ቀን 21 Check-In" if is_am else "Week 03 · Day 21 Check-In",
+            "badge": "ምዕራፍ 3" if is_am else "Phase 3",
+            "badge_bg": "#DCFCE7", "badge_fg": "#15803D",
+        },
+        {
+            "color": "#7E22CE",
+            "title": "ሳምንት 04 · ቀን 30 Final Check-In" if is_am else "Week 04 · Day 30 Final Check-In",
+            "badge": "ምዕራፍ 4" if is_am else "Phase 4",
+            "badge_bg": "#F3E8FF", "badge_fg": "#7E22CE",
+        },
+    ]
+
+    w_lbl = "ክብደት፦" if is_am else "Weight:"
+    kg_lbl = "ኪ.ግ" if is_am else "kg"
+    waist_lbl = "የወገብ ስፋት፦" if is_am else "Waist:"
+    cm_lbl = "ሳ.ሜ" if is_am else "cm"
+    energy_lbl = "የሃይል መጠን (1-10)፦" if is_am else "Energy Level (1-10):"
+    hyd_lbl = "የውሃ አወሳሰድ (1-10)፦" if is_am else "Hydration (1-10):"
+    notes_lbl = "የሳምንቱ ማስታወሻ፦" if is_am else "Weekly Notes:"
+
+    active_milestones = milestones_data[:total_weeks]
+    grid_style = "grid-template-columns: 1fr;" if total_weeks == 1 else "grid-template-columns: 1fr 1fr;"
+    milestone_cards_html = []
+    for m in active_milestones:
+        m_title = m["title"]
+        m_badge = m["badge"]
+        m_badge_bg = m["badge_bg"]
+        m_badge_fg = m["badge_fg"]
+        m_color = m["color"]
+        milestone_cards_html.append(f"""
+          <div class="worksheet-card" style="border-left: 4px solid {m_color};">
+            <div class="worksheet-card-header">
+              <span class="worksheet-card-title">{m_title}</span>
+              <span class="worksheet-card-badge" style="background: {m_badge_bg}; color: {m_badge_fg};">{m_badge}</span>
+            </div>
+            <div class="worksheet-field">⚖️ <strong>{w_lbl}</strong> <span class="worksheet-line"></span> {kg_lbl}</div>
+            <div class="worksheet-field">📏 <strong>{waist_lbl}</strong> <span class="worksheet-line"></span> {cm_lbl}</div>
+            <div class="worksheet-field">
+              ⚡️ <strong>{energy_lbl}</strong>
+              <div class="worksheet-scale">{scale_boxes}</div>
+            </div>
+            <div class="worksheet-field">
+              💧 <strong>{hyd_lbl}</strong>
+              <div class="worksheet-scale">{scale_boxes}</div>
+            </div>
+            <div class="worksheet-field" style="margin-top: 1.5mm;">
+              📝 <strong>{notes_lbl}</strong>
+              <div style="border-bottom: 1.5px dotted #94A3B8; margin-top: 3.5mm;"></div>
+            </div>
+          </div>
+        """)
+
     return f"""
     <div class="page">
       <div>
@@ -1399,94 +1628,8 @@ def build_checkin_worksheet_html(
           {"ውጤት የሚመጣው እድገትን በተጨባጭ ከመለካት ነው። እያንዳንዱን ሳምንት ሲያጠናቅቁ ክብደትዎን፣ የወገብ ስፋትዎን እና የሰውነት ስሜትዎን እዚህ ቅጽ ላይ ይመዝግቡ።" if is_am else "Real transformation is built on measurable consistency. At the end of each milestone week, record your biometric indicators, energy levels, and adherence notes here."}
         </div>
 
-        <div class="worksheet-grid">
-          <!-- Milestone 1 -->
-          <div class="worksheet-card" style="border-left: 4px solid #0284C7;">
-            <div class="worksheet-card-header">
-              <span class="worksheet-card-title">{"ሳምንት 01 · ቀን 07 Check-In" if is_am else "Week 01 · Day 07 Check-In"}</span>
-              <span class="worksheet-card-badge" style="background: #E0F2FE; color: #0369A1;">{"ምዕራፍ 1" if is_am else "Phase 1"}</span>
-            </div>
-            <div class="worksheet-field">⚖️ <strong>{"ክብደት፦" if is_am else "Weight:"}</strong> <span class="worksheet-line"></span> {"ኪ.ግ" if is_am else "kg"}</div>
-            <div class="worksheet-field">📏 <strong>{"የወገብ ስፋት፦" if is_am else "Waist:"}</strong> <span class="worksheet-line"></span> {"ሳ.ሜ" if is_am else "cm"}</div>
-            <div class="worksheet-field">
-              ⚡️ <strong>{"የሃይል መጠን (1-10)፦" if is_am else "Energy Level (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field">
-              💧 <strong>{"የውሃ አወሳሰድ (1-10)፦" if is_am else "Hydration (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field" style="margin-top: 1.5mm;">
-              📝 <strong>{"የሳምንቱ ማስታወሻ፦" if is_am else "Weekly Notes:"}</strong>
-              <div style="border-bottom: 1.5px dotted #94A3B8; margin-top: 3.5mm;"></div>
-            </div>
-          </div>
-
-          <!-- Milestone 2 -->
-          <div class="worksheet-card" style="border-left: 4px solid #D97706;">
-            <div class="worksheet-card-header">
-              <span class="worksheet-card-title">{"ሳምንት 02 · ቀን 14 Check-In" if is_am else "Week 02 · Day 14 Check-In"}</span>
-              <span class="worksheet-card-badge" style="background: #FEF3C7; color: #B45309;">{"ምዕራፍ 2" if is_am else "Phase 2"}</span>
-            </div>
-            <div class="worksheet-field">⚖️ <strong>{"ክብደት፦" if is_am else "Weight:"}</strong> <span class="worksheet-line"></span> {"ኪ.ግ" if is_am else "kg"}</div>
-            <div class="worksheet-field">📏 <strong>{"የወገብ ስፋት፦" if is_am else "Waist:"}</strong> <span class="worksheet-line"></span> {"ሳ.ሜ" if is_am else "cm"}</div>
-            <div class="worksheet-field">
-              ⚡️ <strong>{"የሃይል መጠን (1-10)፦" if is_am else "Energy Level (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field">
-              💧 <strong>{"የውሃ አወሳሰድ (1-10)፦" if is_am else "Hydration (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field" style="margin-top: 1.5mm;">
-              📝 <strong>{"የሳምንቱ ማስታወሻ፦" if is_am else "Weekly Notes:"}</strong>
-              <div style="border-bottom: 1.5px dotted #94A3B8; margin-top: 3.5mm;"></div>
-            </div>
-          </div>
-
-          <!-- Milestone 3 -->
-          <div class="worksheet-card" style="border-left: 4px solid #16A34A;">
-            <div class="worksheet-card-header">
-              <span class="worksheet-card-title">{"ሳምንት 03 · ቀን 21 Check-In" if is_am else "Week 03 · Day 21 Check-In"}</span>
-              <span class="worksheet-card-badge" style="background: #DCFCE7; color: #15803D;">{"ምዕራፍ 3" if is_am else "Phase 3"}</span>
-            </div>
-            <div class="worksheet-field">⚖️ <strong>{"ክብደት፦" if is_am else "Weight:"}</strong> <span class="worksheet-line"></span> {"ኪ.ግ" if is_am else "kg"}</div>
-            <div class="worksheet-field">📏 <strong>{"የወገብ ስፋት፦" if is_am else "Waist:"}</strong> <span class="worksheet-line"></span> {"ሳ.ሜ" if is_am else "cm"}</div>
-            <div class="worksheet-field">
-              ⚡️ <strong>{"የሃይል መጠን (1-10)፦" if is_am else "Energy Level (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field">
-              💧 <strong>{"የውሃ አወሳሰድ (1-10)፦" if is_am else "Hydration (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field" style="margin-top: 1.5mm;">
-              📝 <strong>{"የሳምንቱ ማስታወሻ፦" if is_am else "Weekly Notes:"}</strong>
-              <div style="border-bottom: 1.5px dotted #94A3B8; margin-top: 3.5mm;"></div>
-            </div>
-          </div>
-
-          <!-- Milestone 4 -->
-          <div class="worksheet-card" style="border-left: 4px solid #7E22CE;">
-            <div class="worksheet-card-header">
-              <span class="worksheet-card-title">{"ሳምንት 04 · ቀን 30 Final Check-In" if is_am else "Week 04 · Day 30 Final Check-In"}</span>
-              <span class="worksheet-card-badge" style="background: #F3E8FF; color: #7E22CE;">{"ምዕራፍ 4" if is_am else "Phase 4"}</span>
-            </div>
-            <div class="worksheet-field">⚖️ <strong>{"ክብደት፦" if is_am else "Weight:"}</strong> <span class="worksheet-line"></span> {"ኪ.ግ" if is_am else "kg"}</div>
-            <div class="worksheet-field">📏 <strong>{"የወገብ ስፋት፦" if is_am else "Waist:"}</strong> <span class="worksheet-line"></span> {"ሳ.ሜ" if is_am else "cm"}</div>
-            <div class="worksheet-field">
-              ⚡️ <strong>{"የሃይል መጠን (1-10)፦" if is_am else "Energy Level (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field">
-              💧 <strong>{"የውሃ አወሳሰድ (1-10)፦" if is_am else "Hydration (1-10):"}</strong>
-              <div class="worksheet-scale">{scale_boxes}</div>
-            </div>
-            <div class="worksheet-field" style="margin-top: 1.5mm;">
-              📝 <strong>{"የሳምንቱ ማስታወሻ፦" if is_am else "Weekly Notes:"}</strong>
-              <div style="border-bottom: 1.5px dotted #94A3B8; margin-top: 3.5mm;"></div>
-            </div>
-          </div>
+        <div class="worksheet-grid" style="{grid_style}">
+          {"".join(milestone_cards_html)}
         </div>
 
         <div class="card" style="background: #FFFBEB; border: 1.5px solid #FCD34D; padding: 3.5mm 5mm; margin-top: 3mm;">
@@ -1567,8 +1710,15 @@ def build_grocery_pages(
         for row in chunk:
             item_name = local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language)
             category = local_category_name(str(row.get("category") or ""), context.normalized_language)
-            planned = f"{rounded(row.get('planned_grams'))} {g_lbl}"
-            buy_qty = local_purchase_quantity(str(row.get("purchase_quantity") or ""), context.normalized_language)
+            if str(row.get("food_id") or "") == "A011" or "egg" in str(row.get("buy_item") or "").lower():
+                egg_cnt = max(1, int(round(float(row.get("planned_grams") or 0) / 50.0)))
+                buy_cnt = max(egg_cnt, int(round(float(row.get("buy_weight_g") or 0) / 50.0)))
+                planned = str(row.get("planned_display") or (f"{egg_cnt} ፍሬ" if is_am else f"{egg_cnt} eggs"))
+                buy_qty = str(row.get("buy_display") or (f"{buy_cnt} ፍሬ" if is_am else f"{buy_cnt} eggs"))
+            else:
+                planned_rounded = round(float(row.get('planned_grams') or 0) / 10.0) * 10.0
+                planned = f"{planned_rounded:,.0f} {g_lbl}"
+                buy_qty = local_purchase_quantity(str(row.get("purchase_quantity") or ""), context.normalized_language)
 
             table_rows.append(f"""
               <tr>
@@ -1652,10 +1802,10 @@ def build_hydration_html(context: DocumentContext, c: dict[str, str], is_client:
               {"የቀን የውሃ ኢላማ" if is_am else "TARGET DAILY HYDRATION"}
             </div>
             <div style="font-size: 32px; font-weight: 700; color: #0F172A; margin: 1mm 0;">
-              {target_l:.1f} {c.get('l_day', 'ሊትር / ቀን' if is_am else 'L / day')}
+              2.5 {c.get('l_day', 'ሊትር / ቀን' if is_am else 'L / day')}
             </div>
             <div style="font-size: 12px; color: #64748B;">
-              {"በግምት ከ10-12 መካከለኛ ብርጭቆዎች" if is_am else "Approximately 10-12 standard glasses"}
+              {"10 መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ" if is_am else "10 medium glasses — 250 ml each"}
             </div>
           </div>
           <div style="font-size: 44px; color: #0284C7;">
@@ -1670,7 +1820,7 @@ def build_hydration_html(context: DocumentContext, c: dict[str, str], is_client:
           <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">
             {escape(c.get("portion_note", "እያንዳንዱ ምግብ ትክክለኛ ግራም እና በኢትዮጵያ የተለመዱ የቤት ውስጥ መለኪያዎችን (የእጅ መዳፍ፣ ሲኒ፣ የተጠቀለለ እንጀራ) አጣምሮ ያሳያል።"))}
             <br><br>
-            {"በሚመገቡበት ወቅት የሚከተሉትን ያስተውሉ፡<br>• <strong>የእጅ መዳፍ (የመዳፍ ስፋት):</strong> ለስጋ እና ለዶሮ ፕሮቲን መለኪያ ይጠቅማል።<br>• <strong>ሲኒ / የሻይ ኩባያ (የሲኒ መጠን):</strong> ለበሰለ ሩዝ፣ ምስር እና አጃ መለኪያ ይጠቅማል።<br>• <strong>የተጠቀለለ እንጀራ:</strong> 1 መካከለኛ ጥቅል እንጀራ በግምት 90-100 ግራም ነው።" if is_am else "• <strong>Palm:</strong> Standard measure for meat/poultry portioning.<br>• <strong>Cup:</strong> Standard measure for cooked grains and legumes.<br>• <strong>Rolled Injera:</strong> 1 medium rolled piece represents ~90-100 grams."}
+            {"በሚመገቡበት ወቅት የሚከተሉትን ያስተውሉ፡<br>• <strong>የእጅ መዳፍ (የመዳፍ ስፋት):</strong> ለስጋ እና ለዶሮ ፕሮቲን መለኪያ ይጠቅማል።<br>• <strong>ሲኒ / የሻይ ኩባያ (የሲኒ መጠን):</strong> ለበሰለ ሩዝ፣ ምስር እና አጃ መለኪያ ይጠቅማል።<br>• <strong>የተጠቀለለ እንጀራ:</strong> 1 መካከለኛ ጥቅል እንጀራ በግምት 120 ግራም ነው።" if is_am else "• <strong>Palm:</strong> Standard measure for meat/poultry portioning.<br>• <strong>Cup:</strong> Standard measure for cooked grains and legumes.<br>• <strong>Rolled Injera:</strong> 1 medium rolled piece represents ~120 grams."}
           </div>
         </div>
 

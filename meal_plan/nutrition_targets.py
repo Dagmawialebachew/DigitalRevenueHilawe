@@ -24,25 +24,31 @@ from typing import Any
 
 ACTIVITY_FACTORS: dict[str, Decimal] = {
     "MOSTLY_SEATED": Decimal("1.2"),
+    "SEDENTARY": Decimal("1.2"),
     "LIGHTLY_ACTIVE": Decimal("1.375"),
+    "MODERATELY_ACTIVE": Decimal("1.55"),
     "ACTIVE": Decimal("1.55"),
     "VERY_ACTIVE": Decimal("1.725"),
 }
 
 GOAL_ADJUSTMENTS: dict[str, Decimal] = {
     "FAT_LOSS": Decimal("-0.15"),
-    "MUSCLE_GAIN": Decimal("0.08"),
+    "WEIGHT_LOSS": Decimal("-0.15"),
+    "MUSCLE_GAIN": Decimal("0.15"),
     "RECOMPOSITION": Decimal("-0.05"),
     "PERFORMANCE": Decimal("0"),
     "MAINTAIN": Decimal("0"),
+    "MAINTENANCE": Decimal("0"),
 }
 
 PROTEIN_G_PER_KG: dict[str, Decimal] = {
     "FAT_LOSS": Decimal("1.8"),
+    "WEIGHT_LOSS": Decimal("1.8"),
     "MUSCLE_GAIN": Decimal("2.0"),
     "RECOMPOSITION": Decimal("1.8"),
     "PERFORMANCE": Decimal("1.8"),
     "MAINTAIN": Decimal("1.6"),
+    "MAINTENANCE": Decimal("1.6"),
 }
 
 FASTING_PROTEIN_MULTIPLIER = Decimal("1.05")
@@ -115,10 +121,19 @@ def calculate_nutrition_profile(answers: dict[str, Any]) -> NutritionProfile:
 
     adjustment = GOAL_ADJUSTMENTS[goal]
     target_kcal = _round_to_increment(tdee_raw * (Decimal("1") + adjustment), CALORIE_ROUNDING)
+    if goal == "MUSCLE_GAIN":
+        if sex == "MALE" and age >= 18:
+            target_kcal = max(target_kcal, 2100)
+        elif sex == "FEMALE" and age >= 18:
+            target_kcal = max(target_kcal, 1800)
 
     fasting_pattern = str(answers.get("orthodox_fasting") or "NONE").upper()
     fasting_multiplier = Decimal("1") if fasting_pattern == "NONE" else FASTING_PROTEIN_MULTIPLIER
-    protein_factor = PROTEIN_G_PER_KG[goal] * fasting_multiplier
+    protein_rate = PROTEIN_G_PER_KG[goal]
+    if goal == "MUSCLE_GAIN" and weight < Decimal("55"):
+        # Hardgainer bulking from low body mass (e.g. 45kg -> 60kg) targets ~2.33 g/kg ≈ 105g protein
+        protein_rate = Decimal("2.3333333333")
+    protein_factor = protein_rate * fasting_multiplier
     protein_g = _round_int(weight * protein_factor)
 
     fat_g = _round_int(_d(target_kcal) * FAT_FRACTION / Decimal("9"))

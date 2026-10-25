@@ -1,0 +1,842 @@
+{
+  "total_foods": 111,
+  "foods": [
+    {
+      "id": "C001",
+      "category": "Grain / starch",
+      "name_en": "Injera (Prepared)",
+      "name_am": "እንጀራ"
+    },
+    {
+      "id": "C002",
+      "category": "Grain / starch",
+      "name_en": "Teff flour (Dry)",
+      "name_am": "የጤፍ ዱቄት (ጥሬ)"
+    },
+    {
+      "id": "C003",
+      "category": "Grain / starch",
+      "name_en": "White rice (Cooked)",
+      "name_am": "ነጭ ሩዝ (የበሰለ)"
+    },
+    {
+      "id": "C004",
+      "category": "Grain / starch",
+      "name_en": "Brown rice (Cooked)",
+      "name_am": "ቡናማ ሩዝ (የበሰለ)"
+    },
+    {
+      "id": "C005",
+      "category": "Grain / starch",
+      "name_en": "Pasta (Cooked)",
+      "name_am": "ፓስታ (የበሰለ)"
+    },
+    {
+      "id": "C006",
+      "category": "Grain / starch",
+      "name_en": "Whole-wheat pasta (Cooked)",
+      "name_am": "የሙሉ ስንዴ ፓስታ (የበሰለ)"
+    },
+    {
+      "id": "C007",
+      "category": "Grain / starch",
+      "name_en": "Oats (Dry)",
+      "name_am": "አጃ / ኦትስ (ጥሬ)"
+    },
+    {
+      "id": "C008",
+      "category": "Grain / starch",
+      "name_en": "Whole-wheat bread",
+      "name_am": "የሙሉ ስንዴ ዳቦ"
+    },
+    {
+      "id": "C009",
+      "category": "Grain / starch",
+      "name_en": "White bread",
+      "name_am": "ነጭ ዳቦ"
+    },
+    {
+      "id": "C010",
+      "category": "Tuber / starch",
+      "name_en": "Potato (Boiled)",
+      "name_am": "የተቀቀለ ድንች"
+    },
+    {
+      "id": "C011",
+      "category": "Tuber / starch",
+      "name_en": "Sweet potato (Cooked)",
+      "name_am": "ስኳር ድንች (የበሰለ)"
+    },
+    {
+      "id": "C012",
+      "category": "Grain / starch",
+      "name_en": "Corn (Boiled)",
+      "name_am": "የተቀቀለ በቆሎ"
+    },
+    {
+      "id": "C013",
+      "category": "Grain / starch",
+      "name_en": "Barley (Cooked)",
+      "name_am": "ገብስ / ቅንጬ (የበሰለ)"
+    },
+    {
+      "id": "C014",
+      "category": "Grain / starch",
+      "name_en": "Bulgur (Cooked)",
+      "name_am": "ቡልጉር (የበሰለ)"
+    },
+    {
+      "id": "C015",
+      "category": "Grain / starch",
+      "name_en": "Quinoa (Cooked)",
+      "name_am": "ኪኖዋ (የበሰለ)"
+    },
+    {
+      "id": "C016",
+      "category": "Grain / starch",
+      "name_en": "Whole-wheat tortilla",
+      "name_am": "የሙሉ ስንዴ ቶርቲላ"
+    },
+    {
+      "id": "C017",
+      "category": "Traditional starch",
+      "name_en": "Kocho (Prepared)",
+      "name_am": "የተዘጋጀ ቆጮ"
+    },
+    {
+      "id": "C018",
+      "category": "Traditional starch",
+      "name_en": "Kita flatbread",
+      "name_am": "የስንዴ ቂጣ"
+    },
+    {
+      "id": "C019",
+      "category": "Traditional starch",
+      "name_en": "Dabo bread",
+      "name_am": "የስንዴ ዳቦ"
+    },
+    {
+      "id": "C020",
+      "category": "Grain / starch",
+      "name_en": "Rice cake",
+      "name_am": "የሩዝ ኬክ (ክራከር)"
+    },
+    {
+      "id": "P001",
+      "category": "Legume / plant protein",
+      "name_en": "Lentils (Cooked)",
+      "name_am": "ምስር (የበሰለ)"
+    },
+    {
+      "id": "P002",
+      "category": "Legume / plant protein",
+      "name_en": "Chickpeas (Cooked)",
+      "name_am": "ሽምብራ (የበሰለ)"
+    },
+    {
+      "id": "P003",
+      "category": "Legume / plant protein",
+      "name_en": "Black beans (Cooked)",
+      "name_am": "ጥቁር ቦሎቄ (የበሰለ)"
+    },
+    {
+      "id": "P004",
+      "category": "Legume / plant protein",
+      "name_en": "Kidney beans (Cooked)",
+      "name_am": "ቀይ ቦሎቄ (የበሰለ)"
+    },
+    {
+      "id": "P005",
+      "category": "Legume / plant protein",
+      "name_en": "White beans (Cooked)",
+      "name_am": "ነጭ ቦሎቄ (የበሰለ)"
+    },
+    {
+      "id": "P006",
+      "category": "Legume / plant protein",
+      "name_en": "Split peas (Cooked)",
+      "name_am": "ክክ (የበሰለ)"
+    },
+    {
+      "id": "P007",
+      "category": "Legume / plant protein",
+      "name_en": "Fava beans / Ful (Cooked)",
+      "name_am": "ባቄላ / ፉል (የበሰለ)"
+    },
+    {
+      "id": "P008",
+      "category": "Legume / vegetable",
+      "name_en": "Green peas (Cooked)",
+      "name_am": "አተር (የበሰለ)"
+    },
+    {
+      "id": "P009",
+      "category": "Plant protein",
+      "name_en": "Soy chunks (Dry)",
+      "name_am": "የሶያ ስጋ (ጥሬ)"
+    },
+    {
+      "id": "P010",
+      "category": "Plant protein",
+      "name_en": "Firm tofu",
+      "name_am": "ቶፉ (የአኩሪ አተር አይብ)"
+    },
+    {
+      "id": "P011",
+      "category": "Plant protein",
+      "name_en": "Tempeh",
+      "name_am": "ቴምፔ"
+    },
+    {
+      "id": "P012",
+      "category": "Legume flour",
+      "name_en": "Shiro flour (Dry)",
+      "name_am": "የሽሮ ዱቄት (ጥሬ)"
+    },
+    {
+      "id": "P013",
+      "category": "Plant protein snack",
+      "name_en": "Roasted chickpeas (Kolo)",
+      "name_am": "የተቆላ ሽምብራ (ቆሎ)"
+    },
+    {
+      "id": "P014",
+      "category": "Plant beverage",
+      "name_en": "Unsweetened soy milk",
+      "name_am": "የአኩሪ አተር ወተት (ያለ ስኳር)"
+    },
+    {
+      "id": "P015",
+      "category": "Plant supplement",
+      "name_en": "Plant protein powder (Pea/Soy)",
+      "name_am": "የዕፅዋት ፕሮቲን ዱቄት (አተር/ሶያ)"
+    },
+    {
+      "id": "A001",
+      "category": "Lean animal protein",
+      "name_en": "Chicken breast, skinless (Cooked)",
+      "name_am": "የዶሮ ደረት ስጋ (የበሰለ)"
+    },
+    {
+      "id": "A002",
+      "category": "Animal protein",
+      "name_en": "Chicken thigh, skinless (Cooked)",
+      "name_am": "የዶሮ ጭን ስጋ (የበሰለ)"
+    },
+    {
+      "id": "A003",
+      "category": "Lean animal protein",
+      "name_en": "Beef, lean steak (Cooked)",
+      "name_am": "የበሬ ስጋ (ቅባት የሌለው፣ የበሰለ)"
+    },
+    {
+      "id": "A004",
+      "category": "Animal protein",
+      "name_en": "Ground beef, 90% lean (Cooked)",
+      "name_am": "የተፈጨ የበሬ ስጋ (የበሰለ)"
+    },
+    {
+      "id": "A005",
+      "category": "Lean animal protein",
+      "name_en": "Goat meat (Cooked)",
+      "name_am": "የፍየል ስጋ (የበሰለ)"
+    },
+    {
+      "id": "A006",
+      "category": "Animal protein",
+      "name_en": "Lamb, lean (Cooked)",
+      "name_am": "የበግ ስጋ (ቅባት የሌለው፣ የበሰለ)"
+    },
+    {
+      "id": "A007",
+      "category": "Fish protein",
+      "name_en": "Tilapia fish (Cooked)",
+      "name_am": "የቲላፒያ ዓሣ (የበሰለ)"
+    },
+    {
+      "id": "A008",
+      "category": "Fish protein",
+      "name_en": "Tuna, canned in water (Drained)",
+      "name_am": "ቱና በውሃ የታሸገ (የተጣራ)"
+    },
+    {
+      "id": "A009",
+      "category": "Fish protein",
+      "name_en": "Salmon (Cooked)",
+      "name_am": "ሳልሞን ዓሣ (የበሰለ)"
+    },
+    {
+      "id": "A010",
+      "category": "Fish protein",
+      "name_en": "Sardines, canned (Drained)",
+      "name_am": "ሰርዲን የታሸገ (የተጣራ)"
+    },
+    {
+      "id": "A011",
+      "category": "Egg protein",
+      "name_en": "Egg, whole (Cooked)",
+      "name_am": "የተቀቀለ ሙሉ እንቁላል"
+    },
+    {
+      "id": "A012",
+      "category": "Lean egg protein",
+      "name_en": "Egg whites (Cooked)",
+      "name_am": "የተቀቀለ የእንቁላል ነጭ"
+    },
+    {
+      "id": "A013",
+      "category": "Dairy protein",
+      "name_en": "Greek yogurt, plain non-fat",
+      "name_am": "የግሪክ እርጎ (ቅባት አልባ)"
+    },
+    {
+      "id": "A014",
+      "category": "Dairy",
+      "name_en": "Yogurt, plain low-fat",
+      "name_am": "እርጎ (ዝቅተኛ ቅባት)"
+    },
+    {
+      "id": "A015",
+      "category": "Dairy",
+      "name_en": "Milk, low-fat",
+      "name_am": "ወተት (ዝቅተኛ ቅባት)"
+    },
+    {
+      "id": "A016",
+      "category": "Dairy protein",
+      "name_en": "Cottage cheese, low-fat",
+      "name_am": "ኮቴጅ ቺዝ (ዝቅተኛ ቅባት)"
+    },
+    {
+      "id": "A017",
+      "category": "Dairy supplement",
+      "name_en": "Whey protein powder",
+      "name_am": "የዌይ ፕሮቲን ዱቄት"
+    },
+    {
+      "id": "A018",
+      "category": "Traditional dairy protein",
+      "name_en": "Ayib (Fresh cottage cheese)",
+      "name_am": "የአበሻ አይብ"
+    },
+    {
+      "id": "A019",
+      "category": "Lean animal protein",
+      "name_en": "Turkey breast (Cooked)",
+      "name_am": "የቱርክ ደረት ስጋ (የበሰለ)"
+    },
+    {
+      "id": "A020",
+      "category": "Fish protein",
+      "name_en": "White fish (Cooked)",
+      "name_am": "ነጭ ዓሣ (የበሰለ)"
+    },
+    {
+      "id": "V001",
+      "category": "Vegetable",
+      "name_en": "Onion (Raw)",
+      "name_am": "ቀይ ሽንኩርት (ጥሬ)"
+    },
+    {
+      "id": "V002",
+      "category": "Vegetable",
+      "name_en": "Tomato (Raw)",
+      "name_am": "ቲማቲም (ጥሬ)"
+    },
+    {
+      "id": "V003",
+      "category": "Vegetable / seasoning",
+      "name_en": "Garlic (Raw)",
+      "name_am": "ነጭ ሽንኩርት (ጥሬ)"
+    },
+    {
+      "id": "V004",
+      "category": "Dark green vegetable",
+      "name_en": "Kale / Ethiopian Gomen (Cooked)",
+      "name_am": "ጎመን (የበሰለ)"
+    },
+    {
+      "id": "V005",
+      "category": "Dark green vegetable",
+      "name_en": "Collard greens (Cooked)",
+      "name_am": "የቆላ ጎመን (የበሰለ)"
+    },
+    {
+      "id": "V006",
+      "category": "Vegetable",
+      "name_en": "Cabbage (Raw)",
+      "name_am": "ጥቅል ጎመን (ጥሬ)"
+    },
+    {
+      "id": "V007",
+      "category": "Vegetable",
+      "name_en": "Carrot (Raw)",
+      "name_am": "ካሮት (ጥሬ)"
+    },
+    {
+      "id": "V008",
+      "category": "Vegetable",
+      "name_en": "Green beans / Fosolia (Cooked)",
+      "name_am": "ፎሶሊያ (የበሰለ)"
+    },
+    {
+      "id": "V009",
+      "category": "Vegetable",
+      "name_en": "Bell pepper (Raw)",
+      "name_am": "የፈረንጅ ቃሪያ / ቃሪያ (ጥሬ)"
+    },
+    {
+      "id": "V010",
+      "category": "Vegetable",
+      "name_en": "Broccoli (Cooked)",
+      "name_am": "ብሮኮሊ (የበሰለ)"
+    },
+    {
+      "id": "V011",
+      "category": "Dark green vegetable",
+      "name_en": "Spinach (Cooked)",
+      "name_am": "ስፒናች (የበሰለ)"
+    },
+    {
+      "id": "V012",
+      "category": "Vegetable",
+      "name_en": "Cucumber (Raw)",
+      "name_am": "ኪያር (ጥሬ)"
+    },
+    {
+      "id": "V013",
+      "category": "Vegetable",
+      "name_en": "Lettuce (Raw)",
+      "name_am": "ሰላጣ (ጥሬ)"
+    },
+    {
+      "id": "V014",
+      "category": "Vegetable",
+      "name_en": "Zucchini (Cooked)",
+      "name_am": "ዙኪኒ (የበሰለ)"
+    },
+    {
+      "id": "V015",
+      "category": "Vegetable",
+      "name_en": "Mushrooms (Cooked)",
+      "name_am": "እንጉዳይ (የበሰለ)"
+    },
+    {
+      "id": "V016",
+      "category": "Vegetable",
+      "name_en": "Beetroot (Cooked)",
+      "name_am": "ቀይ ስር (የበሰለ)"
+    },
+    {
+      "id": "V017",
+      "category": "Vegetable",
+      "name_en": "Cauliflower (Cooked)",
+      "name_am": "አበባ ጎመን (የበሰለ)"
+    },
+    {
+      "id": "V018",
+      "category": "Vegetable",
+      "name_en": "Eggplant (Cooked)",
+      "name_am": "ደበርጃን / የእንቁላል ተክል (የበሰለ)"
+    },
+    {
+      "id": "V019",
+      "category": "Vegetable",
+      "name_en": "Okra (Cooked)",
+      "name_am": "ባሚያ (የበሰለ)"
+    },
+    {
+      "id": "V020",
+      "category": "Fruit / fat",
+      "name_en": "Avocado",
+      "name_am": "አቮካዶ"
+    },
+    {
+      "id": "F001",
+      "category": "Fruit",
+      "name_en": "Banana",
+      "name_am": "ሙዝ"
+    },
+    {
+      "id": "F002",
+      "category": "Fruit",
+      "name_en": "Apple",
+      "name_am": "ፖም / አፕል"
+    },
+    {
+      "id": "F003",
+      "category": "Fruit",
+      "name_en": "Orange",
+      "name_am": "ብርቱካን"
+    },
+    {
+      "id": "F004",
+      "category": "Fruit",
+      "name_en": "Mango",
+      "name_am": "ማንጎ"
+    },
+    {
+      "id": "F005",
+      "category": "Fruit",
+      "name_en": "Papaya",
+      "name_am": "ፓፓያ"
+    },
+    {
+      "id": "F006",
+      "category": "Fruit",
+      "name_en": "Pineapple",
+      "name_am": "አናናስ"
+    },
+    {
+      "id": "F007",
+      "category": "Fruit",
+      "name_en": "Guava",
+      "name_am": "ዘይቱን / ጓቫ"
+    },
+    {
+      "id": "F008",
+      "category": "Fruit",
+      "name_en": "Strawberries",
+      "name_am": "ስትሮቤሪ"
+    },
+    {
+      "id": "F009",
+      "category": "Fruit",
+      "name_en": "Blueberries",
+      "name_am": "ብሉቤሪ"
+    },
+    {
+      "id": "F010",
+      "category": "Fruit",
+      "name_en": "Grapes",
+      "name_am": "ወይን"
+    },
+    {
+      "id": "F011",
+      "category": "Fruit",
+      "name_en": "Pear",
+      "name_am": "ፔር"
+    },
+    {
+      "id": "F012",
+      "category": "Fruit / dried",
+      "name_en": "Dates (Dried)",
+      "name_am": "ቴምር (የደረቀ)"
+    },
+    {
+      "id": "F013",
+      "category": "Fruit",
+      "name_en": "Watermelon",
+      "name_am": "ሀብሀብ"
+    },
+    {
+      "id": "F014",
+      "category": "Fruit",
+      "name_en": "Peach",
+      "name_am": "ኮክ"
+    },
+    {
+      "id": "T001",
+      "category": "Added fat",
+      "name_en": "Olive oil",
+      "name_am": "የወይራ ዘይት"
+    },
+    {
+      "id": "T002",
+      "category": "Added fat",
+      "name_en": "Sunflower oil",
+      "name_am": "የሱፍ ዘይት"
+    },
+    {
+      "id": "T003",
+      "category": "Nuts / fat",
+      "name_en": "Peanuts (Roasted)",
+      "name_am": "የተቆላ ለውዝ"
+    },
+    {
+      "id": "T004",
+      "category": "Nuts / fat",
+      "name_en": "Peanut butter",
+      "name_am": "የለውዝ ቅቤ"
+    },
+    {
+      "id": "T005",
+      "category": "Nuts / fat",
+      "name_en": "Almonds",
+      "name_am": "አልሞንድ"
+    },
+    {
+      "id": "T006",
+      "category": "Nuts / fat",
+      "name_en": "Walnuts",
+      "name_am": "ዋልነት"
+    },
+    {
+      "id": "T007",
+      "category": "Seeds / fat",
+      "name_en": "Sesame seeds",
+      "name_am": "ሰሊጥ"
+    },
+    {
+      "id": "T008",
+      "category": "Seeds / fat",
+      "name_en": "Sunflower seeds",
+      "name_am": "የሱፍ ፍሬ"
+    },
+    {
+      "id": "T009",
+      "category": "Seeds / fat",
+      "name_en": "Chia seeds",
+      "name_am": "ቺያ ፍሬ"
+    },
+    {
+      "id": "T010",
+      "category": "Seeds / fat",
+      "name_en": "Flaxseed (Ground)",
+      "name_am": "የተፈጨ ተልባ"
+    },
+    {
+      "id": "T011",
+      "category": "Added fat",
+      "name_en": "Butter",
+      "name_am": "ቅቤ"
+    },
+    {
+      "id": "T012",
+      "category": "Traditional added fat",
+      "name_en": "Niter kibbeh (Spiced butter)",
+      "name_am": "ንጥር ቅቤ"
+    },
+    {
+      "id": "M001",
+      "category": "Condiment",
+      "name_en": "Tomato paste",
+      "name_am": "የቲማቲም ድልህ (ሳልሳ)"
+    },
+    {
+      "id": "M002",
+      "category": "Condiment",
+      "name_en": "Lemon juice",
+      "name_am": "የሎሚ ጭማቂ"
+    },
+    {
+      "id": "M003",
+      "category": "Spice",
+      "name_en": "Berbere spice blend",
+      "name_am": "የወጥ በርበሬ"
+    },
+    {
+      "id": "M004",
+      "category": "Added sugar",
+      "name_en": "Sugar",
+      "name_am": "ስኳር"
+    },
+    {
+      "id": "M005",
+      "category": "Added sugar",
+      "name_en": "Honey",
+      "name_am": "ማር"
+    },
+    {
+      "id": "M006",
+      "category": "Beverage",
+      "name_en": "Coffee, brewed (Unsweetened)",
+      "name_am": "የተፈላ ቡና (ያለ ስኳር)"
+    },
+    {
+      "id": "M007",
+      "category": "Beverage",
+      "name_en": "Tea, brewed (Unsweetened)",
+      "name_am": "ሻይ (ያለ ስኳር)"
+    },
+    {
+      "id": "M008",
+      "category": "Seasoning",
+      "name_en": "Salt",
+      "name_am": "ጨው"
+    },
+    {
+      "id": "M009",
+      "category": "Plant beverage",
+      "name_en": "Unsweetened almond milk",
+      "name_am": "የአልሞንድ ወተት (ያለ ስኳር)"
+    },
+    {
+      "id": "M010",
+      "category": "Beverage",
+      "name_en": "Water",
+      "name_am": "ውሃ"
+    }
+  ],
+  "total_recipes": 28,
+  "recipes": [
+    {
+      "id": "R001",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Shiro Wot",
+      "name_am": "ሽሮ ወጥ"
+    },
+    {
+      "id": "R002",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Misir Wot",
+      "name_am": "ምስር ወጥ"
+    },
+    {
+      "id": "R003",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Kik Alicha",
+      "name_am": "ክክ አልጫ"
+    },
+    {
+      "id": "R004",
+      "meal_role": "Side / dinner",
+      "name_en": "Atkilt Wot",
+      "name_am": "አትክልት ወጥ"
+    },
+    {
+      "id": "R005",
+      "meal_role": "Vegetable side",
+      "name_en": "Gomen",
+      "name_am": "የጎመን ወጥ"
+    },
+    {
+      "id": "R006",
+      "meal_role": "Vegetable side",
+      "name_en": "Fosolia",
+      "name_am": "ፎሶሊያ በአትክልት"
+    },
+    {
+      "id": "R007",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Dinich Wot",
+      "name_am": "ድንች ወጥ"
+    },
+    {
+      "id": "R008",
+      "meal_role": "Breakfast",
+      "name_en": "Fasting Firfir",
+      "name_am": "የጾም ፍርፍር"
+    },
+    {
+      "id": "R009",
+      "meal_role": "Breakfast / lunch",
+      "name_en": "Fasting Ful",
+      "name_am": "የጾም ፉል"
+    },
+    {
+      "id": "R010",
+      "meal_role": "Breakfast / lunch",
+      "name_en": "Chickpea Salad",
+      "name_am": "የሽምብራ ሰላጣ"
+    },
+    {
+      "id": "R011",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Lentil Rice Bowl",
+      "name_am": "የምስር እና ሩዝ ቦውል"
+    },
+    {
+      "id": "R012",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Soy Tibs",
+      "name_am": "የሶያ ስጋ ጥብስ"
+    },
+    {
+      "id": "R013",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Tofu Tibs",
+      "name_am": "የቶፉ ጥብስ"
+    },
+    {
+      "id": "R014",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Fish Tibs",
+      "name_am": "የዓሣ ጥብስ"
+    },
+    {
+      "id": "R015",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Grilled Tilapia",
+      "name_am": "የተጠበሰ ቲላፒያ ዓሣ"
+    },
+    {
+      "id": "R016",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Doro Wot",
+      "name_am": "የዶሮ ወጥ"
+    },
+    {
+      "id": "R017",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Siga Wot",
+      "name_am": "የበሬ ስጋ ወጥ"
+    },
+    {
+      "id": "R018",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Lean Beef Tibs",
+      "name_am": "የበሬ ስጋ ጥብስ"
+    },
+    {
+      "id": "R019",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Chicken Tibs",
+      "name_am": "የዶሮ ስጋ ጥብስ"
+    },
+    {
+      "id": "R020",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Minchet Abish",
+      "name_am": "ምንቸት አብሽ"
+    },
+    {
+      "id": "R021",
+      "meal_role": "Breakfast",
+      "name_en": "Egg Firfir",
+      "name_am": "የእንቁላል ፍርፍር"
+    },
+    {
+      "id": "R022",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Cooked Lean Kitfo",
+      "name_am": "የበሰለ የክትፎ ስጋ"
+    },
+    {
+      "id": "R023",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Beef Alicha",
+      "name_am": "የበሬ አልጫ ወጥ"
+    },
+    {
+      "id": "R024",
+      "meal_role": "Breakfast / lunch",
+      "name_en": "Ayib Gomen Bowl",
+      "name_am": "የአይብ እና ጎመን ቦውል"
+    },
+    {
+      "id": "R025",
+      "meal_role": "Breakfast / snack",
+      "name_en": "Yogurt Fruit Oat Bowl",
+      "name_am": "የእርጎ፣ ፍራፍሬ እና አጃ ቦውል"
+    },
+    {
+      "id": "R026",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Chicken Rice Bowl",
+      "name_am": "የዶሮ እና ሩዝ ቦውል"
+    },
+    {
+      "id": "R027",
+      "meal_role": "Lunch / dinner",
+      "name_en": "Tuna Pasta",
+      "name_am": "የቱና ፓስታ"
+    },
+    {
+      "id": "R028",
+      "meal_role": "Breakfast",
+      "name_en": "Egg Avocado Toast",
+      "name_am": "የእንቁላል እና አቮካዶ ቶስት"
+    }
+  ]
+}

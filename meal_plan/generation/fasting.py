@@ -56,6 +56,8 @@ def fasting_days_for_period(
     if duration_days < 1:
         raise ValueError("Fasting period duration must be positive")
     normalized = str(pattern or "NONE").upper()
+    if normalized in {"LENT", "STRICT_LENT", "ALL_FASTING"}:
+        return (True,) * duration_days
     seasonal = normalized in {"SEASONAL", "WED_FRI_AND_SEASONAL"}
     ranges = _verified_ranges(calendar_rows)
     end_date = start_date + timedelta(days=duration_days - 1)

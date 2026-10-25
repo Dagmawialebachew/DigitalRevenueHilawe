@@ -178,6 +178,17 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
             if items:
                 meal_title = local_food_name(str(items[0].get("food_id") or ""), meal_title, language)
 
+    meal_fids = {str(it.get("food_id") or "") for it in (meal.get("items") or [])}
+    if "A015" in meal_fids and "P014" not in meal_fids:
+        if "የአኩሪ አተር ወተት" in meal_title:
+            meal_title = meal_title.replace("የአኩሪ አተር ወተት", "ወተት")
+        if "soy milk" in meal_title.lower():
+            import re
+            meal_title = re.sub(r"soy milk", "milk", meal_title, flags=re.I)
+    if "A015" in meal_fids and "A014" not in meal_fids:
+        if "እርጎ" in meal_title or template_id in ("MN-B02", "MF-B02", "MF-B07", "R025") or "yogurt" in meal_title.lower():
+            meal_title = "አጃ (ኦትስ) ከወተት፣ ሙዝ እና ለውዝ ጋር" if is_am else "Oatmeal with milk, banana and peanuts"
+
     p2 = cell.add_paragraph()
     p2.paragraph_format.space_after = Pt(1)
     r2 = p2.add_run(meal_title)
@@ -205,10 +216,16 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
 
     g_lbl = "ግ" if is_am else "g"
     for item in meal.get("items") or []:
+        fid = str(item.get("food_id") or "")
         if item.get("recipe_id"):
             food_name = local_recipe_name(item["recipe_id"], str(item.get("recipe_name") or item.get("food_name") or "Recipe"), language)
         else:
-            food_name = local_food_name(str(item.get("food_id") or ""), str(item.get("food_name") or "Food"), language)
+            food_name = local_food_name(fid, str(item.get("food_name") or "Food"), language)
+            if fid in ("T001", "T002"):
+                m_title_lower = meal_title.lower()
+                has_cooked = any(w in m_title_lower for w in ("wot", "tibs", "firfir", "stew", "alicha", "shiro", "misir", "ወጥ", "ጥብስ", "ፍርፍር", "አልጫ", "እንቁላል", "የበሬ", "የዶሮ", "ስጋ", "ዓሣ", "የተጠበሰ", "tilapia", "fish"))
+                if has_cooked:
+                    food_name = ("የሱፍ ዘይት (ለማብሰያ)" if fid == "T002" else "የወይራ ዘይት (ለማብሰያ)") if is_am else ("Sunflower oil (for cooking)" if fid == "T002" else "Olive oil (for cooking)")
         grams = rounded(item.get("grams"), 0)
         familiar_raw = str(item.get("familiar") or "").strip()
         line = cell.add_paragraph(style=None)
@@ -509,11 +526,20 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
         _set_run_font(rr, size=8, bold=True, color="#FFFFFF")
     for row in rows:
         cells = table.add_row().cells
+        fid = str(row.get("food_id") or "")
+        if fid == "A011" or "egg" in str(row.get("buy_item") or "").lower():
+            egg_cnt = max(1, int(round(float(row.get("planned_grams") or 0) / 50.0)))
+            buy_cnt = max(egg_cnt, int(round(float(row.get("buy_weight_g") or 0) / 50.0)))
+            p_val = str(row.get("planned_display") or (f"{egg_cnt} ፍሬ" if language == "AM" else f"{egg_cnt} eggs"))
+            b_val = str(row.get("buy_display") or (f"{buy_cnt} ፍሬ" if language == "AM" else f"{buy_cnt} eggs"))
+        else:
+            p_val = f"{rounded(row.get('planned_grams'))} {g_lbl}"
+            b_val = local_purchase_quantity(str(row.get("purchase_quantity") or ""), language)
         values = [
-            local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), language),
+            local_food_name(fid, str(row.get("buy_item") or ""), language),
             local_category_name(str(row.get("category") or ""), language),
-            f"{rounded(row.get('planned_grams'))} {g_lbl}",
-            local_purchase_quantity(str(row.get("purchase_quantity") or ""), language),
+            p_val,
+            b_val,
         ]
         for i, (cell, value) in enumerate(zip(cells, values)):
             _shade_cell(cell, PAPER if len(table.rows) % 2 else IVORY)

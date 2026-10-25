@@ -65,7 +65,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R003": {
         "recipe_id": "R003",
         "recipe_name_en": "Kik Alicha",
-        "recipe_name_am": "ክክ አልጫ",
+        "recipe_name_am": "ክክ አልጫ ወጥ",
         "fasting": True,
         "fish": False,
         "meal_role": "Split Pea Stew",
@@ -90,7 +90,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R004": {
         "recipe_id": "R004",
         "recipe_name_en": "Atkilt Wot",
-        "recipe_name_am": "አትክልት ወጥ",
+        "recipe_name_am": "የአትክልት ወጥ",
         "fasting": True,
         "fish": False,
         "meal_role": "Mixed Vegetable Stew",
@@ -114,7 +114,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R005": {
         "recipe_id": "R005",
-        "recipe_name_en": "Gomen",
+        "recipe_name_en": "Gomen Wot",
         "recipe_name_am": "የጎመን ወጥ",
         "fasting": True,
         "fish": False,
@@ -139,7 +139,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R006": {
         "recipe_id": "R006",
-        "recipe_name_en": "Fosolia",
+        "recipe_name_en": "Fosolia Stew",
         "recipe_name_am": "ፎሶሊያ በአትክልት",
         "fasting": True,
         "fish": False,
@@ -165,7 +165,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R007": {
         "recipe_id": "R007",
         "recipe_name_en": "Dinich Wot",
-        "recipe_name_am": "ድንች ወጥ",
+        "recipe_name_am": "የድንች ወጥ",
         "fasting": True,
         "fish": False,
         "meal_role": "Spiced Potato Stew",
@@ -214,7 +214,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R009": {
         "recipe_id": "R009",
-        "recipe_name_en": "Fasting Ful",
+        "recipe_name_en": "Fasting Ful Bowl",
         "recipe_name_am": "የጾም ፉል",
         "fasting": True,
         "fish": False,
@@ -265,7 +265,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R011": {
         "recipe_id": "R011",
         "recipe_name_en": "Lentil Rice Bowl",
-        "recipe_name_am": "የምስር እና ሩዝ ቦውል",
+        "recipe_name_am": "ምስር በሩዝ",
         "fasting": True,
         "fish": False,
         "meal_role": "High-Fiber Grain & Lentil Bowl",
@@ -364,8 +364,8 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R015": {
         "recipe_id": "R015",
-        "recipe_name_en": "Grilled Tilapia",
-        "recipe_name_am": "የተጠበሰ ቲላፒያ ዓሣ",
+        "recipe_name_en": "Grilled Tilapia Fillet",
+        "recipe_name_am": "የተጠበሰ የቲላፒያ ዓሣ",
         "fasting": True,
         "fish": True,
         "meal_role": "Grilled Whole Fish Fillet",
@@ -439,7 +439,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R018": {
         "recipe_id": "R018",
-        "recipe_name_en": "Lean Beef Tibs",
+        "recipe_name_en": "Beef Tibs",
         "recipe_name_am": "የበሬ ስጋ ጥብስ",
         "fasting": False,
         "fish": False,
@@ -539,8 +539,8 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R022": {
         "recipe_id": "R022",
-        "recipe_name_en": "Cooked Lean Kitfo",
-        "recipe_name_am": "የበሰለ የክትፎ ስጋ",
+        "recipe_name_en": "Lean Kitfo (Cooked)",
+        "recipe_name_am": "የበሰለ ክትፎ",
         "fasting": False,
         "fish": False,
         "meal_role": "Minced Beef with Spiced Niter Kibbeh",
@@ -564,8 +564,8 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R023": {
         "recipe_id": "R023",
-        "recipe_name_en": "Beef Alicha",
-        "recipe_name_am": "የበሬ ስጋ አልጫ",
+        "recipe_name_en": "Beef Key Wot",
+        "recipe_name_am": "ቀይ ወጥ",
         "fasting": False,
         "fish": False,
         "meal_role": "Mild Beef & Vegetable Stew",
@@ -590,7 +590,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R024": {
         "recipe_id": "R024",
         "recipe_name_en": "Ayib Gomen Bowl",
-        "recipe_name_am": "የአይብ እና ጎመን ቦውል",
+        "recipe_name_am": "አይብ በጎመን",
         "fasting": False,
         "fish": False,
         "meal_role": "High-Protein Fresh Cheese & Greens",
@@ -614,8 +614,8 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     },
     "R025": {
         "recipe_id": "R025",
-        "recipe_name_en": "Yogurt Fruit Oat Bowl",
-        "recipe_name_am": "የእርጎ፣ ፍራፍሬ እና አጃ ቦውል",
+        "recipe_name_en": "Yogurt Oat Bowl",
+        "recipe_name_am": "እርጎ በአጃና ፍራፍሬ",
         "fasting": False,
         "fish": False,
         "meal_role": "High-Protein Breakfast Yogurt Bowl",
@@ -640,7 +640,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R026": {
         "recipe_id": "R026",
         "recipe_name_en": "Chicken Rice Bowl",
-        "recipe_name_am": "የዶሮ እና ሩዝ ቦውል",
+        "recipe_name_am": "የዶሮ ስጋ ከሩዝ ጋር",
         "fasting": False,
         "fish": False,
         "meal_role": "Post-Workout Chicken Rice & Veggies",
@@ -665,7 +665,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R027": {
         "recipe_id": "R027",
         "recipe_name_en": "Tuna Pasta",
-        "recipe_name_am": "የቱና ፓስታ",
+        "recipe_name_am": "ቱና ከፓስታ ጋር",
         "fasting": False,
         "fish": True,
         "meal_role": "High-Protein Tuna Pasta Bowl",
@@ -690,7 +690,7 @@ RECIPE_CALIBRATIONS: dict[str, dict[str, Any]] = {
     "R028": {
         "recipe_id": "R028",
         "recipe_name_en": "Egg Avocado Toast",
-        "recipe_name_am": "የእንቁላል እና አቮካዶ ቶስት",
+        "recipe_name_am": "እንቁላልና አቮካዶ በዳቦ",
         "fasting": False,
         "fish": False,
         "meal_role": "Whole-Grain Egg & Avocado Toast",

@@ -46,17 +46,52 @@ def sha256_file(path: Path) -> str:
 
 def local_food_name(food_id: str, default_name: str, language: str) -> str:
     from meal_plan.glossary import get_food_name
-    return get_food_name(food_id, default_name, language)
+    is_am = str(language).upper() == "AM"
+    d_lower = str(default_name or "").lower()
+
+    if food_id == "A011" and ("raw" in d_lower or d_lower == "eggs" or "ፍሬ" in d_lower):
+        return "እንቁላል" if is_am else "Eggs"
+    if food_id == "C010" and ("raw" in d_lower or "ጥሬ" in d_lower):
+        return "ድንች (ጥሬ)" if is_am else "Potatoes (Raw)"
+    if food_id == "A001" and ("raw" in d_lower or "ጥሬ" in d_lower):
+        return "የበሬ ስጋ (ጥሬ)" if is_am else "Beef (Raw)"
+    if food_id == "A002" and ("raw" in d_lower or "ጥሬ" in d_lower):
+        return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
+    if food_id == "A007" and ("raw" in d_lower or "ጥሬ" in d_lower):
+        return "ጥሬ አሳ (የተጸዳ)" if is_am else "Tilapia fillet (Raw)"
+    if food_id == "A015":
+        return "ወተት (ዝቅተኛ ቅባት)" if is_am else "Milk, low-fat"
+
+    name = get_food_name(food_id, default_name, language)
+    if name == " ዝ" or name.startswith(" ዝ"):
+        name = "ሙዝ" + name[2:]
+    elif name == "ዝ":
+        name = "ሙዝ"
+    if "ፋል" in name:
+        name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    return name
 
 
 def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
     from meal_plan.glossary import get_recipe_name
-    return get_recipe_name(recipe_id, default_name, language)
+    name = get_recipe_name(recipe_id, default_name, language)
+    if "ፋል" in name:
+        name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    return name
 
 
 def local_template_name(template_id: str, default_name: str, language: str) -> str:
     from meal_plan.glossary import get_template_name
-    return get_template_name(template_id, default_name, language)
+    name = get_template_name(template_id, default_name, language)
+    if "ፋል" in name:
+        name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    d_lower = str(default_name or "").lower()
+    if "soy" not in d_lower and "አኩሪ" not in d_lower and ("milk" in d_lower or "ወተት" in d_lower):
+        if "የአኩሪ አተር ወተት" in name:
+            name = name.replace("የአኩሪ አተር ወተት", "ወተት")
+        if "soy milk" in name.lower():
+            name = re.sub(r"soy milk", "milk", name, flags=re.I)
+    return name
 
 
 def local_category_name(category: str, language: str) -> str:
@@ -170,3 +205,67 @@ def find_coach_image_path(explicit_path: str | Path | None = None) -> Path | Non
         if c.exists():
             return c
     return None
+
+
+def format_swap_text(meal: Any, swap_item: dict[str, Any], is_am: bool = True) -> str:
+    category = swap_item.get("category", "")
+    fid = str(swap_item.get("food_id") or "")
+    swap_name = swap_item.get("food_name_am" if is_am else "food_name", "")
+    if not swap_name:
+        swap_name = swap_item.get("food_name", "")
+
+    # Budget guardrail: Replace imported cottage cheese (A016) with affordable boiled eggs (A011)
+    if fid == "A016" or "cottage" in str(swap_name).lower() or "ኮቴጅ" in str(swap_name):
+        swap_name = "የተቀቀለ እንቁላል" if is_am else "Boiled eggs"
+        grams_val = 100
+        familiar = "2 ፍሬ" if is_am else "2 large eggs"
+    else:
+        grams_val = swap_item.get("grams") or swap_item.get("exchange_weight_g") or 0
+        if is_am and swap_item.get("familiar_am"):
+            familiar = str(swap_item.get("familiar_am")).strip()
+        elif not is_am and swap_item.get("familiar"):
+            familiar = str(swap_item.get("familiar")).strip()
+        else:
+            familiar = str(swap_item.get("familiar_guidance") or swap_item.get("familiar") or "").strip()
+
+    g_unit = "ግ" if is_am else "g"
+    swap_qty = f"{round(float(grams_val))} {g_unit}"
+
+    if familiar:
+        if is_am and any('\u1200' <= ch <= '\u137f' for ch in familiar):
+            fam_text = familiar
+        else:
+            from meal_plan.generation.formatting import familiar_portion
+            fam_text = familiar_portion(1.0, familiar, language="AM" if is_am else "EN")
+        detail = f"{swap_name} ({swap_qty} — {fam_text})"
+    else:
+        detail = f"{swap_name} ({swap_qty})"
+
+    # Clean double em-dashes
+    detail = re.sub(r"—{2,}", " — ", detail)
+    detail = re.sub(r"—\s*—", " — ", detail)
+    detail = re.sub(r"--+", " — ", detail)
+    detail = re.sub(r"\s+—\s+", " — ", detail)
+
+    for_fid = str(swap_item.get("for_food_id") or "")
+    s_type = swap_item.get("swap_type") or ""
+    cat_lower = str(category).lower()
+
+    if for_fid == "C001":
+        prefix = "🔄 የእንጀራ ተቀያሪ፦ " if is_am else "🔄 Injera Swap: "
+    elif for_fid == "C010":
+        prefix = "🔄 የድንች ተቀያሪ፦ " if is_am else "🔄 Potato Swap: "
+    elif for_fid == "A018":
+        prefix = "🔄 የአይብ ተቀያሪ፦ " if is_am else "🔄 Ayib Swap: "
+    elif for_fid == "A011":
+        prefix = "🔄 የእንቁላል ተቀያሪ፦ " if is_am else "🔄 Egg Swap: "
+    elif s_type == "carb" or any(k in cat_lower for k in ("grain", "starch", "tuber")):
+        prefix = "🔄 የእህል / የካርቦሃይድሬት ተቀያሪ፦ " if is_am else "🔄 Grain/Carb Swap: "
+    elif s_type == "protein" or "protein" in cat_lower or "meat" in cat_lower or "egg" in cat_lower:
+        prefix = "🔄 የፕሮቲን ተቀያሪ፦ " if is_am else "🔄 Protein Swap: "
+    elif s_type == "fat" or "fat" in cat_lower or "oil" in cat_lower:
+        prefix = "🔄 የቅባት ተቀያሪ፦ " if is_am else "🔄 Fat Swap: "
+    else:
+        prefix = "🔄 ተቀያሪ አማራጭ፦ " if is_am else "🔄 Alternative: "
+
+    return f"{prefix}{detail}"

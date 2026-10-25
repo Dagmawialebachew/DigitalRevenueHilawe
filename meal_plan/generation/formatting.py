@@ -93,11 +93,26 @@ MEASURE_DICT_AM: dict[str, str] = {
     "medium guavas": "መካከለኛ ዘይቱን",
     "medium potatoes": "መካከለኛ ድንች",
     "large dates": "ትላልቅ ቴምር",
-    "palm-and-a-half": "1 ከግማሽ የእጅ መዳፍ",
+    "palm-and-a-half": "የእጅ መዳፍ",
     "palms": "የእጅ መዳፍ",
     "palm": "የእጅ መዳፍ",
-    "standard portion": "መደበኛ መጠን",
-    "medium serving": "መካከለኛ መጠን",
+    "palm portion": "የእጅ መዳፍ የሚያህል",
+    "palm size": "የእጅ መዳፍ የሚያህል",
+    "medium ladle": "መካከለኛ ጭልፋ",
+    "ladle": "ጭልፋ",
+    "small bowl": "አነስተኛ ሳህን",
+    "medium bowl": "መካከለኛ ሳህን",
+    "medium tuber": "መካከለኛ ፍሬ",
+    "standard portion": "መካከለኛ ጭልፋ",
+    "medium serving": "መካከለኛ ጭልፋ",
+    "egg whites": "የተቀቀለ የእንቁላል ነጭ",
+    "egg white": "የተቀቀለ የእንቁላል ነጭ",
+    "medium injera": "መካከለኛ እንጀራ",
+    "injera": "እንጀራ",
+    "1/3 medium injera": "ሲሶ (1/3) መካከለኛ እንጀራ",
+    "1/3-1/2 block": "ግማሽ የቶፉ ቁራጭ",
+    "1/3--1/2 block": "ግማሽ የቶፉ ቁራጭ",
+    "block": "የቶፉ ቁራጭ",
 }
 
 
@@ -126,9 +141,9 @@ _GLYPH_VALS = {"¼": 0.25, "½": 0.5, "¾": 0.75}
 
 
 def _parse_portion_string(text: str) -> tuple[float, str]:
-    clean = re.sub(r"^about\s+", "", text, flags=re.I).strip()
+    clean = re.sub(r"^(about|በግምት)\s+", "", text, flags=re.I).strip()
     if "palm-and-a-half" in clean.lower():
-        return 1.5, "palm-and-a-half"
+        return 1.5, "palm"
     m = re.match(r"^(\d+)?\s*([¼½¾]|\d+/\d+)?\s*(.+)$", clean)
     if m:
         whole = float(m.group(1)) if m.group(1) else 0.0
@@ -150,13 +165,32 @@ def _parse_portion_string(text: str) -> tuple[float, str]:
 
 
 def familiar_portion(multiplier: float, familiar_measure: str | None, language: str = "EN") -> str:
-    raw = str(familiar_measure or "standard portion").strip()
+    raw = str(familiar_measure or "medium ladle").strip()
     is_am = str(language).upper() == "AM"
+    if is_am:
+        # Pre-process known quirky strings and ranges directly
+        if re.search(r"1\s*/\s*3\s*-+\s*1\s*/\s*2\s*block", raw, flags=re.I):
+            return "በግምት ግማሽ የቶፉ ቁራጭ"
+        if re.search(r"1\s*/\s*3\s*medium\s*injera", raw, flags=re.I):
+            return "በግምት ሲሶ (1/3) መካከለኛ እንጀራ"
+        if raw.startswith("በግምት "):
+            raw = raw[len("በግምት "):].strip()
+    elif raw.startswith("about "):
+        raw = raw[len("about "):].strip()
+
     base_qty, unit = _parse_portion_string(raw)
     total_qty = max(0.25, round(base_qty * multiplier * 4) / 4)
     if is_am:
         trans_unit = _translate_measure_phrase_am(unit)
-        return f"በግምት {quarter_text_am(total_qty)} {trans_unit}"
+        qty_text = quarter_text_am(total_qty)
+        if trans_unit.startswith(qty_text):
+            trans_unit = trans_unit[len(qty_text):].strip()
+        res = f"በግምት {qty_text} {trans_unit}".strip()
+        # Clean up any duplicated phrases like '1 ከግማሽ 1 ከግማሽ'
+        res = re.sub(r"\b(1 ከግማሽ|ግማሽ|ሩብ|ሲሶ)\s+\1\b", r"\1", res)
+        if " ዝ" in res:
+            res = res.replace(" ዝ", " ሙዝ")
+        return res
     return f"about {quarter_text(total_qty)} {unit}"
 
 

@@ -136,7 +136,10 @@ def profile_exclusion_terms(answers: dict[str, Any]) -> list[tuple[str, set[str]
         terms = ALLERGY_TERMS.get(str(key).upper())
         if terms:
             result.append((f"intolerance:{key}", terms))
+    liked = {str(k).upper() for k in (answers.get("liked_foods") or [])}
     for key in answers.get("disliked_foods") or []:
+        if str(key).upper() in liked:
+            continue
         terms = DISLIKE_TERMS.get(str(key).upper())
         if terms:
             result.append((f"dislike:{key}", terms))
@@ -168,7 +171,7 @@ def food_is_safe(food: dict[str, Any], answers: dict[str, Any], *, fasting: bool
         return False, "supplements disabled in V1"
 
     dietary = str(answers.get("dietary_pattern") or "").upper()
-    if dietary not in {"OMNIVORE", "VEGETARIAN", "VEGAN"}:
+    if dietary not in {"OMNIVORE", "VEGETARIAN", "VEGAN", "PESCATARIAN"}:
         return False, "dietary pattern is missing or unsupported"
     if dietary == "VEGAN":
         if str(food.get("Fasting Allowed") or "") != "Yes" or str(food.get("Fish Item") or "") == "Yes":
@@ -176,6 +179,9 @@ def food_is_safe(food: dict[str, Any], answers: dict[str, Any], *, fasting: bool
     elif dietary == "VEGETARIAN":
         if str(food.get("Fish Item") or "") == "Yes" or "animal protein" in category or "fish protein" in category:
             return False, "not lacto-ovo vegetarian compatible"
+    elif dietary == "PESCATARIAN":
+        if ("animal protein" in category or "meat" in category) and str(food.get("Fish Item") or "") != "Yes":
+            return False, "not pescatarian compatible"
 
     if fasting:
         if str(food.get("Fasting Allowed") or "") != "Yes":
@@ -189,12 +195,19 @@ def food_is_safe(food: dict[str, Any], answers: dict[str, Any], *, fasting: bool
     return True, None
 
 
-def template_is_safe(template: dict[str, Any], dataset: HilaweDataset, answers: dict[str, Any], *, fasting: bool) -> tuple[bool, list[str]]:
+def template_is_safe(template: dict[str, Any], dataset: HilaweDataset, answers: dict[str, Any], *, fasting: bool, allow_fasting_for_omnivore: bool = False) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     if str(template.get("Active") or "") != "Yes":
         return False, ["inactive template"]
-    if str(template.get("Fasting") or "") != ("Yes" if fasting else "No"):
-        return False, ["fasting mode mismatch"]
+    tmpl_is_fast = str(template.get("Fasting") or "") == "Yes"
+    if fasting:
+        if not tmpl_is_fast:
+            return False, ["fasting mode mismatch: non-fasting template during fast"]
+    else:
+        if tmpl_is_fast and not allow_fasting_for_omnivore:
+            dietary = str(answers.get("dietary_pattern") or "").upper()
+            if dietary not in ("VEGETARIAN", "PESCATARIAN"):
+                return False, ["fasting mode mismatch"]
     if fasting and str(template.get("Fish Required") or "") == "Yes" and not bool(answers.get("fish_during_fast")):
         return False, ["fish not allowed during fast"]
 

@@ -1,9 +1,70 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from meal_plan.generation.dataset import HilaweDataset
 
+
+_CUSTOM_QUERIES: dict[str, str] = {
+    "template_components": """
+        SELECT 
+            template_id AS "Template ID",
+            line_number AS "Line",
+            item_type AS "Item Type",
+            item_id AS "Item ID",
+            item_name AS "Item Name",
+            portion_g AS "Portion g",
+            servings AS "Servings",
+            kcal AS "kcal",
+            protein_g AS "Protein g",
+            carbs_g AS "Carbs g",
+            fat_g AS "Fat g",
+            fibre_g AS "Fibre g",
+            exact_instruction AS "Exact Instruction",
+            familiar_portion AS "Familiar Portion",
+            exchange_note AS "Exchange Note",
+            allergens AS "Allergens",
+            optional AS "Optional",
+            source_payload,
+            dataset_version
+        FROM nutrition_template_components
+        ORDER BY template_id, line_number
+    """,
+    "recipe_ingredients": """
+        SELECT 
+            recipe_id AS "Recipe ID",
+            line_number AS "Line",
+            food_id AS "Food ID",
+            ingredient_name AS "Ingredient",
+            weight_g AS "Weight g",
+            prep_note AS "Prep Note",
+            source_payload,
+            dataset_version
+        FROM nutrition_recipe_ingredients
+        ORDER BY recipe_id, line_number
+    """,
+    "exchange_groups": """
+        SELECT 
+            exchange_group AS "Exchange Group",
+            food_id AS "Food ID",
+            exchange_weight_g AS "Exchange Weight g",
+            kcal AS "kcal",
+            protein_g AS "Protein g",
+            carbs_g AS "Carbs g",
+            fat_g AS "Fat g",
+            fibre_g AS "Fibre g",
+            CASE WHEN fasting_allowed THEN 'Yes' ELSE 'No' END AS "Fasting Allowed",
+            CASE WHEN fish_item THEN 'Yes' ELSE 'No' END AS "Fish Item",
+            familiar_guidance AS "Familiar Guidance",
+            coach_note AS "Coach Note",
+            CASE WHEN active THEN 'Yes' ELSE 'No' END AS "Active",
+            source_payload,
+            dataset_version
+        FROM nutrition_exchange_groups
+        ORDER BY exchange_group, food_id
+    """,
+}
 
 _TABLES: tuple[tuple[str, str], ...] = (
     ("foods", "nutrition_foods ORDER BY food_id"),
@@ -17,24 +78,53 @@ _TABLES: tuple[tuple[str, str], ...] = (
 )
 
 
+def _to_clean_value(val: Any) -> Any:
+    if isinstance(val, Decimal):
+        return float(val)
+    if isinstance(val, str) and "ፋል" in val:
+        return val.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    return val
+
+
 async def load_dataset_from_db(conn: Any) -> HilaweDataset:
     """Load the exact imported Hilawe source rows from PostgreSQL.
 
-    Phase 6 stores every workbook row in `source_payload` JSONB. The engine can
-    therefore use the same field names/rules whether it is running from the
-    bundled, versioned snapshot during local tests or from the imported database
-    in production. No lossy reverse-mapping from SQL column names is required.
+    Reads table columns with aliases matching Hilawe workbook keys, while
+    falling back to or merging any non-empty `source_payload` JSONB when present.
     """
     sections: dict[str, tuple[dict[str, Any], ...]] = {}
     versions: set[str] = set()
     for key, table_sql in _TABLES:
-        records = await conn.fetch(f"SELECT source_payload, dataset_version FROM {table_sql}")
+        query = _CUSTOM_QUERIES.get(key, f"SELECT source_payload, dataset_version FROM {table_sql}")
+        records = await conn.fetch(query)
         rows: list[dict[str, Any]] = []
         for record in records:
-            payload = record["source_payload"]
-            rows.append(dict(payload or {}))
-            if record["dataset_version"]:
-                versions.add(str(record["dataset_version"]))
+            rec_dict = dict(record)
+            payload = rec_dict.pop("source_payload", None)
+            ver = rec_dict.pop("dataset_version", None)
+            if ver:
+                versions.add(str(ver))
+
+            if isinstance(payload, str) and payload.strip():
+                try:
+                    import json
+                    payload = json.loads(payload)
+                except Exception:
+                    pass
+
+            if isinstance(payload, dict) and payload:
+                row = {str(k): _to_clean_value(v) for k, v in payload.items()}
+                # Ensure column-backed ID fields are present as strings if missing in payload
+                for col_k in ("Template ID", "Recipe ID", "Food ID"):
+                    if col_k in rec_dict and rec_dict[col_k] is not None and col_k not in row:
+                        row[col_k] = str(rec_dict[col_k])
+            else:
+                row = {str(k): _to_clean_value(v) for k, v in rec_dict.items()}
+                for col_k in ("Template ID", "Recipe ID", "Food ID"):
+                    if col_k in row and row[col_k] is not None:
+                        row[col_k] = str(row[col_k])
+
+            rows.append(row)
         sections[key] = tuple(rows)
 
     if not sections["foods"] or not sections["templates"]:

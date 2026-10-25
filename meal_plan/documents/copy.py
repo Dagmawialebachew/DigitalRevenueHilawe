@@ -172,24 +172,30 @@ _PROFILE_LABELS_AM = {
     "fat_loss": "ክብደት መቀነስ (ስብ ማቃጠል)",
     "weight_loss": "ክብደት መቀነስ",
     "muscle_gain": "ጡንቻ መገንባት",
+    "maintain": "ክብደት መጠበቅ",
     "maintenance": "ክብደት መጠበቅ",
     "recomposition": "የሰውነት ቅርጽ ማስተካከል",
     "general_health": "አጠቃላይ ጤና እና ብቃት",
 
     # Cuisine styles
-    "ethiopian_traditional": "የሀገር ባህል ምግቦች",
+    "ethiopian": "የሀበሻ ምግቦች",
+    "ethiopian_traditional": "የሀበሻ ምግቦች",
+    "traditional": "የሀበሻ ምግቦች",
+    "habesha": "የሀበሻ ምግቦች",
     "mixed": "የተቀላቀለ (ባህል እና ዘመናዊ)",
     "western": "ዘመናዊ ምግቦች",
 
     # Dietary patterns
     "omnivore": "ሁሉን ተመጋቢ (ስጋ እና አትክልት)",
-    "vegetarian": "የአትክልት ተመጋቢ (ቬጀቴሪያን)",
+    "vegetarian": "የአትክልትና እንቁላል ተመጋቢ (ቬጀቴሪያን)",
     "vegan": "የዕፅዋት ምግቦች ብቻ (ቪጋን)",
     "fasting_only": "የጾም ምግቦች ብቻ",
-    "pescatarian": "ዓሣ እና አትክልት ተመጋቢ",
+    "pescatarian": "የዓሣ እና አትክልት ተመጋቢ (ፔስካቴሪያን)",
 
     # Grocery budget
     "low": "ቆጣቢ / ዝቅተኛ",
+    "save": "ቆጣቢ / ዝቅተኛ",
+    "value": "ቆጣቢ / ዝቅተኛ",
     "medium": "መካከለኛ",
     "high": "ከፍተኛ / የተሟላ",
     "balanced": "መካከለኛ / ሚዛናዊ",
@@ -202,6 +208,8 @@ _PROFILE_LABELS_AM = {
     "strength": "የጥንካሬ ልምምድ (ጂም)",
     "gym_strength": "የጥንካሬ ልምምድ (ጂም)",
     "gym": "የጂም ልምምድ",
+    "gym_workout": "የጂም ልምምድ",
+    "home_workout": "የቤት ውስጥ እንቅስቃሴ",
     "strength_training": "የጥንካሬ ልምምድ",
     "cardio": "ካርዲዮ (ሩጫ/ዋና)",
     "running": "ሩጫ / ካርዲዮ",
@@ -211,7 +219,8 @@ _PROFILE_LABELS_AM = {
     "mixed_training": "የተቀላቀለ ልምምድ",
     "hybrid": "የተቀላቀለ ልምምድ",
     "endurance": "የጽናት ልምምድ",
-    "none": "የለም",
+    "none": "አይጾምም",
+    "not_training": "የእረፍት / እንቅስቃሴ የሌለው",
 
     # Orthodox Fasting
     "yes": "አዎ (ይጾማል)",
@@ -219,6 +228,7 @@ _PROFILE_LABELS_AM = {
     "wed_fri": "ረቡዕ እና አርብ",
     "all_fasts": "ሁሉንም አጽዋማት",
     "seasonal": "ወቅታዊ አጽዋማት",
+    "lent": "ወቅታዊ አጽዋማት (ዐቢይ ጾም)",
 }
 
 
@@ -260,6 +270,18 @@ def profile_label(value: Any, language: str = "EN") -> str:
 
 def format_training_summary(days: Any, training_type: Any, language: str = "EN") -> str:
     c = copy_for(language)
+    days_val = 0
+    try:
+        days_val = int(days)
+    except (TypeError, ValueError):
+        days_val = 0 if str(days).strip() in ("0", "", "-") else 1
+
+    type_clean = str(training_type or "").strip().lower()
+    if days_val == 0 or type_clean in ("none", "not_training", "not training", "-"):
+        if str(language).upper() == "AM":
+            return "የእረፍት / እንቅስቃሴ የሌለው"
+        return "Rest / Not Training"
+
     days_str = str(days if days is not None else "-")
     type_str = profile_label(training_type, language)
     if str(language).upper() == "AM":

@@ -35,6 +35,10 @@ __pycache__/
 crushconnect.db
 # Meal Plan generated artifacts
 artifacts/
+10_TRIAL_PDFS/
+20_TRIAL_PDFS/
+scratch/*.html
+scratch/*.pdf
 env_broken_backup/
 downloads/
 *.tsbuildinfo
