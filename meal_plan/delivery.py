@@ -7,6 +7,7 @@ from pathlib import Path
 from aiogram import Bot
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from config import settings
 from database.db import Database
 from meal_plan.repository import ConcurrentUpdate
 from meal_plan.review_repository import MealPlanReviewRepository

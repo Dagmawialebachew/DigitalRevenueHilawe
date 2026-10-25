@@ -38,6 +38,16 @@ def _repo(db: Database) -> MealPlanReviewRepository:
     return MealPlanReviewRepository(pool)
 
 
+async def _safe_answer(callback: types.CallbackQuery, text: str | None = None, show_alert: bool = False):
+    try:
+        if text:
+            await callback.answer(text, show_alert=show_alert)
+        else:
+            await callback.answer()
+    except Exception:
+        pass
+
+
 async def _send_replacement_review_card(bot, repo: MealPlanReviewRepository, replacement_id: int, source_id: int):
     version, artifacts = await repo.get_review_context(replacement_id)
     source = await repo.get_version(source_id)
@@ -212,11 +222,12 @@ async def review_action(callback: types.CallbackQuery, db: Database, state: FSMC
 
         if action in {"approve", "deliver"}:
             await state.clear()
+            await _safe_answer(callback, "Processing approval…" if action == "approve" else "Checking delivery…")
             if action == "approve":
                 try:
                     version, order = await repo.approve_version(plan_version_id, callback.from_user.id)
                 except ValueError as exc:
-                    await callback.answer(str(exc)[:200], show_alert=True)
+                    await _safe_answer(callback, str(exc)[:200], show_alert=True)
                     try:
                         await callback.message.reply(
                             f"⚠️ <b>Approval Blocked:</b>\n{html.escape(str(exc))}\n\n"
@@ -229,7 +240,7 @@ async def review_action(callback: types.CallbackQuery, db: Database, state: FSMC
                         pass
                     return
 
-                await callback.answer("Approved. Delivering to client…")
+                await _safe_answer(callback, "Approved. Delivering to client…")
                 try:
                     await callback.message.edit_reply_markup(reply_markup=approved_keyboard(plan_version_id))
                     await callback.message.reply(
@@ -239,7 +250,7 @@ async def review_action(callback: types.CallbackQuery, db: Database, state: FSMC
                 except Exception:
                     pass
             else:
-                await callback.answer("Checking delivery…")
+                await _safe_answer(callback, "Checking delivery…")
 
             try:
                 result = await deliver_approved_plan(callback.bot, db, repo, plan_version_id)
@@ -264,10 +275,10 @@ async def review_action(callback: types.CallbackQuery, db: Database, state: FSMC
                     pass
             return
     except (RecordNotFound, ConcurrentUpdate, ValueError) as exc:
-        return await callback.answer(str(exc), show_alert=True)
+        return await _safe_answer(callback, str(exc), show_alert=True)
     except Exception as exc:
         logger.exception("Meal Plan review callback failed")
-        return await callback.answer(f"Review action failed: {type(exc).__name__}", show_alert=True)
+        return await _safe_answer(callback, f"Review action failed: {type(exc).__name__}", show_alert=True)
 
 
 @router.message(F.document)
