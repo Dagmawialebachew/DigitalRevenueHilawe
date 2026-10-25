@@ -88,7 +88,7 @@ class Phase1DeliveryContractTests(unittest.TestCase):
 
 
 class Phase1ApprovalGateTests(unittest.IsolatedAsyncioTestCase):
-    async def test_approve_version_blocks_when_unresolved_warnings_exist(self):
+    async def test_approve_version_succeeds_without_override_reason_even_with_warnings(self):
         pool = MagicMock()
         repo = MealPlanReviewRepository(pool)
 
@@ -123,11 +123,18 @@ class Phase1ApprovalGateTests(unittest.IsolatedAsyncioTestCase):
         mock_conn.transaction.return_value.__aenter__ = AsyncMock()
         mock_conn.transaction.return_value.__aexit__ = AsyncMock(return_value=None)
 
+        approved_version_row = {**mock_version, "status": "APPROVED"}
+        approved_order_row = {**mock_order, "state": "APPROVED", "current_plan_version_id": 10}
+
         async def fetchrow_side_effect(query, *args):
-            if "FROM meal_plan_versions" in query:
+            if "FROM meal_plan_versions" in query and "FOR UPDATE OF" in query:
                 return mock_version
+            if "UPDATE meal_plan_versions SET status='APPROVED'" in query:
+                return approved_version_row
             if "FROM meal_orders" in query:
                 return mock_order
+            if "UPDATE meal_orders SET state='APPROVED'" in query:
+                return approved_order_row
             return None
 
         async def fetchval_side_effect(query, *args):
@@ -142,11 +149,11 @@ class Phase1ApprovalGateTests(unittest.IsolatedAsyncioTestCase):
         pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
         pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        # Approval without override must raise ValueError
-        with self.assertRaises(ValueError) as ctx:
-            await repo.approve_version(10, reviewer_id=999)
-        self.assertIn("Cannot approve plan with unresolved review warnings", str(ctx.exception))
-        self.assertIn("Protein floor below 95% target", str(ctx.exception))
+        with tempfile.TemporaryDirectory() as td:
+            with patch("meal_plan.review_repository.version_output_dir", return_value=Path(td)):
+                ver, ord_res = await repo.approve_version(10, reviewer_id=999)
+                self.assertEqual(ver["status"], "APPROVED")
+                self.assertEqual(ord_res["state"], "APPROVED")
 
     async def test_approve_version_succeeds_with_override_reason(self):
         pool = MagicMock()

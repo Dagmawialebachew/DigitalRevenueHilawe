@@ -377,13 +377,8 @@ class MealPlanReviewRepository:
                 elif not isinstance(plan_json, dict):
                     plan_json = {}
 
-                # Check for blocking review warnings (e.g. uncalibrated recipes, practical warnings)
+                # Advisory review warnings (logged for audit, do not block approval)
                 warnings = review_warning_lines(plan_json) if plan_json else []
-                if version.get("source") != "MANUAL_REPLACEMENT" and warnings and not (override_reason and str(override_reason).strip()):
-                    warning_summary = " | ".join(warnings[:3])
-                    raise ValueError(
-                        f"Cannot approve plan with unresolved review warnings without an explicit override reason: {warning_summary}"
-                    )
 
                 # Option A: Compile clean client PDF upon approval (for generated plans)
                 if plan_json and version.get("source") != "MANUAL_REPLACEMENT":
@@ -469,6 +464,8 @@ class MealPlanReviewRepository:
                     )
 
                 review_metadata: dict[str, Any] = {"in_place_revision": in_place_revision}
+                if warnings:
+                    review_metadata["warnings"] = warnings
                 if override_reason:
                     review_metadata["override_reason"] = str(override_reason).strip()
                     review_metadata["overridden_warnings"] = warnings
