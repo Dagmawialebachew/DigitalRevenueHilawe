@@ -41,6 +41,7 @@ class TemplateSelector:
         self.answers = answers
         self.region = region
         self.country_name = country_name
+        self.templates_by_id = {str(t.get("Template ID")): t for t in self.dataset.templates if t.get("Template ID")}
         self.usage: dict[tuple[bool, str], dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self.last_day: dict[str, int] = {}
         self.slot_history: dict[str, list[str]] = defaultdict(list)
@@ -52,6 +53,12 @@ class TemplateSelector:
     def candidates(self, *, fasting: bool, source_slot: str) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         dietary = str(self.answers.get("dietary_pattern") or "OMNIVORE").upper()
+
+        is_international = (
+            str(self.answers.get("cuisine_style") or "").upper() == "INTERNATIONAL"
+            or str(self.region or "").upper() in ("EUROPE", "NORTH_AMERICA")
+            or str(self.answers.get("region") or "").upper() in ("EUROPE", "NORTH_AMERICA")
+        ) and str(self.answers.get("cuisine_style") or "").upper() != "ETHIOPIAN"
 
         for template in self.dataset.active_templates:
             t_slot = str(template.get("Meal Slot"))
@@ -69,7 +76,10 @@ class TemplateSelector:
                     continue
             allow_for_omnivore = False
             if not fasting and is_tmpl_fasting:
-                if dietary == "OMNIVORE" and source_slot in ("Lunch", "Dinner") and tid in ("MF-L01", "MF-L02", "MF-L03", "MF-L07", "MF-D01", "MF-D04", "MF-D07"):
+                if is_international:
+                    # In international mode, non-fasting omnivore days stick to animal protein staples
+                    continue
+                elif dietary == "OMNIVORE" and source_slot in ("Lunch", "Dinner") and tid in ("MF-L01", "MF-L02", "MF-L03", "MF-L07", "MF-D01", "MF-D04", "MF-D07"):
                     allow_for_omnivore = True
                 elif dietary == "OMNIVORE" and source_slot == "Breakfast" and tid in ("MF-B01", "MF-B02", "MF-B07"):
                     allow_for_omnivore = True
@@ -206,100 +216,122 @@ class TemplateSelector:
             uses = self.usage[key][tid]
             score -= float(uses) * 30.0
 
-            # Step 1: Breakfast diversity and rotation (Break monopoly, max 2 uses per 7-day period)
-            if source_slot == "Breakfast":
-                # Check usage in current 7-day window
-                window_start = (day_index // 7) * 7
-                recent_window_uses = sum(
-                    1 for d in range(window_start, day_index)
-                    if self.slot_day_template.get((d, "Breakfast")) == tid
-                )
-                if recent_window_uses >= 2:
-                    score -= 200.0  # Strict cap: no single breakfast template appears > 2 times in a 7-day period
-                elif recent_window_uses == 1:
-                    score -= 25.0
+            is_international = (
+                str(self.answers.get("cuisine_style") or "").upper() == "INTERNATIONAL"
+                or str(self.region or "").upper() in ("EUROPE", "NORTH_AMERICA")
+                or str(self.answers.get("region") or "").upper() in ("EUROPE", "NORTH_AMERICA")
+            ) and str(self.answers.get("cuisine_style") or "").upper() != "ETHIOPIAN"
 
-                if dietary == "OMNIVORE":
+            if is_international:
+                t_name = (str(tmpl.get("Meal Name") or "") + " " + str(tmpl.get("Tags") or "")).lower()
+                t_cuisine = str(tmpl.get("Cuisine") or "").lower()
+                is_ethiopian_staple = any(w in t_name for w in ("injera", "wot", "alicha", "shiro", "misir", "firfir", "kitfo", "kocho", "ayib")) or t_cuisine == "ethiopian"
+                if is_ethiopian_staple:
+                    score -= 400.0
+
+                if source_slot == "Breakfast":
+                    if tid in ("MN-B02", "MN-B03", "MN-B04", "MN-B05", "MF-B02", "MF-B07", "MF-B06"):
+                        score += 120.0
+                elif source_slot == "Lunch":
+                    if tid in ("MN-L01", "MN-L03", "MN-L06", "MN-L08", "MF-L04", "MF-L06", "MF-L08", "MF-L07"):
+                        score += 120.0
+                elif source_slot == "Dinner":
+                    if tid in ("MN-D01", "MN-D06", "MN-D07", "MN-D08", "MN-D09", "MF-D01", "MF-D05", "MF-D06", "MF-D08"):
+                        score += 120.0
+                    lunch_tid = self.slot_day_template.get((day_index, "Lunch"))
+                    if lunch_tid:
+                        lunch_tmpl = self.templates_by_id.get(lunch_tid, {})
+                        lunch_name = str(lunch_tmpl.get("Meal Name") or "").lower()
+                        for prot_word in ("chicken", "tuna", "tilapia", "beef", "tofu", "egg"):
+                            if prot_word in lunch_name and prot_word in t_name:
+                                score -= 120.0
+                elif source_slot == "Snack":
+                    # In international fitness mode, prefer clean fruit + nut butter / energy snacks
+                    # Avoid heavy savory tuna or double-dairy snacks
+                    if tid in ("MN-S09", "MF-S04", "MF-S01", "MF-S05", "MN-S03", "MF-S08"):
+                        score += 150.0
+                    elif tid in ("MN-S07", "MN-S06"):
+                        score -= 250.0
+            else:
+                # Step 1: Breakfast diversity and rotation (Break monopoly, max 2 uses per 7-day period)
+                if source_slot == "Breakfast":
+                    # Check usage in current 7-day window
+                    window_start = (day_index // 7) * 7
+                    recent_window_uses = sum(
+                        1 for d in range(window_start, day_index)
+                        if self.slot_day_template.get((d, "Breakfast")) == tid
+                    )
+                    if recent_window_uses >= 2:
+                        score -= 200.0  # Strict cap: no single breakfast template appears > 2 times in a 7-day period
+                    elif recent_window_uses == 1:
+                        score -= 25.0
+
+                    if dietary == "OMNIVORE":
+                        comps = self.dataset.components_by_template.get(tid, [])
+                        recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
+                        food_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Food"}
+                        breakfast_target_map = {
+                            0: ("MN-B01", "A011"),  # Eggs, injera and tomato
+                            1: ("MN-B02", "MF-B07", "R025", "C007"),  # Oatmeal / fruit bowl
+                            2: ("MN-B06", "A018"),  # Ayib, injera and papaya
+                            3: ("MN-B04", "A011"),  # Boiled eggs, whole-wheat bread and orange
+                            4: ("MF-B07", "MF-B02", "MN-B02", "R025", "C007"),  # Peanut banana oats
+                            5: ("MN-B06", "A018"),  # Ayib, injera and papaya
+                            6: ("MN-B07", "R021", "A011"),  # Egg firfir and cucumber
+                        }
+                        b_targets = breakfast_target_map.get(day_index % 7, ())
+                        if tid == "MN-B02" and day_index % 7 == 1:
+                            score += 130.0
+                        elif tid in b_targets or any(r in recipe_ids for r in b_targets) or any(f in food_ids for f in b_targets):
+                            score += 85.0
+
+                # Step 3: Prevent Breakfast + Dinner Double-Egg Monotony
+                if source_slot == "Dinner":
+                    is_egg_dinner = template_has_egg(tmpl) or tid == "MN-D04"
+                    if is_egg_dinner:
+                        if self.day_egg_breakfast.get(day_index):
+                            score -= 150.0
+                        if self.weekly_dinner_egg_count >= 2:
+                            score -= 150.0
+
                     comps = self.dataset.components_by_template.get(tid, [])
                     recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
-                    food_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Food"}
-                    # Target 7-day natural omnivore breakfast rotation:
-                    # 2-3 days: Egg-based (Boiled eggs with whole wheat bread/injera, or Egg Firfir R021/B001/MN-B01/MN-B04/MN-B07)
-                    # 2 days: Oatmeal / fruit bowl or Kinche (R025 / MN-B02 / MF-B07 / MF-B02 / MF-B01)
-                    # 2 days: Ayib and fruit bowl (R024 / MN-B06)
-                    breakfast_target_map = {
-                        0: ("MN-B01", "A011"),  # Eggs, injera and tomato
-                        1: ("MN-B02", "MF-B07", "R025", "C007"),  # Oatmeal / fruit bowl
-                        2: ("MN-B06", "A018"),  # Ayib, injera and papaya
-                        3: ("MN-B04", "A011"),  # Boiled eggs, whole-wheat bread and orange
-                        4: ("MF-B07", "MF-B02", "MN-B02", "R025", "C007"),  # Peanut banana oats
-                        5: ("MN-B06", "A018"),  # Ayib, injera and papaya
-                        6: ("MN-B07", "R021", "A011"),  # Egg firfir and cucumber
-                    }
-                    b_targets = breakfast_target_map.get(day_index % 7, ())
-                    if tid == "MN-B02" and day_index % 7 == 1:
-                        score += 130.0
-                    elif tid in b_targets or any(r in recipe_ids for r in b_targets) or any(f in food_ids for f in b_targets):
-                        score += 85.0
+                    if "R024" in recipe_ids or tid == "MN-D05":
+                        score += 45.0
+                    elif any(r in recipe_ids for r in ("R014", "R015")) or tid in ("MN-D01", "MF-D05"):
+                        score += 40.0
+                    elif "R001" in recipe_ids or tid == "MF-D04":
+                        score += 35.0
+                    elif "R002" in recipe_ids or tid == "MF-D07":
+                        score += 30.0
 
-            # Step 3: Prevent Breakfast + Dinner Double-Egg Monotony
-            if source_slot == "Dinner":
-                is_egg_dinner = template_has_egg(tmpl) or tid == "MN-D04"
-                if is_egg_dinner:
-                    # If user had eggs for breakfast today, heavily downrank dinner egg firfir
-                    if self.day_egg_breakfast.get(day_index):
-                        score -= 150.0
-                    # Allow R021 (Egg Firfir) at dinner at most 2 times per week
-                    if self.weekly_dinner_egg_count >= 2:
-                        score -= 150.0
-
-                # For Dinner, prioritize varied Ethiopian stews & fish:
-                # R024 (Ayib be Gomen), R014/R015 (Fish Tibs / Grilled Tilapia), R001 (Shiro), R002 (Misir)
-                comps = self.dataset.components_by_template.get(tid, [])
-                recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
-                if "R024" in recipe_ids or tid == "MN-D05":
-                    score += 45.0
-                elif any(r in recipe_ids for r in ("R014", "R015")) or tid in ("MN-D01", "MF-D05"):
-                    score += 40.0
-                elif "R001" in recipe_ids or tid == "MF-D04":
-                    score += 35.0
-                elif "R002" in recipe_ids or tid == "MF-D07":
-                    score += 30.0
-
-            # Step 2: Ensure omnivore lunches actively alternate across the week:
-            # Day 1: ቀይ ወጥ (Beef Key Wot - R023 / MN-L07)
-            # Day 2: የበሬ ስጋ ጥብስ (Beef Tibs - R018 / MN-L02)
-            # Day 3: ሽሮ ወጥ ከእንጀራ ጋር (Shiro Wot - R001 / MF-L02)
-            # Day 4: ምንቸት አብሽ (Minchet Abish - R020 / MN-D02)
-            # Day 5: ምስር ወጥ (Misir Wot - R002 / MF-L01)
-            # Day 6: ክክ አልጫ (Kik Alicha - R003 / MF-L03)
-            # Day 7: ቀይ ወጥ (Beef Key Wot - R023 / MN-L07)
-            if source_slot == "Lunch" and dietary == "OMNIVORE":
-                comps = self.dataset.components_by_template.get(tid, [])
-                recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
-                if is_save_budget:
-                    target_map = {
-                        0: ("R023", "MN-L07"),
-                        1: ("R018", "MN-L02"),
-                        2: ("R001", "MF-L02"),
-                        3: ("R020", "MN-D02"),
-                        4: ("R002", "MF-L01"),
-                        5: ("R003", "MF-L03"),
-                        6: ("R023", "MN-L07"),
-                    }
-                else:
-                    target_map = {
-                        0: ("R023", "MN-L07"),
-                        1: ("R018", "MN-L02"),
-                        2: ("R001", "MF-L02"),
-                        3: ("R020", "MN-D02"),
-                        4: ("R019", "R016", "MN-L06", "MN-L04"),
-                        5: ("R002", "R014", "MF-L01", "MF-L07"),
-                        6: ("R023", "MN-L07"),
-                    }
-                day_targets = target_map.get(day_index % 7, ())
-                if tid in day_targets or any(r in recipe_ids for r in day_targets):
-                    score += 70.0
+                # Step 2: Ensure omnivore lunches actively alternate across the week:
+                if source_slot == "Lunch" and dietary == "OMNIVORE":
+                    comps = self.dataset.components_by_template.get(tid, [])
+                    recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
+                    if is_save_budget:
+                        target_map = {
+                            0: ("R023", "MN-L07"),
+                            1: ("R018", "MN-L02"),
+                            2: ("R001", "MF-L02"),
+                            3: ("R020", "MN-D02"),
+                            4: ("R002", "MF-L01"),
+                            5: ("R003", "MF-L03"),
+                            6: ("R023", "MN-L07"),
+                        }
+                    else:
+                        target_map = {
+                            0: ("R023", "MN-L07"),
+                            1: ("R018", "MN-L02"),
+                            2: ("R001", "MF-L02"),
+                            3: ("R020", "MN-D02"),
+                            4: ("R019", "R016", "MN-L06", "MN-L04"),
+                            5: ("R002", "R014", "MF-L01", "MF-L07"),
+                            6: ("R023", "MN-L07"),
+                        }
+                    day_targets = target_map.get(day_index % 7, ())
+                    if tid in day_targets or any(r in recipe_ids for r in day_targets):
+                        score += 70.0
 
             return score
 

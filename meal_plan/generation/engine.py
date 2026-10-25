@@ -365,17 +365,9 @@ def _generate_core_week(
             )
             meals.append(meal)
             day_warnings.extend(meal.warnings)
-            budget_raw = str(answers.get("grocery_budget") or "").upper()
-            is_save = budget_raw in {"SAVE", "VALUE", "ቆጣቢ"} or "SAVE" in budget_raw or "ቆጣቢ" in budget_raw
-            dietary_raw = str(answers.get("dietary_preference") or answers.get("dietary_pattern") or "OMNIVORE").upper()
-            is_omni = "OMNIVORE" in dietary_raw or not fasting
-            for fid, grams in solution.food_by_slot[spec.label].items():
-                if is_save and fid == "T001":
-                    fid = "T002"
-                if is_save and is_omni and fid == "P014":
-                    fid = "A015"
-                    grams = 200.0
-                weekly_food_grams[fid]=weekly_food_grams.get(fid,0.0)+grams
+            for item in meal.items:
+                if item.food_id:
+                    weekly_food_grams[item.food_id] = weekly_food_grams.get(item.food_id, 0.0) + item.grams
 
         totals = MacroTotals()
         for m in meals:

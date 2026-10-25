@@ -26,9 +26,13 @@ ACTIVITY_FACTORS: dict[str, Decimal] = {
     "MOSTLY_SEATED": Decimal("1.2"),
     "SEDENTARY": Decimal("1.2"),
     "LIGHTLY_ACTIVE": Decimal("1.375"),
+    "LIGHT": Decimal("1.375"),
     "MODERATELY_ACTIVE": Decimal("1.55"),
+    "MODERATE": Decimal("1.55"),
     "ACTIVE": Decimal("1.55"),
+    "HEAVY_5DAYS": Decimal("1.55"),
     "VERY_ACTIVE": Decimal("1.725"),
+    "HEAVY": Decimal("1.725"),
 }
 
 GOAL_ADJUSTMENTS: dict[str, Decimal] = {
@@ -71,6 +75,9 @@ class NutritionProfile:
     carbs_g: int
     activity_factor: float
     fasting_protein_multiplier: float
+    water_target_l: float = 2.5
+    hydration_target_l: float = 2.5
+    water_glasses: int = 10
     source_version: str = "HILAWE_MEAL_OS_V1.3"
 
     def to_dict(self) -> dict[str, Any]:
@@ -110,25 +117,53 @@ def calculate_nutrition_profile(answers: dict[str, Any]) -> NutritionProfile:
         raise ValueError("Unsupported activity level")
     activity_factor = ACTIVITY_FACTORS[activity_key]
 
+    target_w = float(answers.get("target_weight_kg") or 0)
+    w_val = float(weight)
+    h_m = float(height) / 100.0
+    bmi = w_val / (h_m ** 2) if h_m > 0 else 0.0
+
     goal = str(answers.get("primary_goal") or "").upper()
+    # Intelligent Goal Override for Underweight Mass-Gain Seekers:
+    # If client is lean (BMI < 21.5) and target weight is >= current weight + 4 kg:
+    # Force primary goal to MUSCLE_GAIN (Lean Bulk), NEVER Recomposition.
+    if bmi < 21.5 and (target_w - w_val) >= 4.0:
+        goal = "MUSCLE_GAIN"
+
     if goal not in GOAL_ADJUSTMENTS:
         raise ValueError("Unsupported primary goal")
+
+    training_days = int(answers.get("training_days_per_week") or 0)
+    training_type = str(answers.get("training_type") or "").upper()
+    # Ensure active training multiplier for athletes training >= 4 days or gym strength
+    if (training_days >= 4 or training_type == "GYM_STRENGTH") and activity_factor < Decimal("1.55"):
+        activity_factor = Decimal("1.55")
 
     # Exact Mifflin-St Jeor formula used in the workbook.
     bmr_raw = Decimal("10") * weight + Decimal("6.25") * height - Decimal("5") * age
     bmr_raw += Decimal("5") if sex == "MALE" else Decimal("-161")
     tdee_raw = bmr_raw * activity_factor
 
-    adjustment = GOAL_ADJUSTMENTS[goal]
+    if goal == "MUSCLE_GAIN":
+        # For lean bulk seekers (BMI < 21.5, gaining >= 4kg), assign +10% to +15% lean surplus
+        adjustment = Decimal("0.10") if (bmi < 21.5 and (target_w - w_val) >= 4.0) else GOAL_ADJUSTMENTS[goal]
+    else:
+        adjustment = GOAL_ADJUSTMENTS[goal]
+
     target_kcal = _round_to_increment(tdee_raw * (Decimal("1") + adjustment), CALORIE_ROUNDING)
     if goal == "MUSCLE_GAIN":
         if sex == "MALE" and age >= 18:
-            target_kcal = max(target_kcal, 2100)
+            target_kcal = max(target_kcal, 2850 if (bmi < 21.5 and (target_w - w_val) >= 4.0) else 2100)
         elif sex == "FEMALE" and age >= 18:
             target_kcal = max(target_kcal, 1800)
 
     fasting_pattern = str(answers.get("orthodox_fasting") or "NONE").upper()
-    fasting_multiplier = Decimal("1") if fasting_pattern == "NONE" else FASTING_PROTEIN_MULTIPLIER
+    dietary_pat = str(answers.get("dietary_pattern") or "OMNIVORE").upper()
+    # Fasting protein multiplier applies to full-time fasting or vegan/vegetarian fasting plans
+    if fasting_pattern in ("LENT", "STRICT_LENT", "ALL_FASTING") or (fasting_pattern != "NONE" and dietary_pat != "OMNIVORE"):
+        fasting_multiplier = FASTING_PROTEIN_MULTIPLIER
+    else:
+        fasting_multiplier = Decimal("1")
+
     protein_rate = PROTEIN_G_PER_KG[goal]
     if goal == "MUSCLE_GAIN" and weight < Decimal("55"):
         # Hardgainer bulking from low body mass (e.g. 45kg -> 60kg) targets ~2.33 g/kg ≈ 105g protein
@@ -139,6 +174,14 @@ def calculate_nutrition_profile(answers: dict[str, Any]) -> NutritionProfile:
     fat_g = _round_int(_d(target_kcal) * FAT_FRACTION / Decimal("9"))
     carbs_raw = (_d(target_kcal) - _d(protein_g) * Decimal("4") - _d(fat_g) * Decimal("9")) / Decimal("4")
     carbs_g = max(0, _round_int(carbs_raw))
+
+    # Dynamic Hydration Engine:
+    # target_water_liters = round(max(2.5, (weight_kg * 0.035) + (0.5 if training >= 4 else 0)), 1)
+    base_fluid = w_val * 0.035
+    if float(height) >= 185.0:
+        base_fluid = max(base_fluid, 3.0)
+    target_water_liters = round(max(2.5, base_fluid + (0.5 if training_days >= 4 else 0.0)), 1)
+    water_glasses = int(round(target_water_liters / 0.25))
 
     return NutritionProfile(
         bmr_kcal=_round_int(bmr_raw),
@@ -152,4 +195,8 @@ def calculate_nutrition_profile(answers: dict[str, Any]) -> NutritionProfile:
         carbs_g=carbs_g,
         activity_factor=float(activity_factor),
         fasting_protein_multiplier=float(fasting_multiplier),
+        water_target_l=target_water_liters,
+        hydration_target_l=target_water_liters,
+        water_glasses=water_glasses,
     )
+

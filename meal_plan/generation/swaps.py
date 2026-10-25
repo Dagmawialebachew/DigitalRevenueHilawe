@@ -143,6 +143,27 @@ def build_exchange_options(
             if not fid.startswith("C") and not any(k in c_cat for k in ("grain", "starch", "tuber", "bread")):
                 continue
 
+        base_name = str(food.get("Food Name") or "").lower()
+        cand_name = str(candidate.get("Food Name") or "").lower()
+
+        # Redundant swap guard: Never swap a food for a variation of itself!
+        if "pasta" in base_name and "pasta" in cand_name:
+            continue
+        if "rice" in base_name and "rice" in cand_name:
+            continue
+        if "injera" in base_name and "injera" in cand_name:
+            continue
+
+        # Fruit snack sanity:
+        has_fruit = any(str(mid).startswith("F") for mid in (meal_food_ids or []))
+        if has_fruit or food_id in ("T004", "T003"):
+            # Never offer raw liquid oils (T001 Olive oil, T002 Canola/Veg oil) as a fruit dip or peanut butter swap
+            if fid in ("T001", "T002", "T005", "T006"):
+                continue
+            # Never offer raw tofu with fruit
+            if "tofu" in cand_name or fid in ("P005", "P006", "P010"):
+                continue
+
         safe, _ = food_is_safe(candidate, answers, fasting=fasting)
         if not safe:
             continue
@@ -321,10 +342,84 @@ def build_exchange_options(
                             "macros": cand_macros,
                         })
 
-    # Curated preferred swap order for staple Ethiopian foods:
+    # 5. Swapping Pasta (C005 / C006) -> Cooked Brown Rice (C003), Boiled Potato (C010), Sweet Potato (C011)
+    elif food_id in ("C005", "C006"):
+        for fallback_fid in ("C003", "C010", "C011"):
+            if fallback_fid not in forbidden and fallback_fid not in seen_fids:
+                cand = dataset.food_by_id.get(fallback_fid)
+                if cand:
+                    safe, _ = food_is_safe(cand, answers, fasting=fasting)
+                    if safe:
+                        sg, fam_am, fam_en = _calc_swap_grams_and_familiar(fallback_fid, cand)
+                        cand_macros = {
+                            "kcal": float(cand.get("kcal / 100 g") or 0) * (sg / 100.0),
+                            "protein": float(cand.get("Protein / 100 g") or 0) * (sg / 100.0),
+                            "carbs": float(cand.get("Carbs / 100 g") or 0) * (sg / 100.0),
+                            "fat": float(cand.get("Fat / 100 g") or 0) * (sg / 100.0),
+                            "fibre": float(cand.get("Fibre / 100 g") or 0) * (sg / 100.0),
+                        }
+                        f_name_en = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="EN")
+                        f_name_am = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="AM")
+                        seen_fids.add(fallback_fid)
+                        rows.append({
+                            "food_id": fallback_fid,
+                            "food_name": f_name_en,
+                            "food_name_am": f_name_am,
+                            "category": str(cand.get("Category") or "").lower(),
+                            "grams": sg,
+                            "exchange_weight_g": sg,
+                            "familiar": fam_en,
+                            "familiar_am": fam_am,
+                            "familiar_guidance": fam_am,
+                            "coach_note": "Cooked brown rice or boiled potato alternative",
+                            "exchange_group": group,
+                            "swap_type": "carb",
+                            "macros": cand_macros,
+                        })
+
+    # 6. Swapping Peanut butter (T004) -> Roasted peanuts (T003)
+    elif food_id == "T004":
+        for fallback_fid in ("T003",):
+            if fallback_fid not in forbidden and fallback_fid not in seen_fids:
+                cand = dataset.food_by_id.get(fallback_fid)
+                if cand:
+                    safe, _ = food_is_safe(cand, answers, fasting=fasting)
+                    if safe:
+                        sg = 25.0
+                        fam_am, fam_en = "በግምት 1 አነስተኛ ጭብጥ / እፍኝ", "approx. 1 small handful (25g)"
+                        cand_macros = {
+                            "kcal": float(cand.get("kcal / 100 g") or 0) * (sg / 100.0),
+                            "protein": float(cand.get("Protein / 100 g") or 0) * (sg / 100.0),
+                            "carbs": float(cand.get("Carbs / 100 g") or 0) * (sg / 100.0),
+                            "fat": float(cand.get("Fat / 100 g") or 0) * (sg / 100.0),
+                            "fibre": float(cand.get("Fibre / 100 g") or 0) * (sg / 100.0),
+                        }
+                        f_name_en = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="EN")
+                        f_name_am = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="AM")
+                        seen_fids.add(fallback_fid)
+                        rows.append({
+                            "food_id": fallback_fid,
+                            "food_name": f_name_en,
+                            "food_name_am": f_name_am,
+                            "category": "nuts",
+                            "grams": sg,
+                            "exchange_weight_g": sg,
+                            "familiar": fam_en,
+                            "familiar_am": fam_am,
+                            "familiar_guidance": fam_am,
+                            "coach_note": "Roasted peanuts alternative",
+                            "exchange_group": group,
+                            "swap_type": "fat",
+                            "macros": cand_macros,
+                        })
+
+    # Curated preferred swap order for staple foods:
     preferred_order = {
         "C001": ["C011", "C003", "C005", "C013", "C018"],  # Injera -> Sweet potato (320g), Rice (240g), Pasta (220g)
         "C010": ["C005", "C011", "C001", "C003"],          # Boiled potato -> Cooked pasta (260g), Sweet potato, Injera
+        "C005": ["C003", "C010", "C011"],                  # Whole-wheat pasta -> Cooked rice, Boiled potato, Sweet potato
+        "C006": ["C003", "C010", "C011"],                  # White pasta -> Cooked rice, Boiled potato, Sweet potato
+        "T004": ["T003"],                                  # Peanut butter -> Roasted peanuts
         "A018": ["A011", "A008", "A012"],                  # Ayib -> Whole eggs (50g discrete units), Tuna, Egg whites
         "A011": ["A018", "A008", "A012"],                  # Whole eggs -> Ayib, Tuna, Egg whites
         "A007": ["A001", "A002", "A003", "A011"],          # Fish -> Chicken, Lean beef, Eggs

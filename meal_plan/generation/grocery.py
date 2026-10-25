@@ -70,15 +70,17 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
         if fid == "C010":
             planned_rounded = math.ceil(planned / 10) * 10
             buy_kg = planned_rounded / 1000.0
-            qty = f"~{buy_kg:.1f} ኪ.ግ" if buy_kg >= 1.0 else f"~{planned_rounded} ግ"
+            qty_am = f"~{buy_kg:.1f} ኪ.ግ" if buy_kg >= 1.0 else f"~{planned_rounded} ግ"
+            qty_en = f"~{buy_kg:.1f} kg" if buy_kg >= 1.0 else f"~{planned_rounded} g"
             rows.append({
                 "food_id": fid,
                 "buy_item": "Potatoes (Raw)",
                 "category": food.get("Category") or "Tuber",
                 "planned_grams": float(planned_rounded),
                 "buy_weight_g": float(planned_rounded),
-                "purchase_quantity": qty,
-                "purchase_quantity_en": f"~{buy_kg:.1f} kg" if buy_kg >= 1.0 else f"~{planned_rounded} g",
+                "purchase_quantity": qty_en,
+                "purchase_quantity_en": qty_en,
+                "purchase_quantity_am": qty_am,
                 "plan_yield_guide": f"Plan uses ~{planned_rounded/1000:.1f} kg cooked" if planned_rounded >= 1000 else f"Plan uses ~{planned_rounded} g cooked",
                 "budget": food.get("Budget Level"),
                 "fasting_allowed": food.get("Fasting Allowed"),
@@ -94,7 +96,8 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
             planned_rounded = math.ceil(planned / 10) * 10
             buy = math.ceil((planned / factor) / 10) * 10
             buy_kg = buy / 1000.0
-            qty = f"~{buy_kg:.1f} ኪ.ግ" if buy_kg >= 1.0 else f"~{round(buy)} ግ"
+            qty_am = f"~{buy_kg:.1f} ኪ.ግ" if buy_kg >= 1.0 else f"~{round(buy)} ግ"
+            qty_en = f"~{buy_kg:.1f} kg" if buy_kg >= 1.0 else f"~{round(buy)} g"
             name = str(food.get("Food Name") or "")
             if "cooked" in name.lower():
                 import re
@@ -107,8 +110,9 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
                 "category": food.get("Category"),
                 "planned_grams": float(planned_rounded),
                 "buy_weight_g": float(buy),
-                "purchase_quantity": qty,
-                "purchase_quantity_en": f"~{buy_kg:.1f} kg" if buy_kg >= 1.0 else f"~{round(buy)} g",
+                "purchase_quantity": qty_en,
+                "purchase_quantity_en": qty_en,
+                "purchase_quantity_am": qty_am,
                 "plan_yield_guide": f"Plan uses ~{planned_rounded} g cooked • accounts for 0.72× cooking shrinkage",
                 "budget": food.get("Budget Level"),
                 "fasting_allowed": food.get("Fasting Allowed"),
@@ -129,12 +133,14 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
 
         if factor > 1:
             name = _dry_name(str(food.get("Food Name") or ""))
-            quantity = f"~{buy/1000:.1f} kg dry" if buy >= 1000 else f"~{round(buy)} g dry"
+            qty_en = f"~{buy/1000:.1f} kg dry" if buy >= 1000 else f"~{round(buy)} g dry"
+            qty_am = f"~{buy/1000:.1f} ኪ.ግ ጥሬ" if buy >= 1000 else f"~{round(buy)} ግ ጥሬ"
             guide = (f"Plan uses ~{planned_rounded/1000:.1f} kg cooked" if planned_rounded >= 1000 else f"Plan uses ~{round(planned_rounded)} g cooked") + f" • estimated {factor:.1f}× cooking yield"
             note = "Dry purchase estimate. Cooking water, product, batch method, package size and waste can change purchase need."
         else:
             name = str(food.get("Food Name") or "")
-            quantity = f"{buy/1000:.1f} kg" if buy >= 1000 else f"{round(buy)} g"
+            qty_en = f"{buy/1000:.1f} kg" if buy >= 1000 else f"{round(buy)} g"
+            qty_am = f"{buy/1000:.1f} ኪ.ግ" if buy >= 1000 else f"{round(buy)} ግ"
             guide = familiar_portion(planned_rounded / max(1.0, _n(food.get('Standard Portion g'))), str(food.get('Familiar Measure') or 'standard portion'))
             note = "Adjust for household waste, package size and client preference."
 
@@ -144,7 +150,9 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
             "category": food.get("Category"),
             "planned_grams": float(planned_rounded),
             "buy_weight_g": float(buy),
-            "purchase_quantity": quantity,
+            "purchase_quantity": qty_en,
+            "purchase_quantity_en": qty_en,
+            "purchase_quantity_am": qty_am,
             "plan_yield_guide": guide,
             "budget": food.get("Budget Level"),
             "fasting_allowed": food.get("Fasting Allowed"),

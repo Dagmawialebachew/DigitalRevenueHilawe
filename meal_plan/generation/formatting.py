@@ -11,13 +11,15 @@ def n(value: Any) -> float:
 
 
 def quarter_text(value: float) -> str:
-    rounded=max(0.25,round(float(value)*4)/4)
-    whole=int(math.floor(rounded+1e-8))
-    frac=round((rounded-whole)*4)
-    glyph={1:"¼",2:"½",3:"¾"}.get(frac,"")
-    if whole and glyph: return f"{whole} {glyph}"
-    if whole: return str(whole)
-    return glyph or "¼"
+    rounded = max(0.25, round(float(value) * 4) / 4)
+    whole = int(math.floor(rounded + 1e-8))
+    frac = round((rounded - whole) * 4)
+    if frac == 0:
+        return str(whole)
+    dec = {1: ".25", 2: ".5", 3: ".75"}.get(frac, "")
+    if whole:
+        return f"{whole}{dec}"
+    return f"0{dec}"
 
 
 def _fraction_num(text: str) -> float:
@@ -144,6 +146,9 @@ def _parse_portion_string(text: str) -> tuple[float, str]:
     clean = re.sub(r"^(about|በግምት)\s+", "", text, flags=re.I).strip()
     if "palm-and-a-half" in clean.lower():
         return 1.5, "palm"
+    m_dec = re.match(r"^(\d+\.\d+)\s*(.+)$", clean)
+    if m_dec:
+        return float(m_dec.group(1)), m_dec.group(2).strip()
     m = re.match(r"^(\d+)?\s*([¼½¾]|\d+/\d+)?\s*(.+)$", clean)
     if m:
         whole = float(m.group(1)) if m.group(1) else 0.0
@@ -180,6 +185,15 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
 
     base_qty, unit = _parse_portion_string(raw)
     total_qty = max(0.25, round(base_qty * multiplier * 4) / 4)
+
+    # Standardize rehydrated soy chunks volume (30g dry ≈ 1.0 cup rehydrated)
+    if "rehydrated" in raw.lower() or "rehydrated" in unit.lower():
+        cups = max(0.25, round(total_qty * 2) / 2)
+        if is_am:
+            return f"በግምት {quarter_text_am(cups)} ሲኒ የበሰለ/የረጠበ"
+        u_str = "cup rehydrated" if cups <= 1.0 else "cups rehydrated"
+        return f"about {quarter_text(cups)} {u_str}"
+
     if is_am:
         trans_unit = _translate_measure_phrase_am(unit)
         qty_text = quarter_text_am(total_qty)

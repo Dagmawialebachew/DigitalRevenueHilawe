@@ -69,6 +69,7 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
         name = "ሙዝ"
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
     return name
 
 
@@ -77,6 +78,7 @@ def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
     name = get_recipe_name(recipe_id, default_name, language)
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
     return name
 
 
@@ -85,6 +87,7 @@ def local_template_name(template_id: str, default_name: str, language: str) -> s
     name = get_template_name(template_id, default_name, language)
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
     d_lower = str(default_name or "").lower()
     if "soy" not in d_lower and "አኩሪ" not in d_lower and ("milk" in d_lower or "ወተት" in d_lower):
         if "የአኩሪ አተር ወተት" in name:
@@ -99,11 +102,31 @@ def local_category_name(category: str, language: str) -> str:
     return get_category_name(category, language)
 
 
+FRACTION_REPLACEMENTS: dict[str, str] = {
+    "1¼": "1.25", "1½": "1.5", "1¾": "1.75",
+    "2½": "2.5", "3½": "3.5",
+    "1 ¼": "1.25", "1 ½": "1.5", "1 ¾": "1.75",
+    "2 ½": "2.5", "3 ½": "3.5",
+    "¼": "0.25", "½": "0.5", "¾": "0.75",
+    "⅓": "0.33", "⅔": "0.67",
+    "114/2": "0.5", "4/2": "2", "114": "1.25", "134": "1.75",
+    "14.5 cups": "1.5 cups", "14.5 cup": "1.5 cups",
+}
+
+
+def sanitize_display_text(text: str) -> str:
+    res = str(text or "")
+    for k, v in FRACTION_REPLACEMENTS.items():
+        res = res.replace(k, v)
+    res = res.replace("Yoharmes", "Yohannes")
+    return res
+
+
 def local_purchase_quantity(quantity: str, language: str) -> str:
-    if str(language).upper() != "AM":
-        return quantity
     raw = str(quantity or "").strip()
-    # Replace kg dry, g dry, kg, g
+    if str(language).upper() != "AM":
+        res = raw.replace("ኪ.ግ", "kg").replace("ግ", "g")
+        return sanitize_display_text(res)
     res = re.sub(r"\bkg\s+dry\b", "ኪ.ግ ጥሬ", raw, flags=re.I)
     res = re.sub(r"\bg\s+dry\b", "ግ ጥሬ", res, flags=re.I)
     res = re.sub(r"\bkg\b", "ኪ.ግ", res, flags=re.I)
@@ -246,6 +269,7 @@ def format_swap_text(meal: Any, swap_item: dict[str, Any], is_am: bool = True) -
     detail = re.sub(r"—\s*—", " — ", detail)
     detail = re.sub(r"--+", " — ", detail)
     detail = re.sub(r"\s+—\s+", " — ", detail)
+    detail = sanitize_display_text(detail)
 
     for_fid = str(swap_item.get("for_food_id") or "")
     s_type = swap_item.get("swap_type") or ""

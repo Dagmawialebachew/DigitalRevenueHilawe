@@ -81,8 +81,10 @@ _TABLES: tuple[tuple[str, str], ...] = (
 def _to_clean_value(val: Any) -> Any:
     if isinstance(val, Decimal):
         return float(val)
-    if isinstance(val, str) and "ፋል" in val:
-        return val.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    if isinstance(val, str):
+        if "ፋል" in val:
+            val = val.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+        val = val.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "")
     return val
 
 
@@ -140,6 +142,40 @@ async def load_dataset_from_db(conn: Any) -> HilaweDataset:
         """
     )
 
+    from meal_plan.calibration import RECIPE_CALIBRATIONS
+    from meal_plan.glossary import FOOD_GLOSSARY, RECIPE_GLOSSARY
+
+    enriched_foods = []
+    for f in sections["foods"]:
+        fid = str(f.get("Food ID") or "")
+        row = dict(f)
+        if fid in FOOD_GLOSSARY:
+            en, am = FOOD_GLOSSARY[fid]
+            row["Food Name"] = en.replace("Coach Hilawe ", "")
+            row["Local / Amharic"] = am.replace("የአሰልጣኝ ህላዌ ", "")
+        else:
+            if "Food Name" in row and isinstance(row["Food Name"], str):
+                row["Food Name"] = row["Food Name"].replace("Coach Hilawe ", "")
+        enriched_foods.append(row)
+
+    enriched_recipes = []
+    for r in sections["recipes"]:
+        rid = str(r.get("Recipe ID") or "")
+        row = dict(r)
+        if rid in RECIPE_GLOSSARY:
+            en, am = RECIPE_GLOSSARY[rid]
+            row["Recipe Name"] = en.replace("Coach Hilawe ", "")
+            row["Local Name"] = am.replace("የአሰልጣኝ ህላዌ ", "")
+        else:
+            if "Recipe Name" in row and isinstance(row["Recipe Name"], str):
+                row["Recipe Name"] = row["Recipe Name"].replace("Coach Hilawe ", "")
+        if rid in RECIPE_CALIBRATIONS:
+            cal = RECIPE_CALIBRATIONS[rid]
+            row["Calibration Status"] = cal.get("calibration_status", "CALIBRATED")
+            row["Source / Method"] = cal.get("source_method", "HILAWE_KITCHEN_CALIBRATION_V2")
+            row["Version"] = cal.get("recipe_version", "2.0")
+        enriched_recipes.append(row)
+
     return HilaweDataset(
         meta={
             "dataset_version": version,
@@ -147,8 +183,8 @@ async def load_dataset_from_db(conn: Any) -> HilaweDataset:
             "counts": {key: len(rows) for key, rows in sections.items()},
             "verified_fasting_calendar_years": [int(row["calendar_year"]) for row in coverage],
         },
-        foods=sections["foods"],
-        recipes=sections["recipes"],
+        foods=tuple(enriched_foods),
+        recipes=tuple(enriched_recipes),
         recipe_ingredients=sections["recipe_ingredients"],
         templates=sections["templates"],
         template_components=sections["template_components"],

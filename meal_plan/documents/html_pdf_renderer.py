@@ -24,6 +24,7 @@ from .helpers import (
     review_warning_lines,
 )
 from .models import DocumentContext
+from meal_plan.generation.formatting import familiar_portion
 
 
 _FONTS_CACHE: str | None = None
@@ -851,15 +852,17 @@ def _render_running_header(context: DocumentContext, c: dict[str, str], is_clien
 
 
 def _render_running_footer(context: DocumentContext, page_num: int, total_pages: int, is_client: bool) -> str:
+    from meal_plan.documents.helpers import sanitize_display_text
+    client_name = sanitize_display_text(context.client_name)
     if context.normalized_language == "AM":
-        notice = f"ይህ ፕላን የተዘጋጀው ለ {escape(context.client_name)} ብቻ ነው። ያለ አሰልጣኝ ህላዌ ሰማ ፈቃድ ማባዛት፣ ማሰራጨት ወይም መሸጥ በህግ ያስቀጣል።"
+        notice = f"ይህ ፕላን የተዘጋጀው ለ {escape(client_name)} ብቻ ነው። ያለ አሰልጣኝ ህላዌ ሰማ ፈቃድ ማባዛት፣ ማሰራጨት ወይም መሸጥ በህግ ያስቀጣል።"
         pg_label = f"ገጽ {page_num} / {total_pages}"
     else:
-        notice = f"Prepared exclusively for {escape(context.client_name)}. Unauthorized redistribution or resale is strictly prohibited."
+        notice = f"Prepared exclusively for {escape(client_name)}. Unauthorized redistribution or resale is strictly prohibited."
         pg_label = f"Page {page_num} / {total_pages}"
     return f"""
     <div class="running-footer">
-      <div class="notice">{notice}</div>
+      <div class="notice" style="font-variant-ligatures: none; letter-spacing: 0.15px;">{notice}</div>
       <div class="page-num">{pg_label}</div>
     </div>
     """
@@ -1297,10 +1300,17 @@ def build_day_html(
         fasting_chip = f'<span style="background: #FEF3C7; color: #B45309; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; margin-left: 2mm;">{escape(c.get("fasting_day", "የጾም ቀን"))}</span>'
 
     # Macro pills
-    kcal_val = f"{rounded(totals.get('kcal'))} {c.get('macro_kcal', 'ካሎሪ' if is_am else 'kcal')}"
-    prot_val = f"{rounded(totals.get('protein'))} {c.get('g_unit', 'ግ' if is_am else 'g')}"
-    carb_val = f"{rounded(totals.get('carbs'))} {c.get('g_unit', 'ግ' if is_am else 'g')}"
-    fat_val = f"{rounded(totals.get('fat'))} {c.get('g_unit', 'ግ' if is_am else 'g')}"
+    p_num = totals.get('protein') if totals.get('protein') is not None else totals.get('protein_g')
+    if p_num is None or p_num == 0 or rounded(p_num) == "-":
+        p_num = sum(float((m.get('totals') or {}).get('protein') or (m.get('totals') or {}).get('protein_g') or 0) for m in meals)
+    k_num = totals.get('kcal') or sum(float((m.get('totals') or {}).get('kcal') or 0) for m in meals)
+    c_num = totals.get('carbs') or totals.get('carbs_g') or sum(float((m.get('totals') or {}).get('carbs') or (m.get('totals') or {}).get('carbs_g') or 0) for m in meals)
+    f_num = totals.get('fat') or totals.get('fat_g') or sum(float((m.get('totals') or {}).get('fat') or (m.get('totals') or {}).get('fat_g') or 0) for m in meals)
+
+    kcal_val = f"{rounded(k_num)} {c.get('macro_kcal', 'ካሎሪ' if is_am else 'kcal')}"
+    prot_val = f"{rounded(p_num)} {c.get('g_unit', 'ግ' if is_am else 'g')}"
+    carb_val = f"{rounded(c_num)} {c.get('g_unit', 'ግ' if is_am else 'g')}"
+    fat_val = f"{rounded(f_num)} {c.get('g_unit', 'ግ' if is_am else 'g')}"
 
     macro_banner_html = f"""
     <div class="macro-banner">
@@ -1404,7 +1414,6 @@ def build_day_html(
                     familiar = str(item.get("familiar_am") or item.get("familiar") or "").strip()
                     if familiar:
                         if is_am:
-                            from meal_plan.generation.formatting import familiar_portion
                             familiar_str = familiar_portion(1.0, familiar, language="AM")
                         else:
                             familiar_str = familiar
@@ -1501,10 +1510,12 @@ def build_day_html(
     tips_pool = _DAILY_COACH_TIPS_AM if is_am else _DAILY_COACH_TIPS_EN
     tip = tips_pool[day_idx % len(tips_pool)]
 
-    # Hydration tracker filler with clean SVG droplet glyph
+    # Dynamic hydration tracker
+    water_target_l = float(getattr(context, "hydration_target_l", None) or 2.5)
+    glasses_count = int(round(water_target_l / 0.25))
     droplet_svg = '<svg style="vertical-align: -2px; margin-right: 5px; display: inline-block;" width="14" height="14" viewBox="0 0 24 24" fill="#0284C7"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'
-    h_cups = "".join('<span class="cup-circle"></span>' for _ in range(10))
-    htitle = f"{droplet_svg} 2.5 ሊትር / ቀን (10 መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ.)" if is_am else f"{droplet_svg} 2.5 L / day (10 medium glasses — 250 ml each)"
+    h_cups = "".join('<span class="cup-circle"></span>' for _ in range(glasses_count))
+    htitle = f"{droplet_svg} {water_target_l} ሊትር / ቀን ({glasses_count} መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ.)" if is_am else f"{droplet_svg} {water_target_l} L / day ({glasses_count} medium glasses — 250 ml each)"
 
     return f"""
     <div class="page">
@@ -1718,7 +1729,8 @@ def build_grocery_pages(
             else:
                 planned_rounded = round(float(row.get('planned_grams') or 0) / 10.0) * 10.0
                 planned = f"{planned_rounded:,.0f} {g_lbl}"
-                buy_qty = local_purchase_quantity(str(row.get("purchase_quantity") or ""), context.normalized_language)
+                raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
+                buy_qty = local_purchase_quantity(raw_qty, context.normalized_language)
 
             table_rows.append(f"""
               <tr>
@@ -1782,7 +1794,9 @@ def build_grocery_pages(
 
 def build_hydration_html(context: DocumentContext, c: dict[str, str], is_client: bool, page_num: int, total_pages: int) -> str:
     is_am = context.normalized_language == "AM"
-    target_l = context.hydration_target_l or 2.6
+    target_l = float(context.hydration_target_l or 2.5)
+    glasses_count = int(round(target_l / 0.25))
+    water_val = f"{target_l:.1f}".rstrip('0').rstrip('.')
 
     brand_name = "አሰልጣኝ ህላዌ ሰማ" if is_am else "Coach Hilawe Semma"
 
@@ -1802,10 +1816,10 @@ def build_hydration_html(context: DocumentContext, c: dict[str, str], is_client:
               {"የቀን የውሃ ኢላማ" if is_am else "TARGET DAILY HYDRATION"}
             </div>
             <div style="font-size: 32px; font-weight: 700; color: #0F172A; margin: 1mm 0;">
-              2.5 {c.get('l_day', 'ሊትር / ቀን' if is_am else 'L / day')}
+              {water_val} {c.get('l_day', 'ሊትር / ቀን' if is_am else 'L / day')}
             </div>
             <div style="font-size: 12px; color: #64748B;">
-              {"10 መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ" if is_am else "10 medium glasses — 250 ml each"}
+              {f"{glasses_count} መካከለኛ ብርጭቆዎች — እያንዳንዳቸው 250 ሚ.ሊ" if is_am else f"{glasses_count} medium glasses — 250 ml each"}
             </div>
           </div>
           <div style="font-size: 44px; color: #0284C7;">
@@ -1921,6 +1935,9 @@ def build_review_html(plan: dict[str, Any], context: DocumentContext, c: dict[st
 def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_client_delivery: bool = False) -> str:
     """Compile the complete multi-page document into self-contained HTML5."""
     c = copy_for(context.normalized_language)
+    if not getattr(context, "hydration_target_l", None):
+        n_prof = plan.get("nutrition_profile") or plan.get("nutrition_targets") or {}
+        context.hydration_target_l = float(n_prof.get("water_target_l") or 2.5)
 
     core_days = plan.get("core_week") or []
     fasting_core = plan.get("fasting_core_week") or []
@@ -1986,9 +2003,11 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     current_page += 1
 
     css = _build_css()
-    body_content = "\n".join(pages_html)
+    from meal_plan.documents.helpers import sanitize_display_text
+    body_content = sanitize_display_text("\n".join(pages_html))
 
-    doc_title = f"{context.client_name} - የምግብ እቅድ" if context.normalized_language == "AM" else f"{context.client_name} - Coach Hilawe Meal Plan"
+    clean_name = sanitize_display_text(context.client_name)
+    doc_title = f"{clean_name} - የምግብ እቅድ" if context.normalized_language == "AM" else f"{clean_name} - Coach Hilawe Meal Plan"
 
     return f"""<!DOCTYPE html>
 <html lang="{'am' if context.normalized_language == 'AM' else 'en'}">
@@ -2057,3 +2076,32 @@ def render_html_pdf(
             pass
 
     return pdf_path
+
+
+def render_plan_to_pdf(
+    plan: dict[str, Any],
+    output_pdf_path: str | Path,
+    *,
+    language: str | None = None,
+    client_name: str | None = None,
+) -> Path:
+    """Convenience helper to render a meal plan directly to PDF."""
+    from meal_plan.documents.models import DocumentContext
+    from meal_plan.documents.helpers import sanitize_display_text
+    profile = plan.get("profile_summary") or plan.get("nutrition_profile") or {}
+    meta = plan.get("client_profile") or {}
+    answers = plan.get("answers") or {}
+    raw_name = client_name or answers.get("full_name") or profile.get("client_name") or meta.get("full_name") or "Yohannes"
+    c_name = sanitize_display_text(raw_name)
+    lang = language or answers.get("language") or plan.get("language") or "EN"
+    hydration_target = float(profile.get("water_target_l") or profile.get("hydration_target_l") or 3.5)
+
+    context = DocumentContext(
+        plan_public_id=plan.get("plan_id") or "MP-000016",
+        client_name=c_name,
+        language=lang,
+        version_number=1,
+        status="APPROVED",
+        hydration_target_l=hydration_target,
+    )
+    return render_html_pdf(plan, context, output_pdf_path, is_client_delivery=True)
