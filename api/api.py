@@ -2,7 +2,7 @@
 import logging
 import time
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from aiohttp import web
@@ -215,6 +215,11 @@ def setup_admin_routes(app: web.Application):
     
     # --- Meal Plan Telemetry & Live Radar ---
     app.router.add_get("/api/admin/meal/telemetry", get_meal_telemetry_analytics)
+
+    # --- Transaction & Payout Management ---
+    app.router.add_get("/api/admin/payouts/pending", get_pending_payout_stats)
+    app.router.add_get("/api/admin/payouts/history", get_payout_history)
+    app.router.add_post("/api/admin/payouts/confirm", confirm_payout)
 
 
 async def get_meal_telemetry_analytics(request: web.Request) -> web.Response:
@@ -496,7 +501,7 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         last_payout_ts = await db.fetchval(
             "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
         )
-        last_payout_ts = last_payout_ts or datetime.min
+        last_payout_ts = last_payout_ts or datetime.min.replace(tzinfo=timezone.utc)
 
         # 2. Extract itemized Pending Balances (Product vs Club vs Meal streams) since checkpoint
         pending_row = await db.fetchrow("""
@@ -736,7 +741,7 @@ async def confirm_payout(request: web.Request) -> web.Response:
             last_payout_ts = await db.fetchval(
                 "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
             )
-            last_payout_ts = last_payout_ts or datetime.min
+            last_payout_ts = last_payout_ts or datetime.min.replace(tzinfo=timezone.utc)
 
             # Query unsettled approved amounts across all 3 streams
             pending_row = await db.fetchrow("""

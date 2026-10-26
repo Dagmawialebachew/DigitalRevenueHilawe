@@ -404,22 +404,24 @@ class MealPlanReviewRepository:
                     out_dir = version_output_dir(plan_public_id, version_num)
                     client_filename = client_artifact_filename(name, duration_days, version_num, "pdf")
                     client_pdf_path = out_dir / client_filename
-                    render_client_pdf(plan_json, doc_context, client_pdf_path)
-
-                    clean_sha256 = sha256_file(client_pdf_path)
-                    clean_size = client_pdf_path.stat().st_size
-                    await conn.execute(
-                        """
-                        UPDATE meal_plan_artifacts
-                        SET storage_key=$2, original_filename=$3, content_sha256=$4, byte_size=$5, telegram_file_id=NULL
-                        WHERE plan_version_id=$1 AND artifact_type='PDF'
-                        """,
-                        plan_version_id,
-                        str(client_pdf_path.resolve()),
-                        client_filename,
-                        clean_sha256,
-                        clean_size,
-                    )
+                    try:
+                        render_client_pdf(plan_json, doc_context, client_pdf_path)
+                        clean_sha256 = sha256_file(client_pdf_path)
+                        clean_size = client_pdf_path.stat().st_size
+                        await conn.execute(
+                            """
+                            UPDATE meal_plan_artifacts
+                            SET storage_key=$2, original_filename=$3, content_sha256=$4, byte_size=$5
+                            WHERE plan_version_id=$1 AND artifact_type='PDF'
+                            """,
+                            plan_version_id,
+                            str(client_pdf_path.resolve()),
+                            client_filename,
+                            clean_sha256,
+                            clean_size,
+                        )
+                    except Exception as render_err:
+                        logger.warning("Could not re-render client PDF during approval; preserving existing artifact: %s", render_err)
 
                 previous_current = order.get("current_plan_version_id")
                 version = await conn.fetchrow(

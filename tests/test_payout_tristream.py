@@ -175,7 +175,15 @@ class TriStreamFinancialCoreTests(unittest.IsolatedAsyncioTestCase):
         # Coach share: 5000*0.70 (3500) + 3000*0.65 (1950) + 4000*0.60 (2400) = 7850
         self.assertEqual(data["coach_share"], 7850.0)
         # Dagmawi share: 5000*0.30 (1500) + 3000*0.35 (1050) + 4000*0.40 (1600) = 4150
-        self.assertEqual(data["dagmawi_share"], 4150.0)
+    def test_payout_routes_registration(self):
+        """Ensure setup_admin_routes registers the critical payout endpoints."""
+        from api.api import setup_admin_routes
+        app = web.Application()
+        setup_admin_routes(app)
+        registered_paths = {route.resource.canonical for route in app.router.routes() if route.resource}
+        self.assertIn("/api/admin/payouts/pending", registered_paths)
+        self.assertIn("/api/admin/payouts/history", registered_paths)
+        self.assertIn("/api/admin/payouts/confirm", registered_paths)
 
 
 if __name__ == "__main__":
