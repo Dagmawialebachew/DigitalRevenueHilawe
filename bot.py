@@ -37,6 +37,7 @@ from meal_plan.admin_reset import router as meal_plan_admin_reset_router
 from meal_plan.pilot_broadcast import router as meal_plan_pilot_broadcast_router
 from scheduler.meal_plan_recovery import router as meal_plan_recovery_router
 from scheduler.meal_plan_precheckout_recovery import router as meal_plan_precheckout_recovery_router
+from scheduler.ascension_broadcast import router as ascension_broadcast_router
 from meal_plan.generation.worker import generation_worker_loop
 from meal_plan.lifecycle import meal_plan_lifecycle_worker_loop
 from meal_plan.runtime import generation_worker_enabled, lifecycle_worker_enabled
@@ -104,6 +105,7 @@ dp.include_router(meal_plan_admin_reset_router)
 dp.include_router(meal_plan_pilot_broadcast_router)
 dp.include_router(meal_plan_recovery_router)
 dp.include_router(meal_plan_precheckout_recovery_router)
+dp.include_router(ascension_broadcast_router)
 
 
 for c in all_comm_routers:
