@@ -57,6 +57,8 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
         return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
     if food_id in ("A003", "A004") and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "የበሬ ስጋ (ጥሬ)" if is_am else "Lean beef (Raw)"
+    if food_id in ("A005", "A006", "A019", "A020") and ("raw" in d_lower or "ጥሬ" in d_lower or "cut" in d_lower):
+        return "የቱርክ ደረት ስጋ (ጥሬ)" if is_am else "Turkey breast (Raw)"
     if food_id == "A007" and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "ጥሬ አሳ (የተጸዳ)" if is_am else "Tilapia fillet (Raw)"
     if food_id == "A015":
@@ -70,8 +72,11 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
     name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
-    if ("dry" in d_lower or "ጥሬ" in d_lower) and not name.endswith("(ጥሬ)") and not name.endswith("(Dry)") and not name.endswith("(Raw)"):
-        name = f"{name} (ጥሬ)" if is_am else f"{name} (Dry)"
+    if "dry" in d_lower or "ጥሬ" in d_lower:
+        name = re.sub(r"\(?\s*cooked\s*\)?", "", name, flags=re.I)
+        name = re.sub(r"\(\s*\)", "", name).strip(" ,")
+        if not name.endswith("(ጥሬ)") and not name.endswith("(Dry)") and not name.endswith("(Raw)") and not name.lower().startswith("dry "):
+            name = f"{name} (ጥሬ)" if is_am else f"{name} (Dry)"
     return name
 
 

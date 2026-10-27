@@ -382,3 +382,33 @@ async def on_confirm_mealplan_recovery(callback: types.CallbackQuery, state: FSM
 async def on_cancel_mealplan_recovery(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text("❌ Meal plan recovery blast cancelled.", parse_mode="HTML")
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser(description="Meal Plan Awaiting-Payment Recovery Broadcast")
+    parser.add_argument("--live", action="store_true", help="Launch live broadcast to all 40 awaiting-payment leads (default is dry-run)")
+    parser.add_argument("--admin-id", type=int, default=None, help="Admin Telegram ID to receive preview/reports")
+    cli_args = parser.parse_args()
+
+    async def main():
+        from app_context import db
+        await db.connect()
+        bot = Bot(token=settings.BOT_TOKEN)
+        admin_id = cli_args.admin_id or (settings.ADMIN_IDS[0] if settings.ADMIN_IDS else None)
+        if not admin_id:
+            print("ERROR: No admin ID configured in settings.ADMIN_IDS.")
+            return
+
+        is_dry = not cli_args.live
+        mode_str = "LIVE BROADCAST" if not is_dry else "DRY-RUN PREVIEW"
+        print(f"🚀 Running Meal Plan Recovery ({mode_str}) for admin ID: {admin_id}...")
+        res = await execute_meal_plan_recovery_broadcast(bot, admin_id=admin_id, dry_run=is_dry)
+        print("✅ Execution result:", res)
+        await bot.session.close()
+
+    asyncio.run(main())
+
