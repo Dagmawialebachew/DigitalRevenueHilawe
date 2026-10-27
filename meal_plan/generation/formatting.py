@@ -143,12 +143,22 @@ _GLYPH_VALS = {"¼": 0.25, "½": 0.5, "¾": 0.75}
 
 
 def _parse_portion_string(text: str) -> tuple[float, str]:
-    clean = re.sub(r"^(about|በግምት)\s+", "", text, flags=re.I).strip()
+    clean = re.sub(r"^(about|approx\.?|በግምት)\s*", "", text, flags=re.I).strip()
+    clean = re.sub(r"^(about|approx\.?|በግምት)\s*", "", clean, flags=re.I).strip()
     if "palm-and-a-half" in clean.lower():
         return 1.5, "palm"
     m_dec = re.match(r"^(\d+\.\d+)\s*(.+)$", clean)
     if m_dec:
         return float(m_dec.group(1)), m_dec.group(2).strip()
+    m_frac_only = re.match(r"^(\d+/\d+)\s*(.+)$", clean)
+    if m_frac_only:
+        a, b = m_frac_only.group(1).split("/", 1)
+        try:
+            val = float(a) / float(b)
+        except (ValueError, ZeroDivisionError):
+            val = 1.0
+        unit = re.sub(r"^/\d+\s*", "", m_frac_only.group(2).strip())
+        return val, unit
     m = re.match(r"^(\d+)?\s*([¼½¾]|\d+/\d+)?\s*(.+)$", clean)
     if m:
         whole = float(m.group(1)) if m.group(1) else 0.0
@@ -164,7 +174,7 @@ def _parse_portion_string(text: str) -> tuple[float, str]:
                 except (ValueError, ZeroDivisionError):
                     frac = 0.0
         val = whole + frac if (whole or frac) else 1.0
-        unit = m.group(3).strip()
+        unit = re.sub(r"^/\d+\s*", "", m.group(3).strip())
         return val, unit
     return 1.0, clean
 
@@ -180,8 +190,8 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
             return "በግምት ሲሶ (1/3) መካከለኛ እንጀራ"
         if raw.startswith("በግምት "):
             raw = raw[len("በግምት "):].strip()
-    elif raw.startswith("about "):
-        raw = raw[len("about "):].strip()
+    else:
+        raw = re.sub(r"^(about|approx\.?)\s*", "", raw, flags=re.I).strip()
 
     base_qty, unit = _parse_portion_string(raw)
     total_qty = max(0.25, round(base_qty * multiplier * 4) / 4)
@@ -205,6 +215,8 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
         if " ዝ" in res:
             res = res.replace(" ዝ", " ሙዝ")
         return res
+    if total_qty == 1.0 and re.match(r"^\d+\s+", unit):
+        return f"about {unit}"
     return f"about {quarter_text(total_qty)} {unit}"
 
 

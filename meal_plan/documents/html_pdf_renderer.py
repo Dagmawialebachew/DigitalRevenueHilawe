@@ -86,8 +86,10 @@ def _get_coach_photo_base64() -> str:
     p = find_coach_image_path()
     if p and p.exists():
         try:
-            b64 = base64.b64encode(p.read_bytes()).decode("ascii")
-            _COACH_PHOTO_B64 = f"data:image/webp;base64,{b64}"
+            raw_bytes = p.read_bytes()
+            b64 = base64.b64encode(raw_bytes).decode("ascii")
+            mime = "data:image/jpeg;base64," if raw_bytes.startswith(b"\xff\xd8") or b64.startswith("/9j/") else "data:image/webp;base64,"
+            _COACH_PHOTO_B64 = f"{mime}{b64}"
             return _COACH_PHOTO_B64
         except Exception:
             pass
@@ -188,7 +190,7 @@ _DAILY_COACH_TIPS_AM = [
 _DAILY_COACH_TIPS_EN = [
     {
         "title": "Daily Coach Hilawe Insight · Digestion & Complex Carbs",
-        "text": "Teff injera is rich in iron, minerals, and slow-digesting complex carbohydrates. Sticking to your prescribed portion and taking a light 10-minute walk post-meal supports optimal nutrient absorption.",
+        "text": "Complex carbohydrates like oats, brown rice, and potatoes provide steady, sustained glycogen and fiber. Sticking to your prescribed portion and taking a light 10-minute walk post-meal supports optimal digestion and nutrient partitioning.",
     },
     {
         "title": "Daily Coach Hilawe Insight · Pre & Post-Workout Fueling",
@@ -234,7 +236,7 @@ def _build_css() -> str:
 }}
 
 body {{
-  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSansCustom', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans Ethiopic', 'Nyala', sans-serif;
   color: #0F172A;
   background: #FFFFFF;
   font-size: 13.5px;
@@ -248,7 +250,7 @@ body {{
   width: 210mm;
   height: 297mm;
   max-height: 297mm;
-  padding: 13mm 16mm 12mm 16mm;
+  padding: 11mm 14mm 10mm 14mm;
   box-sizing: border-box;
   page-break-after: always;
   position: relative;
@@ -341,7 +343,7 @@ body {{
 
 /* Typography */
 h1.page-title, h1, h2, h3, h4 {{
-  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSerifCustom', serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans Ethiopic', 'Nyala', serif;
   font-size: 24px;
   font-weight: 700;
   color: #0F172A;
@@ -414,7 +416,7 @@ h1.page-title, h1, h2, h3, h4 {{
 .meals-container {{
   display: flex;
   flex-direction: column;
-  gap: 2.6mm;
+  gap: 1.8mm;
   flex: 1;
 }}
 
@@ -422,7 +424,8 @@ h1.page-title, h1, h2, h3, h4 {{
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
   border-radius: 7px;
-  padding: 2.8mm 3.8mm;
+  padding: 2.2mm 3.2mm;
+  margin-bottom: 1.2mm;
   box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }}
 
@@ -430,7 +433,7 @@ h1.page-title, h1, h2, h3, h4 {{
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 1.2mm;
+  margin-bottom: 0.8mm;
 }}
 
 .meal-title-group {{
@@ -442,35 +445,35 @@ h1.page-title, h1, h2, h3, h4 {{
 .slot-tag {{
   background: #FEF3C7;
   color: #B45309;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 1.5px 6.5px;
+  padding: 1.5px 6.0px;
   border-radius: 4px;
 }}
 
 .meal-title {{
   font-family: 'NotoSerifCustom', serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #0F172A;
 }}
 
 .meal-macros {{
-  font-size: 11px;
+  font-size: 10.5px;
   color: #64748B;
   font-weight: 500;
 }}
 
 .meal-items {{
-  margin-top: 1.5mm;
+  margin-top: 1.0mm;
   padding-left: 2mm;
 }}
 
 .meal-item-line {{
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: #334155;
-  margin-bottom: 0.8mm;
-  line-height: 1.35;
+  margin-bottom: 0.5mm;
+  line-height: 1.3;
 }}
 
 .meal-item-line strong {{
@@ -479,12 +482,12 @@ h1.page-title, h1, h2, h3, h4 {{
 }}
 
 .meal-swap {{
-  margin-top: 1.5mm;
+  margin-top: 1.0mm;
   background: #FFFBEB;
   border: 1px dashed #FCD34D;
   border-radius: 5px;
-  padding: 1.5mm 2.5mm;
-  font-size: 11px;
+  padding: 1.2mm 2.2mm;
+  font-size: 10.5px;
   color: #92400E;
 }}
 
@@ -493,8 +496,8 @@ h1.page-title, h1, h2, h3, h4 {{
   background: #F8FAFC;
   border-left: 3.5px solid #D97706;
   border-radius: 4px;
-  padding: 2.5mm 3.5mm;
-  margin-top: 2.5mm;
+  padding: 1.8mm 2.8mm;
+  margin-top: 1.5mm;
 }}
 
 .coach-tip-card .tip-header {{
@@ -548,7 +551,7 @@ h1.page-title, h1, h2, h3, h4 {{
 
 /* Tables */
 table, th, td, .modern-table, .modern-table th, .modern-table td {{
-  font-family: 'Noto Sans Ethiopic', 'Nyala', 'NotoSansCustom', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans Ethiopic', 'Nyala', sans-serif;
 }}
 
 .modern-table {{
@@ -876,7 +879,13 @@ def build_cover_html(plan: dict[str, Any], context: DocumentContext, c: dict[str
 
     title = "የምግብ እቅድ" if is_am else "Meal Plan"
     sub_title = f"{duration} ቀን · {c.get('nutrition_system', 'የአመጋገብ ስርዓት')}" if is_am else f"{duration} Day · {c.get('nutrition_system', 'Nutrition System')}"
-    goal_lbl = profile_label(profile.get("goal") or "", context.normalized_language)
+    raw_goal = str(profile.get("goal") or "MUSCLE_GAIN").upper()
+    cur_w = float(profile.get("current_weight_kg") or (context.client_profile or {}).get("current_weight_kg") or 71.0)
+    tgt_w = float(profile.get("primary_target_weight") or profile.get("target_weight_kg") or (context.client_profile or {}).get("target_weight_kg") or 83.0)
+    if "MUSCLE" in raw_goal or "BULK" in raw_goal or "RECOMP" in raw_goal:
+        goal_lbl = f"የጡንቻ ግንባታ ({cur_w:.1f} ኪ.ግ ➔ {tgt_w:.1f} ኪ.ግ)" if is_am else f"Muscle Gain ({cur_w:.1f} kg ➔ {tgt_w:.1f} kg)"
+    else:
+        goal_lbl = profile_label(raw_goal, context.normalized_language)
     raw_cuisine = profile.get("cuisine_style") or profile.get("cuisine") or "ethiopian"
     cuisine_lbl = profile_label(raw_cuisine, context.normalized_language)
     if not cuisine_lbl or cuisine_lbl == "-":
@@ -889,7 +898,7 @@ def build_cover_html(plan: dict[str, Any], context: DocumentContext, c: dict[str
 
     coach_photo = _get_coach_photo_base64()
     if coach_photo:
-        seal_avatar_html = f'<img class="brand-coach-avatar" src="{coach_photo}" alt="Coach Hilawe" />'
+        seal_avatar_html = f'<img class="brand-coach-avatar" src="{coach_photo}" alt="" style="object-fit: cover;" />'
     else:
         seal_avatar_html = '<div class="brand-monogram">ህ</div>'
 
@@ -974,16 +983,25 @@ def build_glance_html(plan: dict[str, Any], context: DocumentContext, c: dict[st
     targets = plan.get("nutrition_targets") or {}
     product = plan.get("product") or {}
     profile = plan.get("profile_summary") or {}
-    client = context.client_profile or {}
+    client = context.client_profile or plan.get("client_profile") or profile or plan.get("answers") or {}
     is_am = context.normalized_language == "AM"
 
     kg_lbl = c.get("kg_unit", "ኪ.ግ" if is_am else "kg")
     kcal_lbl = c.get("macro_kcal", "ካሎሪ" if is_am else "kcal")
     g_lbl = c.get("g_unit", "ግ" if is_am else "g")
 
+    cur_w_val = float(client.get("current_weight_kg") or profile.get("current_weight_kg") or 71.0)
+    tgt_w_val = float(client.get("primary_target_weight") or client.get("target_weight_kg") or profile.get("primary_target_weight") or profile.get("target_weight_kg") or 83.0)
+    meso_w_val = float(client.get("mesocycle_target_weight") or profile.get("mesocycle_target_weight") or round(cur_w_val + 3.5, 1))
+
+    if tgt_w_val > cur_w_val:
+        target_display = f"{tgt_w_val:.1f} {kg_lbl} (Phase 1: {meso_w_val:.1f} {kg_lbl})" if not is_am else f"{tgt_w_val:.1f} {kg_lbl} (ምዕራፍ 1: {meso_w_val:.1f} {kg_lbl})"
+    else:
+        target_display = f"{tgt_w_val:.1f} {kg_lbl}"
+
     metrics = [
-        (c.get("current_weight", "የአሁኑ ክብደት"), f"{rounded(client.get('current_weight_kg'), 1)} {kg_lbl}" if client.get("current_weight_kg") else c.get("not_provided", "አልተጠቀሰም")),
-        (c.get("target_weight", "የታለመ ክብደት"), f"{rounded(client.get('target_weight_kg'), 1)} {kg_lbl}" if client.get("target_weight_kg") else c.get("not_provided", "አልተጠቀሰም")),
+        (c.get("current_weight", "የአሁኑ ክብደት"), f"{cur_w_val:.1f} {kg_lbl}" if client.get("current_weight_kg") else c.get("not_provided", "አልተጠቀሰም")),
+        (c.get("target_weight", "የታለመ ክብደት"), target_display if client.get("target_weight_kg") else c.get("not_provided", "አልተጠቀሰም")),
         (c.get("daily_energy", "የቀን ካሎሪ"), f"{rounded(targets.get('target_kcal'))} {kcal_lbl}"),
         (c.get("protein", "ፕሮቲን"), f"{rounded(targets.get('protein_g'))} {g_lbl}"),
         (c.get("meals_day", "ምግብ / ቀን"), f"{product.get('meals_per_day', 4)} {'ምግቦች' if is_am else 'meals'}"),
@@ -997,8 +1015,14 @@ def build_glance_html(plan: dict[str, Any], context: DocumentContext, c: dict[st
       </div>
     """ for label, val in metrics)
 
+    raw_goal = str(profile.get("goal") or "MUSCLE_GAIN").upper()
+    if "MUSCLE" in raw_goal or "BULK" in raw_goal or "RECOMP" in raw_goal:
+        clean_goal_lbl = f"የጡንቻ ግንባታ (ዋና ኢላማ: {tgt_w_val:.1f} ኪ.ግ | ምዕራፍ 1: {meso_w_val:.1f} ኪ.ግ)" if is_am else f"Muscle Gain (Target: {tgt_w_val:.1f} kg | Phase 1 Gate: {meso_w_val:.1f} kg)"
+    else:
+        clean_goal_lbl = profile_label(raw_goal, context.normalized_language)
+
     summary_rows = [
-        (c.get("goal", "ዓላማ"), profile_label(profile.get("goal"), context.normalized_language)),
+        (c.get("goal", "ዓላማ"), clean_goal_lbl),
         (c.get("training", "የአካል ብቃት እንቅስቃሴ"), format_training_summary(profile.get("training_days_per_week"), profile.get("training_type"), context.normalized_language)),
         (c.get("budget", "የገበያ በጀት"), profile_label(profile.get("grocery_budget"), context.normalized_language)),
         (c.get("diet", "የአመጋገብ ስርዓት"), profile_label(profile.get("dietary_pattern"), context.normalized_language)),
@@ -1103,7 +1127,7 @@ def build_how_to_use_html(context: DocumentContext, c: dict[str, str], is_client
             {"ሳምንታዊ የቅድመ-ዝግጅት ምክሮች" if is_am else "Weekly Preparation Checklist"}
           </div>
           <div style="font-size: 12px; color: #334155; line-height: 1.45;">
-            {"1. እንደ ሽሮ፣ ምስር እና ዶሮ ያሉ ምግቦችን ለ2-3 ቀናት አስቀድመው በማብሰል በማቀዝቀዣ ያስቀምጡ።<br>2. እንቁላል አስቀድመው ቀቅለው በማስቀመጥ የቁርስ ሰዓትዎን ያሳጥሩ።<br>3. አትክልቶችን አስቀድመው አጥበውና ከታትፈው በማዘጋጀት በቀላሉ ለመጠቀም ዝግጁ ያድርጉ።" if is_am else "1. Batch-cook staple stews (Shiro, Misir, Chicken) in advance for 2-3 days.<br>2. Boil eggs in advance for zero-friction morning prep.<br>3. Wash and portion fresh vegetables to prevent daily cooking friction."}
+            {"1. እንደ ሽሮ፣ ምስር እና ዶሮ ያሉ ምግቦችን ለ2-3 ቀናት አስቀድመው በማብሰል በማቀዝቀዣ ያስቀምጡ።<br>2. እንቁላል አስቀድመው ቀቅለው በማስቀመጥ የቁርስ ሰዓትዎን ያሳጥሩ።<br>3. አትክልቶችን አስቀድመው አጥበውና ከታትፈው በማዘጋጀት በቀላሉ ለመጠቀም ዝግጁ ያድርጉ።" if is_am else "1. Batch-cook staple meals (Chicken, rice, pasta, lentils) in advance for 2–3 days.<br>2. Boil eggs in advance for zero-friction morning prep.<br>3. Wash and portion fresh vegetables and complex carbs to prevent daily cooking friction."}
           </div>
         </div>
       </div>
@@ -1383,6 +1407,9 @@ def build_day_html(
                         name = ("የሱፍ ዘይት (ለማብሰያ)" if fid == "T002" else "የወይራ ዘይት (ለማብሰያ)") if is_am else ("Sunflower oil (for cooking)" if fid == "T002" else "Olive oil (for cooking)")
 
             raw_grams = float(item.get('grams') or 0)
+            if not raw_grams or raw_grams <= 0:
+                raw_grams = float(item.get("prepared_grams") or item.get("standard_grams") or 100.0)
+
             if fid == "A011":
                 egg_cnt = max(1, int(round(raw_grams / 50.0)))
                 grams_clean = egg_cnt * 50
@@ -1723,9 +1750,9 @@ def build_grocery_pages(
             category = local_category_name(str(row.get("category") or ""), context.normalized_language)
             if str(row.get("food_id") or "") == "A011" or "egg" in str(row.get("buy_item") or "").lower():
                 egg_cnt = max(1, int(round(float(row.get("planned_grams") or 0) / 50.0)))
-                buy_cnt = max(egg_cnt, int(round(float(row.get("buy_weight_g") or 0) / 50.0)))
-                planned = str(row.get("planned_display") or (f"{egg_cnt} ፍሬ" if is_am else f"{egg_cnt} eggs"))
-                buy_qty = str(row.get("buy_display") or (f"{buy_cnt} ፍሬ" if is_am else f"{buy_cnt} eggs"))
+                planned = f"{egg_cnt} ፍሬ" if is_am else f"{egg_cnt} eggs"
+                raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
+                buy_qty = local_purchase_quantity(raw_qty, context.normalized_language) if raw_qty else ("1 ካርቶን (10–12 ፍሬ)" if is_am else "1 carton (10–12 eggs)")
             else:
                 planned_rounded = round(float(row.get('planned_grams') or 0) / 10.0) * 10.0
                 planned = f"{planned_rounded:,.0f} {g_lbl}"
@@ -1937,7 +1964,10 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     c = copy_for(context.normalized_language)
     if not getattr(context, "hydration_target_l", None):
         n_prof = plan.get("nutrition_profile") or plan.get("nutrition_targets") or {}
-        context.hydration_target_l = float(n_prof.get("water_target_l") or 2.5)
+        try:
+            object.__setattr__(context, "hydration_target_l", float(n_prof.get("water_target_l") or 2.5))
+        except Exception:
+            pass
 
     core_days = plan.get("core_week") or []
     fasting_core = plan.get("fasting_core_week") or []
@@ -2046,6 +2076,11 @@ def render_html_pdf(
     html_path = pdf_path.with_suffix(".html") if keep_html else Path(tempfile.mktemp(suffix=".html"))
     html_path.write_text(html_content, encoding="utf-8")
 
+    import uuid
+    import shutil
+
+    target_tmp_pdf = pdf_path.with_name(f"{pdf_path.stem}_render_{uuid.uuid4().hex[:6]}.pdf")
+
     cmd = [
         browser,
         "--headless=new",
@@ -2059,15 +2094,24 @@ def render_html_pdf(
         "--hide-scrollbars",
         "--virtual-time-budget=10000",
         "--no-pdf-header-footer",
-        f"--print-to-pdf={pdf_path.resolve()}",
+        f"--print-to-pdf={target_tmp_pdf.resolve()}",
         str(html_path.resolve()),
     ]
 
     with _RENDER_SEMAPHORE:
         res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
-    if res.returncode != 0 or not pdf_path.exists() or pdf_path.stat().st_size == 0:
+    if res.returncode != 0 or not target_tmp_pdf.exists() or target_tmp_pdf.stat().st_size == 0:
         err_msg = res.stderr or res.stdout or f"Chromium exited with code {res.returncode}"
         raise RuntimeError(f"Headless Chromium PDF print failed: {err_msg}")
+
+    # Atomically replace target PDF. If locked by an external PDF viewer, fall back gracefully
+    try:
+        shutil.move(str(target_tmp_pdf), str(pdf_path))
+    except (PermissionError, OSError) as lock_err:
+        fallback_path = pdf_path.with_name(f"{pdf_path.stem}-PERFECT.pdf")
+        shutil.copyfile(str(target_tmp_pdf), str(fallback_path))
+        target_tmp_pdf.unlink(missing_ok=True)
+        pdf_path = fallback_path
 
     if not keep_html and html_path.exists():
         try:
@@ -2099,6 +2143,7 @@ def render_plan_to_pdf(
     context = DocumentContext(
         plan_public_id=plan.get("plan_id") or "MP-000016",
         client_name=c_name,
+        client_profile=answers or meta or profile,
         language=lang,
         version_number=1,
         status="APPROVED",

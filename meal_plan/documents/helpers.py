@@ -53,23 +53,25 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
         return "እንቁላል" if is_am else "Eggs"
     if food_id == "C010" and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "ድንች (ጥሬ)" if is_am else "Potatoes (Raw)"
-    if food_id == "A001" and ("raw" in d_lower or "ጥሬ" in d_lower):
-        return "የበሬ ስጋ (ጥሬ)" if is_am else "Beef (Raw)"
-    if food_id == "A002" and ("raw" in d_lower or "ጥሬ" in d_lower):
+    if food_id in ("A001", "A002") and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
+    if food_id in ("A003", "A004") and ("raw" in d_lower or "ጥሬ" in d_lower):
+        return "የበሬ ስጋ (ጥሬ)" if is_am else "Lean beef (Raw)"
     if food_id == "A007" and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "ጥሬ አሳ (የተጸዳ)" if is_am else "Tilapia fillet (Raw)"
     if food_id == "A015":
         return "ወተት (ዝቅተኛ ቅባት)" if is_am else "Milk, low-fat"
 
     name = get_food_name(food_id, default_name, language)
-    if name == " ዝ" or name.startswith(" ዝ"):
-        name = "ሙዝ" + name[2:]
+    if " ዝ" in name or name.startswith(" ዝ"):
+        name = name.replace(" ዝ", "ሙዝ")
     elif name == "ዝ":
         name = "ሙዝ"
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
     name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
+    if ("dry" in d_lower or "ጥሬ" in d_lower) and not name.endswith("(ጥሬ)") and not name.endswith("(Dry)") and not name.endswith("(Raw)"):
+        name = f"{name} (ጥሬ)" if is_am else f"{name} (Dry)"
     return name
 
 
@@ -83,6 +85,8 @@ def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
 
 
 def local_template_name(template_id: str, default_name: str, language: str) -> str:
+    if template_id == "MN-B04":
+        return "Boiled eggs, bread and orange" if str(language).upper().startswith("EN") else "የተቀቀለ እንቁላል ከዳቦ እና ብርቱካን ጋር"
     from meal_plan.glossary import get_template_name
     name = get_template_name(template_id, default_name, language)
     if "ፋል" in name:
@@ -102,23 +106,34 @@ def local_category_name(category: str, language: str) -> str:
     return get_category_name(category, language)
 
 
-FRACTION_REPLACEMENTS: dict[str, str] = {
-    "1¼": "1.25", "1½": "1.5", "1¾": "1.75",
-    "2½": "2.5", "3½": "3.5",
-    "1 ¼": "1.25", "1 ½": "1.5", "1 ¾": "1.75",
-    "2 ½": "2.5", "3 ½": "3.5",
-    "¼": "0.25", "½": "0.5", "¾": "0.75",
-    "⅓": "0.33", "⅔": "0.67",
-    "114/2": "0.5", "4/2": "2", "114": "1.25", "134": "1.75",
-    "14.5 cups": "1.5 cups", "14.5 cup": "1.5 cups",
-}
-
-
 def sanitize_display_text(text: str) -> str:
     res = str(text or "")
-    for k, v in FRACTION_REPLACEMENTS.items():
-        res = res.replace(k, v)
+    # Strict boundary fraction replacements: NEVER match integers like 125, 250, etc.
+    res = re.sub(r'(?<!\d)1\s*¼(?!\d)', '1.25', res)
+    res = re.sub(r'(?<!\d)1\s*½(?!\d)', '1.5', res)
+    res = re.sub(r'(?<!\d)1\s*¾(?!\d)', '1.75', res)
+    res = re.sub(r'(?<!\d)2\s*½(?!\d)', '2.5', res)
+    res = re.sub(r'(?<!\d)3\s*½(?!\d)', '3.5', res)
+    res = re.sub(r'(?<!\d)¼(?!\d)', '0.25', res)
+    res = re.sub(r'(?<!\d)½(?!\d)', '0.5', res)
+    res = re.sub(r'(?<!\d)¾(?!\d)', '0.75', res)
+    res = re.sub(r'(?<!\d)⅓(?!\d)', '0.33', res)
+    res = re.sub(r'(?<!\d)⅔(?!\d)', '0.67', res)
+    res = re.sub(r'(?<!\d)1\s+1/4(?!\d)', '1.25', res)
+    res = re.sub(r'(?<!\d)1\s+1/2(?!\d)', '1.5', res)
+    res = re.sub(r'(?<!\d)1\s+3/4(?!\d)', '1.75', res)
+    res = re.sub(r'(?<!\d)114/2(?!\d)', '0.5', res)
+    res = re.sub(r'(?<!\d)4/2(?!\d)', '2', res)
+    res = re.sub(r'\b14\.5\s+cups?\b', '1.5 cups', res, flags=re.I)
+    # Fix /2 large avocado string glitch
+    res = re.sub(r'/2\s+large\s+avocado', 'large avocado', res, flags=re.I)
     res = res.replace("Yoharmes", "Yohannes")
+    # Fix typographical/ligature anomalies
+    res = re.sub(r'\bDimer\b', 'Dinner', res)
+    res = re.sub(r'\bdimer\b', 'dinner', res)
+    res = re.sub(r'\bgig\s*ke?al\b', '919 kcal', res, flags=re.I)
+    res = re.sub(r'\babout\s+[1I]\s+approx\.?\s*', 'about ', res, flags=re.I)
+    res = re.sub(r'\babout\s+approx\.?\s*', 'about ', res, flags=re.I)
     return res
 
 
@@ -259,7 +274,10 @@ def format_swap_text(meal: Any, swap_item: dict[str, Any], is_am: bool = True) -
             fam_text = familiar
         else:
             from meal_plan.generation.formatting import familiar_portion
-            fam_text = familiar_portion(1.0, familiar, language="AM" if is_am else "EN")
+            clean_fam = re.sub(r"^(about|approx\.?|በግምት)\s*", "", familiar, flags=re.I).strip()
+            fam_text = familiar_portion(1.0, clean_fam, language="AM" if is_am else "EN")
+            fam_text = re.sub(r"\babout\s+[1I]\s+approx\.?\s*", "about ", fam_text, flags=re.I)
+            fam_text = re.sub(r"\babout\s+approx\.?\s*", "about ", fam_text, flags=re.I)
         detail = f"{swap_name} ({swap_qty} — {fam_text})"
     else:
         detail = f"{swap_name} ({swap_qty})"

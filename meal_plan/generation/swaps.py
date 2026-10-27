@@ -17,6 +17,7 @@ def build_exchange_options(
     base_grams: float = 100.0,
     meal_food_ids: set[str] | list[str] | None = None,
     limit: int = 3,
+    source_slot: str = "",
 ) -> list[dict[str, Any]]:
     food = dataset.food_by_id.get(food_id)
     if not food:
@@ -43,6 +44,10 @@ def build_exchange_options(
         return []
 
     is_save_budget = str(answers.get("grocery_budget") or "").upper() in ("SAVE", "VALUE")
+    is_international = (
+        str(answers.get("region") or "").upper() in ("EUROPE", "NORTH_AMERICA", "INTERNATIONAL", "DIASPORA")
+        or str(answers.get("cuisine_style") or "").upper() == "INTERNATIONAL"
+    )
 
     base_carbs_per_g = float(food.get("Carbs / 100 g") or 0) / 100.0
     base_prot_per_g = float(food.get("Protein / 100 g") or 0) / 100.0
@@ -63,7 +68,20 @@ def build_exchange_options(
                 sg = round((target_carbs_g / c_carbs_per_g) / 10.0) * 10.0
             else:
                 sg = float(cand_obj.get("Standard Portion g") or 100.0)
-            sg = max(30.0, sg)
+            if cand_id in ("C005", "C006"):
+                sg = min(250.0, max(30.0, sg))
+            elif cand_id in ("C003", "C004"):
+                sg = min(250.0, max(30.0, sg))
+            elif cand_id == "C020":
+                sg = min(40.0, max(10.0, sg))
+            elif cand_id == "C007":
+                sg = min(80.0, max(25.0, sg))
+            elif cand_id in ("C008", "C009"):
+                sg = min(100.0, max(30.0, sg))
+            elif cand_id in ("C010", "C011"):
+                sg = min(300.0, max(50.0, sg))
+            else:
+                sg = max(30.0, sg)
         elif swap_type == "protein":
             c_prot_per_g = float(cand_obj.get("Protein / 100 g") or 0) / 100.0
             if c_prot_per_g >= 0.05:
@@ -73,12 +91,14 @@ def build_exchange_options(
             if cand_id == "A011":
                 # Whole eggs: discrete 50g steps
                 sg = max(50.0, round(sg / 50.0) * 50.0)
+            elif cand_id in ("A001", "A002", "A003", "A004"):
+                sg = min(180.0, max(50.0, sg))
             else:
                 sg = max(30.0, sg)
         else:
             sg = float(cand_obj.get("Standard Portion g") or 30.0)
 
-        # Dynamic familiar portion
+        # Dynamic familiar portion without redundant 'approx.' / 'በግምት'
         if cand_id == "C001":
             rolls = sg / 120.0
             if rolls <= 0.5:
@@ -94,23 +114,33 @@ def build_exchange_options(
         elif cand_id == "A011":
             cnt = max(1, int(round(sg / 50.0)))
             fam_am, fam_en = f"{cnt} ፍሬ", f"{cnt} whole eggs"
+        elif cand_id == "A001":
+            fam_am, fam_en = f"{round(sg)} ግ የበሰለ የዶሮ ስጋ", f"{round(sg)} g cooked chicken breast"
+        elif cand_id == "C008":
+            slices = round((sg / 40.0) * 2) / 2
+            fam_am, fam_en = f"{slices:g} መካከለኛ ስላይስ ዳቦ", f"{slices:g} slices whole-wheat bread"
+        elif cand_id == "C007":
+            fam_am, fam_en = f"{round(sg)} ግ አጃ (ደረቅ)", f"{round(sg)} g oats (dry)"
+        elif cand_id == "C020":
+            cakes = max(1, round(sg / 10.0))
+            fam_am, fam_en = f"{cakes} የሩዝ ኬክ", f"{cakes} rice cakes"
         elif cand_id == "C011":
             if sg >= 280:
-                fam_am, fam_en = "በግምት 2 መካከለኛ ስኳር ድንች", "approx. 2 medium sweet potatoes"
+                fam_am, fam_en = "2 መካከለኛ ስኳር ድንች", "2 medium sweet potatoes"
             elif sg >= 140:
-                fam_am, fam_en = "በግምት 1 መካከለኛ ስኳር ድንች", "approx. 1 medium sweet potato"
+                fam_am, fam_en = "1 መካከለኛ ስኳር ድንች", "1 medium sweet potato"
             else:
-                fam_am, fam_en = "በግምት ግማሽ ስኳር ድንች", "approx. ½ medium sweet potato"
+                fam_am, fam_en = "ግማሽ ስኳር ድንች", "½ medium sweet potato"
         elif cand_id in ("C003", "C004"):
             cups = round((sg / 150.0) * 2) / 2
-            fam_am, fam_en = f"በግምት {cups:g} ሲኒ የበሰለ ሩዝ", f"approx. {cups:g} cups cooked rice"
+            fam_am, fam_en = f"{cups:g} ሲኒ የበሰለ ሩዝ", f"{cups:g} cups cooked rice"
         elif cand_id in ("C005", "C006"):
             cups = round((sg / 140.0) * 2) / 2
-            fam_am, fam_en = f"በግምት {cups:g} ሲኒ የበሰለ ፓስታ", f"approx. {cups:g} cups cooked pasta"
+            fam_am, fam_en = f"{cups:g} ሲኒ የበሰለ ፓስታ", f"{cups:g} cups cooked pasta"
         elif cand_id == "A008":
-            fam_am, fam_en = "በግምት ግማሽ ጣሳ", "approx. ½ can"
+            fam_am, fam_en = "ግማሽ ጣሳ", "½ can"
         elif cand_id == "A018":
-            fam_am, fam_en = f"በግምት {round(sg)} ግ", f"approx. {round(sg)} g"
+            fam_am, fam_en = f"{round(sg)} ግ", f"{round(sg)} g"
         else:
             fam_am, fam_en = f"{round(sg)} ግ", f"{round(sg)} g"
 
@@ -123,7 +153,19 @@ def build_exchange_options(
         if str(x.get("Exchange Group") or "") != group:
             continue
         fid = str(x.get("Food ID") or "")
-        if not fid or fid in forbidden or fid in seen_fids:
+        if not fid:
+            continue
+
+        # Sanitize Ethiopian-only staple foods for international profiles
+        if is_international:
+            if fid == "C018":  # Kocho -> Whole-wheat bread
+                fid = "C008"
+            elif fid == "C013":  # Cooked barley / Kinche -> Oats (dry)
+                fid = "C007"
+            elif fid == "C001":  # Injera -> Boiled potato
+                fid = "C010"
+
+        if fid in forbidden or fid in seen_fids:
             continue
         # Enforce budget guardrails (no imported cottage cheese A016, olive oil T001, Greek yogurt A013 for Save budget)
         if is_save_budget and fid in {"A013", "A016", "T001", "A009"}:
@@ -141,6 +183,20 @@ def build_exchange_options(
                 continue
         elif swap_type == "carb":
             if not fid.startswith("C") and not any(k in c_cat for k in ("grain", "starch", "tuber", "bread")):
+                continue
+
+        # Context-aware slot filtering:
+        slot_lower = str(source_slot or "").strip().lower()
+        if "snack" in slot_lower:
+            # In snack slots: NEVER offer hot-meal starches (pasta, rice, injera, potatoes) as snack swaps!
+            if fid in ("C005", "C006", "C003", "C004", "C001", "C010", "C011", "C013", "C014", "C015", "C018"):
+                continue
+            # Also forbid meat / fish in snack slots
+            if fid in ("A001", "A002", "A003", "A004", "A005", "A006", "A007", "A019", "A020"):
+                continue
+        elif "breakfast" in slot_lower:
+            # In breakfast slots: do not offer pasta, rice, or cooked barley
+            if fid in ("C005", "C006", "C003", "C004", "C013", "C014", "C015"):
                 continue
 
         base_name = str(food.get("Food Name") or "").lower()
@@ -169,6 +225,27 @@ def build_exchange_options(
             continue
 
         sg, fam_am, fam_en = _calc_swap_grams_and_familiar(fid, candidate)
+
+        # Sanitize huge egg white volumes or international egg whites:
+        # Replace Boiled egg white (A012) (> 120g) with Cooked chicken breast (80g) or Whole eggs (100g — 2 eggs)
+        if fid == "A012" and (sg > 120.0 or is_international):
+            if "A001" not in forbidden and "A001" not in seen_fids:
+                fid = "A001"
+                candidate = dataset.food_by_id.get("A001")
+                if not candidate:
+                    continue
+                c_cat = str(candidate.get("Category") or "").lower()
+                sg, fam_am, fam_en = _calc_swap_grams_and_familiar(fid, candidate)
+            elif food_id != "A011" and "A011" not in forbidden and "A011" not in seen_fids:
+                fid = "A011"
+                candidate = dataset.food_by_id.get("A011")
+                if not candidate:
+                    continue
+                c_cat = str(candidate.get("Category") or "").lower()
+                sg, fam_am, fam_en = _calc_swap_grams_and_familiar(fid, candidate)
+            else:
+                continue
+
         cand_macros = {
             "kcal": float(candidate.get("kcal / 100 g") or 0) * (sg / 100.0),
             "protein": float(candidate.get("Protein / 100 g") or 0) * (sg / 100.0),
@@ -198,9 +275,10 @@ def build_exchange_options(
         })
 
     # Direct curated fallbacks for core foods when exchange table has gaps:
-    # 1. Swapping Ayib (A018) -> must be lean protein: Boiled whole eggs (A011) or Canned tuna (A008)
+    # 1. Swapping Ayib (A018) -> must be lean protein: Boiled whole eggs (A011), Tuna (A008), or Chicken (A001)
     if food_id == "A018":
-        for fallback_fid in ("A011", "A008", "A012"):
+        fallbacks = ("A011", "A008", "A001") if is_international else ("A011", "A008", "A012")
+        for fallback_fid in fallbacks:
             if fallback_fid not in forbidden and fallback_fid not in seen_fids:
                 if is_save_budget and fallback_fid == "A008":
                     continue
@@ -235,9 +313,10 @@ def build_exchange_options(
                             "macros": cand_macros,
                         })
 
-    # 2. Swapping Boiled Whole Eggs (A011) -> must be lean protein: Ayib (A018) or Tuna (A008), NEVER self-swap!
+    # 2. Swapping Boiled Whole Eggs (A011) -> must be lean protein: Chicken (A001) or Tuna (A008), NEVER self-swap!
     elif food_id == "A011":
-        for fallback_fid in ("A018", "A008", "A012"):
+        fallbacks = ("A001", "A008") if is_international else ("A018", "A008", "A012")
+        for fallback_fid in fallbacks:
             if fallback_fid not in forbidden and fallback_fid not in seen_fids:
                 if is_save_budget and fallback_fid == "A008":
                     continue
@@ -266,7 +345,7 @@ def build_exchange_options(
                             "familiar": fam_en,
                             "familiar_am": fam_am,
                             "familiar_guidance": fam_am,
-                            "coach_note": "Protein swap alternative",
+                            "coach_note": "Lean protein alternative",
                             "exchange_group": group,
                             "swap_type": "protein",
                             "macros": cand_macros,
@@ -274,7 +353,8 @@ def build_exchange_options(
 
     # 3. Swapping Injera (C001) -> Sweet potato (C011), Cooked rice (C003), Cooked pasta (C005)
     elif food_id == "C001":
-        for fallback_fid in ("C011", "C003", "C005"):
+        fallbacks = ("C010", "C003", "C005") if is_international else ("C011", "C003", "C005")
+        for fallback_fid in fallbacks:
             if fallback_fid not in forbidden and fallback_fid not in seen_fids:
                 cand = dataset.food_by_id.get(fallback_fid)
                 if cand:
@@ -307,9 +387,10 @@ def build_exchange_options(
                             "macros": cand_macros,
                         })
 
-    # 4. Swapping Boiled Potato (C010) -> Cooked pasta (C005), Injera (C001), Cooked rice (C003)
+    # 4. Swapping Boiled Potato (C010) -> Cooked pasta (C005), Cooked rice (C003), Whole-wheat bread (C008)
     elif food_id == "C010":
-        for fallback_fid in ("C005", "C001", "C003"):
+        fallbacks = ("C005", "C003", "C008") if is_international else ("C005", "C001", "C003")
+        for fallback_fid in fallbacks:
             if fallback_fid not in forbidden and fallback_fid not in seen_fids:
                 cand = dataset.food_by_id.get(fallback_fid)
                 if cand:
@@ -415,16 +496,16 @@ def build_exchange_options(
 
     # Curated preferred swap order for staple foods:
     preferred_order = {
-        "C001": ["C011", "C003", "C005", "C013", "C018"],  # Injera -> Sweet potato (320g), Rice (240g), Pasta (220g)
-        "C010": ["C005", "C011", "C001", "C003"],          # Boiled potato -> Cooked pasta (260g), Sweet potato, Injera
-        "C005": ["C003", "C010", "C011"],                  # Whole-wheat pasta -> Cooked rice, Boiled potato, Sweet potato
-        "C006": ["C003", "C010", "C011"],                  # White pasta -> Cooked rice, Boiled potato, Sweet potato
-        "T004": ["T003"],                                  # Peanut butter -> Roasted peanuts
-        "A018": ["A011", "A008", "A012"],                  # Ayib -> Whole eggs (50g discrete units), Tuna, Egg whites
-        "A011": ["A018", "A008", "A012"],                  # Whole eggs -> Ayib, Tuna, Egg whites
-        "A007": ["A001", "A002", "A003", "A011"],          # Fish -> Chicken, Lean beef, Eggs
-        "A001": ["A007", "A002", "A003", "A011"],          # Chicken -> Fish, Lean beef, Eggs
-        "A003": ["A001", "A007", "A002", "A011"],          # Beef -> Chicken, Fish, Eggs
+        "C001": ["C010", "C003", "C005", "C011"] if is_international else ["C011", "C003", "C005", "C013", "C018"],
+        "C010": ["C005", "C003", "C008", "C011"] if is_international else ["C005", "C011", "C001", "C003"],
+        "C005": ["C003", "C010", "C011"],
+        "C006": ["C003", "C010", "C011"],
+        "T004": ["T003"],
+        "A018": ["A011", "A008", "A001"] if is_international else ["A011", "A008", "A012"],
+        "A011": ["A001", "A008"] if is_international else ["A018", "A008", "A012"],
+        "A007": ["A001", "A002", "A003", "A011"],
+        "A001": ["A007", "A002", "A003", "A011"],
+        "A003": ["A001", "A007", "A002", "A011"],
     }.get(food_id, [])
 
     def _sort_key(r: dict[str, Any]):

@@ -36,6 +36,7 @@ def practical_group(food_id: str) -> str:
     if food_id in {"C003", "C004"}: return "rice"
     if food_id == "C001": return "injera"
     if food_id == "C007": return "oats"
+    if food_id == "C020": return "rice_cake"
     if food_id in {"C005", "C006"}: return "pasta"
     if food_id in {"C008", "C009", "C016"}: return "bread"
     if food_id in {"C010", "C011"}: return "potato"
@@ -48,6 +49,7 @@ def practical_cap(group: str, settings: dict[str, Any]) -> float:
     mapping = {
         "fruit": ("MAX_FRUIT_MEAL_G", 300), "rice": ("MAX_RICE_MEAL_G", 300),
         "injera": ("MAX_INJERA_MEAL_G", 240), "oats": ("MAX_OATS_MEAL_G", 80),
+        "rice_cake": ("MAX_RICE_CAKES_MEAL_G", 40),
         "pasta": ("MAX_PASTA_MEAL_G", 350), "bread": ("MAX_BREAD_MEAL_G", 100),
         "potato": ("MAX_POTATO_MEAL_G", 400), "grain": ("MAX_OTHER_GRAIN_MEAL_G", 350),
         "oil": ("MAX_OIL_MEAL_G", 14),
@@ -56,6 +58,23 @@ def practical_cap(group: str, settings: dict[str, Any]) -> float:
         return math.inf
     key, default = mapping[group]
     return n(settings.get(key)) or float(default)
+
+
+SERVING_HARD_CAPS: dict[str, float] = {
+    "C020": 40.0,   # Max 4 thin rice cakes (~36-40g)
+    "C007": 80.0,   # Max 80g dry oats
+    "C008": 130.0,  # Max 130g bread (~3 slices)
+    "C006": 350.0,  # Max 350g cooked pasta
+    "C005": 350.0,
+    "C003": 300.0,  # Max 300g cooked rice
+    "C004": 300.0,
+    "C010": 400.0,  # Max 400g potatoes
+    "C011": 400.0,
+    "T001": 20.0,   # Max 20g oil per meal
+    "T002": 20.0,
+    "T004": 32.0,   # Max 32g peanut butter
+    "T003": 30.0,   # Max 30g peanuts
+}
 
 
 def minimum_addition(food_id: str) -> float:
@@ -105,7 +124,7 @@ class DaySolver:
         client_weight = float(self.answers.get("current_weight_kg") or 0)
         is_small_frame = client_weight > 0 and client_weight < 55.0
 
-        for _, t in selected:
+        for spec, t in selected:
             tid = str(t.get("Template ID"))
             if tid == "MN-S-SHAKE":
                 m_fixed = MacroTotals(549.8, 24.1, 72.4, 20.7, 5.0)
@@ -117,6 +136,10 @@ class DaySolver:
                 fixed_macros = fixed_macros.plus(m_fixed)
             elif tid == "MN-B07":
                 m_fixed = MacroTotals(443.0, 19.6, 53.8, 16.5, 5.5)
+                base = base.plus(m_fixed)
+                fixed_macros = fixed_macros.plus(m_fixed)
+            elif spec.source_slot == "Breakfast":
+                m_fixed = template_macros(t)
                 base = base.plus(m_fixed)
                 fixed_macros = fixed_macros.plus(m_fixed)
             else:
@@ -140,19 +163,30 @@ class DaySolver:
             if fasting:
                 # On fasting days, all protein is plant protein (lentils/tofu); scale to hit protein directly
                 prot_scale = remaining_target["protein"] / scalable_base.protein
-                scale = max(0.82, min(1.08, prot_scale))
+                scale = max(1.10, min(1.22, prot_scale)) if target["kcal"] >= 2800 else max(0.82, min(1.08, prot_scale))
             else:
-                # On omnivore days, carbs and starches in the 2800+ kcal surplus contribute ~35g of plant protein
-                plant_protein_est = 35.0 if target["kcal"] >= 2800 else 24.0
-                target_scalable_prot = max(20.0, target["protein"] - fixed_macros.protein - plant_protein_est)
-                prot_scale = target_scalable_prot / scalable_base.protein
-                scale = max(0.60, min(0.90, prot_scale))
+                # On omnivore days, dynamic plant protein estimation prevents over-scaling heavy meat/grain days
+                if target["kcal"] >= 2800:
+                    if fixed_macros.protein == 0:
+                        plant_protein_est = 14.0
+                        prot_scale = max(20.0, target["protein"] - plant_protein_est) / scalable_base.protein
+                        scale = max(0.80, min(0.96, prot_scale))
+                    else:
+                        plant_protein_est = 34.0
+                        target_scalable_prot = max(20.0, target["protein"] - fixed_macros.protein - plant_protein_est)
+                        prot_scale = target_scalable_prot / scalable_base.protein
+                        scale = max(0.64, min(0.82, prot_scale))
+                else:
+                    plant_protein_est = 20.0 if scalable_base.protein >= 100.0 else 14.0
+                    target_scalable_prot = max(20.0, target["protein"] - fixed_macros.protein - plant_protein_est)
+                    prot_scale = target_scalable_prot / scalable_base.protein
+                    scale = max(0.74, min(1.10, prot_scale))
         elif scalable_base.kcal > 0:
             scale = max(0.80, min(1.20, remaining_target["kcal"] / scalable_base.kcal))
         else:
             scale = 1.0
 
-        fixed_slots = {spec.label for spec, t in selected if str(t.get("Template ID")) in ("MN-B02", "MF-B02", "MN-S-SHAKE", "MN-B07")}
+        fixed_slots = {spec.label for spec, t in selected if str(t.get("Template ID")) in ("MN-B02", "MF-B02", "MN-S-SHAKE", "MN-B07") or spec.source_slot == "Breakfast"}
         extras: dict[str, list[dict[str, float]]] = {spec.label: [] for spec, _ in selected}
         meal_state: dict[str, dict[str, float]] = {}
         food_by_slot: dict[str, dict[str, float]] = {}
@@ -190,6 +224,9 @@ class DaySolver:
                     {"Item Type": "Food", "Item ID": "V012", "Portion g": 60},
                 ]
                 m = MacroTotals(443.0, 19.6, 53.8, 16.5, 5.5)
+            elif spec.source_slot == "Breakfast":
+                comps = self.components.get(tid, [])
+                m = template_macros(t)
             else:
                 comps = self.components.get(tid, [])
                 m = template_macros(t).scale(scale)
@@ -206,7 +243,7 @@ class DaySolver:
             m_comp = MacroTotals()
             has_savory_meat_fish = False
             for c in comps:
-                if tid in ("MN-S-SHAKE", "MN-B02", "MF-B02", "MN-B07"):
+                if tid in ("MN-S-SHAKE", "MN-B02", "MF-B02", "MN-B07") or spec.source_slot == "Breakfast":
                     amount = float(c.get("Portion g") or 0.0)
                 else:
                     amount = n(c.get("Portion g")) * scale
@@ -229,8 +266,10 @@ class DaySolver:
                 mass_by_slot[spec.label] += amount
                 if str(c.get("Item Type")) == "Food":
                     fid = str(c.get("Item ID"))
-                    if is_save and fid == "T001":
-                        fid = "T002"
+                    if is_save:
+                        if fid == "T001": fid = "T002"
+                    else:
+                        if fid == "T002": fid = "T001"
                     if is_save and is_omni and fid == "P014":
                         fid = "A015"
                         amount = 200.0
@@ -251,8 +290,10 @@ class DaySolver:
                     ))
                     for ingredient in self.ingredients.get(rid, []):
                         fid = str(ingredient.get("Food ID"))
-                        if str(self.answers.get("grocery_budget") or "").upper() in {"SAVE", "VALUE"} and fid == "T001":
-                            fid = "T002"
+                        if is_save:
+                            if fid == "T001": fid = "T002"
+                        else:
+                            if fid == "T002": fid = "T001"
                         food_by_slot[spec.label][fid] = food_by_slot[spec.label].get(fid, 0.0) + n(ingredient.get("Weight g")) * fraction
 
             # Mandatory Cooking Oil Anchor for Savory Meat/Fish Dishes
@@ -276,7 +317,7 @@ class DaySolver:
         if is_small_frame:
             upper_protein = min(target["protein"] * 1.10, 115.0)
         elif target["protein"] <= 150.0:
-            upper_protein = 147.5
+            upper_protein = 153.0 if target["kcal"] >= 2800 else 150.0
         else:
             upper_protein = target["protein"] * 1.10
         upper = {"kcal": target["kcal"] * 1.03, "protein": upper_protein, "carbs": target["carbs"] * 1.15, "fat": target["fat"] * 1.15}
@@ -288,6 +329,15 @@ class DaySolver:
         primary_carb = "C001" if ethiopian_count >= max(2, len(selected)//2) else "C003"
 
         def preferred_carb(slot: str, source_slot: str = "") -> str:
+            t = slot_templates.get(slot, {})
+            tmpl_id = str(t.get("Template ID") or "")
+            t_name = (str(t.get("Meal Name") or "") + " " + str(t.get("Tags") or "")).lower()
+            if "pasta" in t_name or any(str(c.get("Item ID")) in ("R027", "R014") for c in self.components.get(tmpl_id, [])):
+                return "C006"
+            if "rice" in t_name or any(str(c.get("Item ID")) in ("R026", "R010", "R011") for c in self.components.get(tmpl_id, [])):
+                return "C003"
+            if "potato" in t_name or "dinich" in t_name:
+                return "C010"
             if source_slot == "Breakfast":
                 breakfast_options = ["C007", "C008", "C009", "C001"]
                 best, best_g = "", 0.0
@@ -421,6 +471,8 @@ class DaySolver:
         avocado_allocated = False
         is_high_calorie_bulking = target["kcal"] >= 2800
 
+        COMPOSITE_RECIPES = {"R026", "R027", "R028", "R011", "R010"}
+
         for spec, _ in selected:
             tmpl_id = str(slot_templates.get(spec.label, {}).get("Template ID") or "")
             if tmpl_id in ("MN-B02", "MF-B02", "MN-B07"):
@@ -436,8 +488,20 @@ class DaySolver:
                 protein_candidates[spec.label] = []
                 continue
 
+            has_composite = any(
+                str(c.get("Item Type")) == "Recipe" and str(c.get("Item ID")) in COMPOSITE_RECIPES
+                for c in self.components.get(tmpl_id, [])
+            )
+            if has_composite:
+                # Composite dishes (Tuna Pasta, Chicken Rice Bowl, Egg Avocado Toast, Lentil Rice Bowl):
+                # On fasting days, allow plant protein sides (Lentils P001, Soy chunks P009) to hit fasting protein goals
+                carb_candidates[spec.label] = [candidate("F001", 120)] if spec.source_slot == "Breakfast" else []
+                protein_candidates[spec.label] = [candidate("P001", 180), candidate("P009", 45)] if (fasting and spec.source_slot in ("Lunch", "Dinner")) else []
+                fat_candidates[spec.label] = [candidate("T001", 14)] if not is_save_budget else [candidate("T002", 14)]
+                continue
+
             if spec.source_slot == "Snack":
-                protein_candidates[spec.label] = []
+                protein_candidates[spec.label] = [candidate("T004", 30), candidate("T003", 25)] if fasting else []
             elif spec.source_slot == "Breakfast":
                 if any(fid in food_by_slot[spec.label] for fid in ("A011", "A012", "A013", "A014", "A015", "A018", "P010")):
                     protein_candidates[spec.label] = []
@@ -445,47 +509,56 @@ class DaySolver:
             stew = is_traditional_stew(spec.label)
             is_sweet = is_sweet_or_breakfast_dish(spec.label)
             p_carb = preferred_carb(spec.label, spec.source_slot)
+
+            t_name = str(slot_templates.get(spec.label, {}).get("Meal Name") or "").lower()
             if spec.source_slot == "Breakfast":
-                if is_sweet:
-                    p_carb = "C007" if "C007" in food_by_slot[spec.label] else "F001"
-                    carb_candidates[spec.label] = [candidate(p_carb, 150), candidate("F002", 150)]
+                # For breakfast fruit/yogurt bowls: limit fruit to at most 1 candidate, NEVER inject loose bread (C008)!
+                if is_sweet or "yogurt" in t_name or "bowl" in t_name or "A013" in food_by_slot[spec.label] or "A014" in food_by_slot[spec.label]:
+                    carb_candidates[spec.label] = [candidate("F001", 120)] if "F001" not in food_by_slot[spec.label] else []
                 else:
-                    if p_carb not in {"C007", "C008", "C009", "C001", "F001"}:
-                        p_carb = "C001" if ethiopian_count >= 1 else "C008"
-                    carb_candidates[spec.label] = [candidate(p_carb, 300), candidate("F001", 120)]
+                    carb_candidates[spec.label] = [candidate(p_carb, 200)] if p_carb in ("C008", "C001") else []
             elif spec.source_slot == "Snack":
-                carb_candidates[spec.label] = [candidate("F001", 120), candidate("F002", 180), candidate("C020", 36)]
+                # Snacks:
+                if fasting:
+                    carb_candidates[spec.label] = [candidate("C007", 60), candidate("C020", 50), candidate("F001", 120)]
+                elif "A015" in food_by_slot[spec.label] or "milk" in spec.label.lower():
+                    carb_candidates[spec.label] = [candidate("C007", 80), candidate("C020", 50)]
+                elif "C020" in food_by_slot[spec.label] or "rice cake" in spec.label.lower():
+                    # If Rice Cakes + PB: scale rice cakes and peanut butter. Never append white rice!
+                    carb_candidates[spec.label] = [candidate("C020", 50)]
+                else:
+                    carb_candidates[spec.label] = [candidate("C007", 50), candidate("C020", 40)]
             else:
                 carb_cap = 220.0 if p_carb in ("C005", "C006") else 300.0
                 carb_candidates[spec.label] = [candidate(p_carb, carb_cap)]
 
             if spec.source_slot == "Breakfast" or is_sweet:
-                # Strictly forbid cooking oils (T001, T002, T012) in sweet/fruit/yogurt/oat/ayib breakfast bowls
-                # If bowl already has nuts or nut butter, do not add more peanut butter
-                if any(fid in food_by_slot[spec.label] for fid in ("T003", "T004")):
+                # Strictly forbid cooking oils in sweet/fruit/yogurt/oat breakfast bowls
+                # For egg breakfasts (A011): eggs already contain yolks (fat), do not inject peanut butter!
+                if any(fid in food_by_slot[spec.label] for fid in ("T003", "T004", "A011")):
                     fat_candidates[spec.label] = []
                 else:
-                    fat_candidates[spec.label] = [candidate("T004", 30), candidate("T003", 30)]
+                    fat_candidates[spec.label] = [candidate("T004", 30)]
             elif spec.source_slot == "Snack":
-                fat_candidates[spec.label] = [candidate("T004", 30), candidate("T003", 30)]
+                fat_candidates[spec.label] = [candidate("T004", 30)] if "T004" in food_by_slot[spec.label] else [candidate("T003", 25)]
             elif stew:
-                # Traditional savory stews: strictly restricted to cooking oils / kibbeh. NEVER inject peanut butter!
+                # Traditional savory stews: strictly restricted to cooking oils / kibbeh
                 if is_save_budget:
                     fat_candidates[spec.label] = [candidate("T002", 14)]
                 else:
-                    stew_fats = [candidate("T001", 14), candidate("T002", 14)]
+                    stew_fats = [candidate("T001", 14)]
                     if not plant_based:
                         stew_fats.append(candidate("T012", 12))  # Niter kibbeh
                     fat_candidates[spec.label] = stew_fats
             else:
-                # Other savory lunch/dinner (vegetable sautés, grilled, etc.)
+                # Other savory lunch/dinner
                 if is_save_budget:
-                    fat_candidates[spec.label] = [candidate("T002", 14), candidate("T003", 30)]
+                    fat_candidates[spec.label] = [candidate("T002", 14)]
                 else:
                     savory_fats = [candidate("T001", 14)]
                     if not plant_based:
                         savory_fats.append(candidate("T012", 12))
-                    savory_fats.extend([candidate("T003", 30), candidate("V020", 100, daily_cap=100.0)])
+                    savory_fats.extend([candidate("V020", 100, daily_cap=100.0)])
                     fat_candidates[spec.label] = savory_fats
 
         # Double check P012 (Raw Shiro flour) is completely eliminated from all candidate lists
@@ -509,9 +582,10 @@ class DaySolver:
             if fid == "P012": return 0.0
             if fid == "V020" and daily_used("V020") >= 100.0: return 0.0
             if is_small_frame and macro == "protein" and totals["protein"] >= 105.0: return 0.0
-            if is_small_frame and fid.startswith(("A", "P")) and totals["protein"] >= 108.0: return 0.0
-            if not is_small_frame and target["protein"] <= 150.0 and fid.startswith(("A", "P")) and totals["protein"] >= target["protein"] * 0.88:
-                return 0.0
+            if not is_small_frame and target["protein"] <= 150.0 and fid.startswith(("A", "P")):
+                prot_cutoff = target["protein"] * 0.98 if fasting else target["protein"] * 0.86
+                if totals["protein"] >= prot_cutoff:
+                    return 0.0
             food = self.foods.get(fid)
             safe, _ = food_is_safe(food or {}, self.answers, fasting=fasting)
             if not safe: return 0.0
@@ -558,8 +632,10 @@ class DaySolver:
         fill("protein",protein_candidates,0.90)
         fill("carbs",carb_candidates,0.95)
         fill("fat",fat_candidates,1.0)
-        if totals["protein"] < target["protein"] * 0.94:
+        if totals["protein"] < target["protein"] * 0.95:
             fill("protein",protein_candidates,0.98)
+        if fasting and totals["protein"] < 138.0:
+            fill("protein",protein_candidates,1.0)
         fill("carbs",carb_candidates,1.0)
         fixed_slots = {
             spec.label for spec, _ in selected
@@ -572,24 +648,56 @@ class DaySolver:
                 if spec.label in fixed_slots:
                     continue
                 is_sweet = is_sweet_or_breakfast_dish(spec.label)
+                if spec.source_slot == "Breakfast" and any(fid in food_by_slot[spec.label] for fid in ("A011", "A013")):
+                    continue
                 if spec.source_slot in ("Breakfast", "Snack") or is_sweet:
                     energy[spec.label] = [candidate("T004", 30), candidate("T003", 30)]
                 elif is_save_budget:
-                    energy[spec.label] = [candidate("T002", 14), candidate("T003", 30)]
+                    energy[spec.label] = [candidate("T002", 14)]
                 else:
-                    energy[spec.label] = [candidate("T001", 14), candidate("T003", 30)]
+                    energy[spec.label] = [candidate("T001", 14)]
             fill("kcal", energy, 1.0)
 
         # Caloric Floor Enforcement: Ensure day total is within ±3% of target_kcal (>= target["kcal"] - 50)
         calorie_floor = target["kcal"] - 50.0  # 2,050 kcal for 2,100 kcal target
         if totals["kcal"] < calorie_floor:
-            # 1. Scale primary carbs (Injera C001, Rice C003/C004, Sweet Potato C011/C010, Oats C007)
+            # 1. Scale primary carbs of native recipes
             carb_fill_order = []
             for spec, _ in selected:
-                if spec.label in fixed_slots:
+                tmpl_id = str(slot_templates.get(spec.label, {}).get("Template ID") or "")
+                # Never inject loose carbs into composite dishes unless scaling native carb
+                comp_rids = [str(c.get("Item ID")) for c in self.components.get(tmpl_id, []) if str(c.get("Item Type")) == "Recipe"]
+                if any(r in COMPOSITE_RECIPES for r in comp_rids):
+                    if any(r in ("R027", "R014") for r in comp_rids):
+                        carb_fill_order.append((spec.label, "C006"))
+                    elif any(r in ("R026", "R010", "R011") for r in comp_rids):
+                        carb_fill_order.append((spec.label, "C003"))
+                    elif any(r == "R028" for r in comp_rids):
+                        carb_fill_order.append((spec.label, "C008"))
+                    continue
+                if spec.source_slot == "Breakfast":
+                    if "A013" in food_by_slot[spec.label] or "yogurt" in str(slot_templates.get(spec.label, {}).get("Meal Name") or "").lower():
+                        if food_by_slot[spec.label].get("C007", 0.0) < 60.0:
+                            carb_fill_order.append((spec.label, "C007"))
+                    if "C007" in food_by_slot[spec.label] and food_by_slot[spec.label].get("C007", 0.0) < 80.0:
+                        carb_fill_order.append((spec.label, "C007"))
+                    elif "C008" in food_by_slot[spec.label] and food_by_slot[spec.label].get("C008", 0.0) < 130.0:
+                        carb_fill_order.append((spec.label, "C008"))
+                    continue
+                if spec.source_slot == "Snack":
+                    # Snack carbs: clamp C020 strictly to max 40g (4 thin rice cakes)
+                    if "A015" in food_by_slot[spec.label]:
+                        carb_fill_order.append((spec.label, "C007"))
+                    elif "C020" in food_by_slot[spec.label]:
+                        if food_by_slot[spec.label].get("C020", 0.0) < 40.0:
+                            carb_fill_order.append((spec.label, "C020"))
+                    elif fasting:
+                        carb_fill_order.append((spec.label, "C007"))
+                        if food_by_slot[spec.label].get("C020", 0.0) < 40.0:
+                            carb_fill_order.append((spec.label, "C020"))
                     continue
                 slot_carb = preferred_carb(spec.label, spec.source_slot)
-                if slot_carb in ("C001", "C003", "C004", "C011", "C010", "C007", "C008"):
+                if slot_carb in ("C001", "C003", "C004", "C011", "C010", "C007", "C008", "C006"):
                     carb_fill_order.append((spec.label, slot_carb))
 
             for slot, cid in carb_fill_order:
@@ -606,7 +714,7 @@ class DaySolver:
 
                 group = practical_group(cid)
                 current_used = group_used(slot, group)
-                cap = practical_cap(group, self.settings)
+                cap = SERVING_HARD_CAPS.get(cid, practical_cap(group, self.settings))
                 avail_g = max(0.0, cap - current_used)
                 mass_avail = max(0.0, (slot_specs[slot].mass_cap_g + 80) - mass_by_slot[slot])
                 add_g = min(needed_g, avail_g, mass_avail)
@@ -626,49 +734,34 @@ class DaySolver:
                         totals[key] += dv
                         meal_state[slot][key] += dv
 
-            # 2. If main meals cannot fit the surplus, add afternoon fitness snack anchor (30g roasted peanuts T003)
-            if totals["kcal"] < calorie_floor and not has_shake:
-                for slot in ordered_slots:
-                    if slot in fixed_slots or totals["kcal"] >= calorie_floor:
-                        continue
-                    p_food = self.foods.get("T003")
-                    if p_food and daily_used("T003") < 30.0:
-                        add_g = 30.0
-                        found = next((x for x in extras[slot] if x["id"] == "T003"), None)
-                        if found:
-                            found["grams"] += add_g
-                        else:
-                            extras[slot].append({"id": "T003", "grams": add_g})
-                        food_by_slot[slot]["T003"] = food_by_slot[slot].get("T003", 0.0) + add_g
-                        mass_by_slot[slot] += add_g
-                        delta = food_macros(p_food, add_g)
-                        for key in totals:
-                            dv = getattr(delta, key)
-                            totals[key] += dv
-                            meal_state[slot][key] += dv
-
-            # 3. If still below floor, add fresh fruit dessert to lunch or dinner (F002 Apple, F005 Papaya, F003 Orange)
+            # 2. If snack has peanut butter or peanuts, scale native peanut butter or peanuts up to cap
             if totals["kcal"] < calorie_floor:
-                for slot in ordered_slots:
-                    if slot in fixed_slots or totals["kcal"] >= calorie_floor:
-                        continue
-                    for fruit_id, fruit_g in [("F002", 150.0), ("F005", 150.0), ("F003", 120.0)]:
-                        if totals["kcal"] >= calorie_floor:
-                            break
-                        f_food = self.foods.get(fruit_id)
-                        if f_food and daily_used(fruit_id) < 50.0:
-                            found = next((x for x in extras[slot] if x["id"] == fruit_id), None)
-                            if found:
-                                found["grams"] += fruit_g
-                            else:
-                                extras[slot].append({"id": fruit_id, "grams": fruit_g})
-                            food_by_slot[slot][fruit_id] = food_by_slot[slot].get(fruit_id, 0.0) + fruit_g
-                            mass_by_slot[slot] += fruit_g
-                            delta = food_macros(f_food, fruit_g)
-                            for key in totals:
-                                dv = getattr(delta, key)
-                                totals[key] += dv
-                                meal_state[slot][key] += dv
+                for spec, _ in selected:
+                    if spec.source_slot == "Snack" and spec.label not in fixed_slots:
+                        if "T004" in food_by_slot[spec.label]:
+                            p_food = self.foods.get("T004")
+                            cur_g = food_by_slot[spec.label].get("T004", 0.0)
+                            add_g = min(32.0 - cur_g, (calorie_floor - totals["kcal"]) / 6.0)
+                            if add_g >= 5.0 and p_food:
+                                found = next((x for x in extras[spec.label] if x["id"] == "T004"), None)
+                                if found: found["grams"] += add_g
+                                else: extras[spec.label].append({"id": "T004", "grams": add_g})
+                                food_by_slot[spec.label]["T004"] = cur_g + add_g
+                                mass_by_slot[spec.label] += add_g
+                                delta = food_macros(p_food, add_g)
+                                for key in totals: totals[key] += getattr(delta, key); meal_state[spec.label][key] += getattr(delta, key)
+                        elif "T003" in food_by_slot[spec.label]:
+                            p_food = self.foods.get("T003")
+                            cur_g = food_by_slot[spec.label].get("T003", 0.0)
+                            add_g = min(35.0 - cur_g, (calorie_floor - totals["kcal"]) / 5.8)
+                            if add_g >= 5.0 and p_food:
+                                found = next((x for x in extras[spec.label] if x["id"] == "T003"), None)
+                                if found: found["grams"] += add_g
+                                else: extras[spec.label].append({"id": "T003", "grams": add_g})
+                                food_by_slot[spec.label]["T003"] = cur_g + add_g
+                                mass_by_slot[spec.label] += add_g
+                                delta = food_macros(p_food, add_g)
+                                for key in totals: totals[key] += getattr(delta, key); meal_state[spec.label][key] += getattr(delta, key)
 
             # 4. If still below floor, add olive oil / healthy cooking oil to savory meals (0g protein, 8.84 kcal/g)
             if totals["kcal"] < calorie_floor:
@@ -678,12 +771,16 @@ class DaySolver:
                     if slot in fixed_slots or is_sweet_or_breakfast_dish(slot):
                         continue
                     oil_id = "T002" if is_save_budget else "T001"
+                    other_oil_id = "T001" if is_save_budget else "T002"
+                    # Strictly maintain single-oil rule: never split oils in the same meal
+                    if food_by_slot[slot].get(other_oil_id, 0.0) > 0:
+                        continue
                     oil_food = self.foods.get(oil_id)
                     if not oil_food:
                         continue
                     oil_cur = food_by_slot[slot].get(oil_id, 0.0)
                     oil_needed = (calorie_floor - totals["kcal"]) / 8.84
-                    oil_add = min(max(0.0, 25.0 - oil_cur), oil_needed)
+                    oil_add = min(max(0.0, 24.0 - oil_cur), oil_needed)
                     if oil_add >= 2.0:
                         found = next((x for x in extras[slot] if x["id"] == oil_id), None)
                         if found:

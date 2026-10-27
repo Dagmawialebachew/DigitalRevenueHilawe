@@ -1,25 +1,54 @@
-import asyncio
-import json
-import os
 import sys
-from dotenv import load_dotenv
+from datetime import date
+from pathlib import Path
 
-load_dotenv(r"d:\The hobby 2\DigitalRevenueHilawe\.env")
-sys.path.insert(0, ".")
-from database.db import Database
+repo_root = Path(r"d:\The hobby 2\DigitalRevenueHilawe")
+sys.path.insert(0, str(repo_root))
 
-async def main():
-    db = Database(os.getenv("DATABASE_URL"))
-    await db.connect()
-    async with db._pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT plan_json FROM meal_plan_versions WHERE id = 15")
-        plan = row["plan_json"] if isinstance(row["plan_json"], dict) else json.loads(row["plan_json"])
+from meal_plan.nutrition_targets import calculate_nutrition_profile
+from meal_plan.generation.engine import generate_plan
 
-    for d in plan["core_week"]:
-        d_idx = d["day_index"] + 1
-        print(f"Day {d_idx} ({d['day_name']}): {d['totals']['kcal']:.0f} kcal (P: {d['totals']['protein']:.0f}g, C: {d['totals']['carbs']:.0f}g, F: {d['totals']['fat']:.0f}g)")
+answers = {
+    "full_name": "Yohannes",
+    "calculation_sex": "MALE",
+    "age": 19,
+    "current_weight_kg": 71.0,
+    "target_weight_kg": 83.0,
+    "height_cm": 189,
+    "activity_level": "HEAVY_5DAYS",
+    "primary_goal": "MUSCLE_GAIN",
+    "meals_per_day": 4,
+    "cuisine_style": "INTERNATIONAL",
+    "dietary_pattern": "OMNIVORE",
+    "grocery_budget": "BALANCED",
+    "orthodox_fasting": "WED_FRI_AND_SEASONAL",
+    "training_days_per_week": 5,
+    "training_type": "GYM_STRENGTH",
+    "region": "EUROPE",
+    "country_name": "Germany",
+    "liked_foods": [
+        "EGGS", "AVOCADO", "FRUIT", "CHICKPEAS", "OATS",
+        "POTATO", "PASTA", "RICE", "MILK_YOGURT", "FISH", "MISIR", "CHICKEN"
+    ],
+}
 
-    await db.disconnect()
+profile = calculate_nutrition_profile(answers)
+plan = generate_plan(
+    answers=answers,
+    nutrition_profile=profile.to_dict(),
+    meals_per_day=4,
+    start_date=date(2026, 10, 26),
+    duration_days=7,
+    region="EUROPE",
+    country_name="Germany",
+)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+d1 = plan["core_week"][0]
+m = d1.get("totals", {})
+print(f"Total kcal: {m.get('kcal',0):.1f}, P: {m.get('protein',0):.1f}, C: {m.get('carbs',0):.1f}, F: {m.get('fat',0):.1f}")
+for meal in d1.get("meals", []):
+    mm = meal.get("macros", {})
+    print(f"-- {meal.get('slot')}: {meal.get('meal_name')} ({mm.get('kcal',0):.1f} kcal, {mm.get('protein',0):.1f}g P, {mm.get('carbs',0):.1f}g C, {mm.get('fat',0):.1f}g F)")
+    for it in meal.get("items", []):
+        im = it.get("macros", {})
+        print(f"   {it.get('food_name')} ({it.get('food_id') or it.get('recipe_id')}): {it.get('grams',0):.1f}g -> {im.get('kcal',0):.1f} kcal, {im.get('protein',0):.1f}g P")
