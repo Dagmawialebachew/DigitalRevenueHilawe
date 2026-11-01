@@ -12,6 +12,8 @@ from meal_plan.generation.pipeline import process_generation_job
 from meal_plan.review_repository import MealPlanReviewRepository
 from meal_plan.runtime import generation_worker_interval_seconds
 
+import time
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,8 +29,18 @@ async def generation_worker_loop(bot: Bot, db: Database) -> None:
     worker_id = worker_identity()
     interval = generation_worker_interval_seconds()
     logger.info("Meal Plan generation worker started: %s", worker_id)
+    last_sweep_time = 0.0
     while True:
         try:
+            # Periodic self-healing sweep every 180 seconds
+            now = time.monotonic()
+            if now - last_sweep_time >= 180.0:
+                last_sweep_time = now
+                try:
+                    await repo.sweep_stalled_generation_jobs()
+                except Exception as sweep_err:
+                    logger.warning("Generation worker stalled-job sweep error: %s", sweep_err)
+
             job = await repo.claim_generation_job(worker_id)
             if not job:
                 await asyncio.sleep(interval)

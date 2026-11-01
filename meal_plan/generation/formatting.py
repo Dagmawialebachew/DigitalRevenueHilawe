@@ -188,6 +188,18 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
             return "በግምት ግማሽ የቶፉ ቁራጭ"
         if re.search(r"1\s*/\s*3\s*medium\s*injera", raw, flags=re.I):
             return "በግምት ሲሶ (1/3) መካከለኛ እንጀራ"
+        if any(k in raw.lower() for k in ("rehydrated", "የተዘፈቀ", "soy chunks", "soya")):
+            return "በግምት 1 ከግማሽ ሲኒ የተዘፈቀ"
+        if "1/3" in raw or "ሲሶ" in raw:
+            return "በግምት ሲሶ / 1/3 መካከለኛ ጭልፋ"
+        if "ደረቅ አጃ" in raw:
+            return "በግምት ግማሽ ሲኒ ጥሬ"
+
+        # Extract inner measure if raw has nested parentheses like 200 ግ (በግምት 1 መካከለኛ ጭልፋ)
+        m_nested = re.search(r"\((?:በግምት\s*)?([^()]+)\)", raw)
+        if m_nested:
+            raw = m_nested.group(1).strip()
+        raw = re.sub(r"^\d+\s*ግ\s*[-—–]?\s*", "", raw).strip()
         if raw.startswith("በግምት "):
             raw = raw[len("በግምት "):].strip()
     else:
@@ -197,10 +209,10 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
     total_qty = max(0.25, round(base_qty * multiplier * 4) / 4)
 
     # Standardize rehydrated soy chunks volume (30g dry ≈ 1.0 cup rehydrated)
-    if "rehydrated" in raw.lower() or "rehydrated" in unit.lower():
-        cups = max(0.25, round(total_qty * 2) / 2)
+    if "rehydrated" in raw.lower() or "rehydrated" in unit.lower() or "የተዘፈቀ" in raw:
         if is_am:
-            return f"በግምት {quarter_text_am(cups)} ሲኒ የበሰለ/የረጠበ"
+            return "በግምት 1 ከግማሽ ሲኒ የተዘፈቀ"
+        cups = max(0.25, round(total_qty * 2) / 2)
         u_str = "cup rehydrated" if cups <= 1.0 else "cups rehydrated"
         return f"about {quarter_text(cups)} {u_str}"
 
@@ -212,6 +224,7 @@ def familiar_portion(multiplier: float, familiar_measure: str | None, language: 
         res = f"በግምት {qty_text} {trans_unit}".strip()
         # Clean up any duplicated phrases like '1 ከግማሽ 1 ከግማሽ'
         res = re.sub(r"\b(1 ከግማሽ|ግማሽ|ሩብ|ሲሶ)\s+\1\b", r"\1", res)
+        res = re.sub(r"\bበግምት\s+በግምት\b", "በግምት", res)
         if " ዝ" in res:
             res = res.replace(" ዝ", " ሙዝ")
         return res

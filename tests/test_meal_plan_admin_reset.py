@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from meal_plan.admin_reset import (
+    handle_admin_requeue_command,
     handle_admin_reset_command,
     is_admin_user,
     reset_user_meal_plan_data,
@@ -212,6 +213,82 @@ class TestAdminReset(unittest.IsolatedAsyncioTestCase):
         self.assertIn(str(target_id), sent_text)
         self.assertIn("Intakes Cleared:</b> 3", sent_text)
 
+    async def test_handle_admin_requeue_blocks_unauthorized_user(self):
+        message = AsyncMock()
+        message.from_user = MagicMock(id=999999)
+        message.text = "/requeue 26"
+        db = MagicMock()
+
+        fake_settings = MagicMock()
+        fake_settings.ADMIN_IDS = [111222]
+
+        with patch("meal_plan.admin_reset.settings", fake_settings), patch(
+            "meal_plan.admin_reset.admin_ids", return_value=()
+        ):
+            await handle_admin_requeue_command(message, db)
+
+        message.answer.assert_not_called()
+
+    async def test_handle_admin_requeue_requires_order_id(self):
+        admin_id = 777123
+        message = AsyncMock()
+        message.from_user = MagicMock(id=admin_id)
+        message.text = "/requeue"
+        db = MagicMock()
+
+        fake_settings = MagicMock()
+        fake_settings.ADMIN_IDS = [admin_id]
+
+        with patch("meal_plan.admin_reset.settings", fake_settings), patch(
+            "meal_plan.admin_reset.admin_ids", return_value=()
+        ):
+            await handle_admin_requeue_command(message, db)
+
+        message.answer.assert_awaited_once()
+        sent_text = message.answer.call_args[0][0]
+        self.assertIn("Usage:</b> <code>/requeue", sent_text)
+
+    async def test_handle_admin_requeue_executes_for_authorized_admin(self):
+        admin_id = 777123
+        order_id = 26
+        message = AsyncMock()
+        message.from_user = MagicMock(id=admin_id)
+        message.chat = MagicMock(id=-5592866261)
+        message.text = f"/requeue {order_id}"
+
+        prog_msg = AsyncMock()
+        prog_msg.message_id = 999888
+        message.answer.return_value = prog_msg
+
+        fake_pool = MagicMock()
+        db = MagicMock()
+        db._pool = fake_pool
+
+        fake_settings = MagicMock()
+        fake_settings.ADMIN_IDS = [admin_id]
+
+        with patch("meal_plan.admin_reset.settings", fake_settings), patch(
+            "meal_plan.admin_reset.admin_ids", return_value=()
+        ), patch(
+            "meal_plan.admin_reset.MealPlanReviewRepository"
+        ) as MockRepo:
+            mock_repo_inst = AsyncMock()
+            mock_repo_inst.requeue_order_generation.return_value = 42
+            MockRepo.return_value = mock_repo_inst
+
+            await handle_admin_requeue_command(message, db)
+
+        message.answer.assert_awaited_once()
+        initial_card = message.answer.call_args[0][0]
+        self.assertIn("0%", initial_card)
+        self.assertIn(f"Order #{order_id} Re-queued", initial_card)
+        mock_repo_inst.requeue_order_generation.assert_awaited_once_with(
+            order_id,
+            progress_chat_id=-5592866261,
+            progress_message_id=999888,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
+

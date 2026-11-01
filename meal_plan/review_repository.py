@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ class MealPlanReviewRepository:
                         SELECT id
                         FROM meal_generation_jobs
                         WHERE status='PENDING'
+                           OR (status='RUNNING' AND locked_at < NOW() - INTERVAL '10 minutes' AND attempt_count < max_attempts)
                         ORDER BY created_at, id
                         FOR UPDATE SKIP LOCKED
                         LIMIT 1
@@ -300,21 +302,139 @@ class MealPlanReviewRepository:
                 job = await conn.fetchrow("SELECT * FROM meal_generation_jobs WHERE id=$1 FOR UPDATE", job_id)
                 if not job:
                     return
-                await conn.execute(
-                    """
-                    UPDATE meal_generation_jobs SET status='FAILED',last_error_code=$2,last_error_message=$3,
-                        locked_at=NULL,locked_by=NULL,finished_at=NOW(),updated_at=NOW()
-                    WHERE id=$1
-                    """,
-                    job_id, code[:80], message[:2000],
+                max_attempts = int(job.get("max_attempts") or 3)
+                attempt_count = int(job.get("attempt_count") or 1)
+                if attempt_count < max_attempts:
+                    # Transient error: re-queue job to PENDING so next worker interval re-attempts
+                    await conn.execute(
+                        """
+                        UPDATE meal_generation_jobs
+                        SET status='PENDING', stage='QUEUED',
+                            last_error_code=$2, last_error_message=$3,
+                            locked_at=NULL, locked_by=NULL, updated_at=NOW()
+                        WHERE id=$1
+                        """,
+                        job_id, code[:80], message[:2000],
+                    )
+                    # Keep order state in GENERATING
+                else:
+                    # Max attempts exhausted: mark permanently failed
+                    await conn.execute(
+                        """
+                        UPDATE meal_generation_jobs
+                        SET status='FAILED', last_error_code=$2, last_error_message=$3,
+                            locked_at=NULL, locked_by=NULL, finished_at=NOW(), updated_at=NOW()
+                        WHERE id=$1
+                        """,
+                        job_id, code[:80], message[:2000],
+                    )
+                    await conn.execute(
+                        """
+                        UPDATE meal_orders
+                        SET state='GENERATION_FAILED', updated_at=NOW(), version=version+1
+                        WHERE id=$1 AND state='GENERATING'
+                        """,
+                        job["order_id"],
+                    )
+
+    async def requeue_order_generation(
+        self,
+        order_id: int,
+        *,
+        progress_chat_id: int | None = None,
+        progress_message_id: int | None = None,
+    ) -> int:
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                order = await conn.fetchrow("SELECT * FROM meal_orders WHERE id=$1 FOR UPDATE", order_id)
+                if not order:
+                    raise RecordNotFound(f"Order #{order_id} not found")
+
+                job = await conn.fetchrow(
+                    "SELECT * FROM meal_generation_jobs WHERE order_id=$1 ORDER BY id DESC LIMIT 1 FOR UPDATE",
+                    order_id,
                 )
+                payload_dict = {}
+                if progress_chat_id and progress_message_id:
+                    payload_dict = {
+                        "progress_chat_id": progress_chat_id,
+                        "progress_message_id": progress_message_id,
+                    }
+
+                if job and job["status"] in {"FAILED", "RUNNING"}:
+                    cur_payload = dict(job.get("payload") or {})
+                    cur_payload.update(payload_dict)
+                    await conn.execute(
+                        """
+                        UPDATE meal_generation_jobs
+                        SET status='PENDING', stage='QUEUED', attempt_count=0,
+                            last_error_code=NULL, last_error_message=NULL,
+                            locked_at=NULL, locked_by=NULL, payload=$2::jsonb,
+                            finished_at=NULL, updated_at=NOW()
+                        WHERE id=$1
+                        """,
+                        job["id"],
+                        json.dumps(cur_payload),
+                    )
+                    job_id = job["id"]
+                else:
+                    job_id = await conn.fetchval(
+                        """
+                        INSERT INTO meal_generation_jobs(
+                            order_id, job_type, status, stage, attempt_count, max_attempts, payload, idempotency_key
+                        ) VALUES($1, 'INITIAL', 'PENDING', 'QUEUED', 0, 3, $2::jsonb, $3)
+                        RETURNING id
+                        """,
+                        order_id,
+                        json.dumps(payload_dict),
+                        f"requeue:order:{order_id}:{int(time.time())}",
+                    )
+
+                await conn.execute(
+                    "UPDATE meal_orders SET state='GENERATING', updated_at=NOW(), version=version+1 WHERE id=$1",
+                    order_id,
+                )
+                return job_id
+
+    async def sweep_stalled_generation_jobs(self) -> int:
+        """Self-healing sweep: identify stalled RUNNING jobs (>10 min without heartbeat)
+        and re-queue them if attempts remain, or fail them gracefully."""
+        async with self.pool.acquire() as conn:
+            # 1. Recover jobs locked over 10 minutes ago whose attempts are under limit
+            await conn.execute(
+                """
+                UPDATE meal_generation_jobs
+                SET status='PENDING', stage='QUEUED',
+                    locked_at=NULL, locked_by=NULL, updated_at=NOW()
+                WHERE status='RUNNING'
+                  AND locked_at < NOW() - INTERVAL '10 minutes'
+                  AND attempt_count < max_attempts
+                """
+            )
+            # 2. Mark jobs locked over 10 minutes ago with exhausted attempts as FAILED
+            exhausted_jobs = await conn.fetch(
+                """
+                UPDATE meal_generation_jobs
+                SET status='FAILED', stage='FAILED',
+                    last_error_code='STALLED_TIMEOUT',
+                    last_error_message='Job execution stalled for > 10 minutes with max attempts reached',
+                    locked_at=NULL, locked_by=NULL, finished_at=NOW(), updated_at=NOW()
+                WHERE status='RUNNING'
+                  AND locked_at < NOW() - INTERVAL '10 minutes'
+                  AND attempt_count >= max_attempts
+                RETURNING order_id
+                """
+            )
+            for row in exhausted_jobs:
                 await conn.execute(
                     """
-                    UPDATE meal_orders SET state='GENERATION_FAILED',updated_at=NOW(),version=version+1
+                    UPDATE meal_orders
+                    SET state='GENERATION_FAILED', updated_at=NOW(), version=version+1
                     WHERE id=$1 AND state='GENERATING'
                     """,
-                    job["order_id"],
+                    row["order_id"],
                 )
+            return len(exhausted_jobs)
 
     async def record_review_action(self, plan_version_id: int, reviewer_id: int, action: str, *, notes: str | None = None, metadata: dict[str, Any] | None = None):
         async with self.pool.acquire() as conn:

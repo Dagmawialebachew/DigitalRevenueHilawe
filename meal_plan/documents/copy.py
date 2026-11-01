@@ -283,8 +283,16 @@ def format_training_summary(days: Any, training_type: Any, language: str = "EN")
         return "Rest / Not Training"
 
     days_str = str(days if days is not None else "-")
-    type_str = profile_label(training_type, language)
     if str(language).upper() == "AM":
+        if type_clean in ("mixed", "mixed_training", "hybrid"):
+            type_str = "የተቀላቀለ ልምምድ (ጥንካሬ እና ካርዲዮ)"
+        else:
+            type_str = profile_label(training_type, language)
         return f"{days_str} ቀን በሳምንት · {type_str}"
-    return f"{days_str} days/week · {type_str}"
+    else:
+        if type_clean in ("mixed", "mixed_training", "hybrid"):
+            type_str = "Mixed (Strength & Cardio)"
+        else:
+            type_str = profile_label(training_type, language)
+        return f"{days_str} days/week · {type_str}"
 

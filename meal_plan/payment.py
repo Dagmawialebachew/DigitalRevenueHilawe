@@ -509,7 +509,22 @@ async def approve_meal_payment(callback: types.CallbackQuery, db: Database, bot:
     await callback.answer("Payment approved")
     try:
         await callback.message.edit_reply_markup(reply_markup=None)
-        await callback.message.reply(f"✅ Approved by {html.escape(callback.from_user.full_name)} · generation queued")
+        prog_msg = await callback.message.reply(
+            f"✅ <b>Approved by {html.escape(callback.from_user.full_name)}</b>\n\n"
+            f"⏳ <code>[░░░░░░░░░░]   0%</code> · 🎯 <b>Order #{result['order']['id']} Approved</b>\n"
+            f"<i>Initializing Nutrition Targets & Engine...</i>",
+            parse_mode="HTML",
+        )
+        if prog_msg and result.get("job"):
+            async with db._pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE meal_generation_jobs SET payload = payload || $2::jsonb WHERE id = $1",
+                    result["job"]["id"],
+                    json.dumps({
+                        "progress_chat_id": prog_msg.chat.id,
+                        "progress_message_id": prog_msg.message_id,
+                    }),
+                )
     except Exception:
         pass
     await _notify_user_payment_approved(bot, db, result["order"])

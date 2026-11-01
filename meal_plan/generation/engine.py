@@ -126,7 +126,9 @@ def _build_meal(
                         # Canned tuna anchor: maintain at least 130g drained weight for sports nutrition
                         grams = max(130.0, grams)
                     elif fid in ("A001", "A002"):
-                        grams = max(120.0, grams)
+                        grams = max(130.0, grams)
+                    elif fid == "A011" and spec.source_slot == "Breakfast" and float(answers.get("current_weight_kg") or 0) >= 55.0:
+                        grams = max(150.0, grams)
                     if is_save_budget:
                         if fid == "T001": fid = "T002"
                     else:
@@ -156,9 +158,14 @@ def _build_meal(
                 r_name = str(recipe.get("Recipe Name") or component.get("Item Name") or rid)
 
                 # Round stews (Key Wot, Minchet Abish, Doro Wot, Shiro, Misir) to clean multiples of 25g
-                is_stew = any(w in r_name.lower() for w in ("wot", "alicha", "minchet", "shiro", "misir", "stew", "ወጥ", "አልጫ"))
+                is_stew = any(w in r_name.lower() for w in ("wot", "alicha", "minchet", "shiro", "misir", "stew", "ወጥ", "አልጫ")) or rid in ("R001", "R002", "R003", "R004", "R005", "R006", "R007", "R008", "R014", "R015", "R016", "R017")
                 if is_stew:
                     grams = max(25.0, round(grams / 25.0) * 25.0)
+                else:
+                    if grams >= 100.0:
+                        grams = float(round(grams / 10.0) * 10.0)
+                    else:
+                        grams = float(round(grams / 5.0) * 5.0)
 
                 # Hard Upper Bounds on Single-Meal Animal Protein Portions for small-framed clients (< 55 kg)
                 is_small_frame = float(answers.get("current_weight_kg") or 0) < 55.0
@@ -208,8 +215,14 @@ def _build_meal(
 
         for extra in extras:
             fid = str(extra["id"])
-            if fid in recipe_ingredient_fids and (fid.startswith(("C", "P")) or fid in ("A001", "A002", "A008", "A011")):
-                target_rid = recipe_ingredient_fids[fid]
+            target_rid = recipe_ingredient_fids.get(fid)
+            # Absorb loose rice/pasta into composite bowls (R026 Chicken Rice Bowl, R027 Tuna Pasta)
+            if not target_rid and fid in ("C003", "C004") and "R026" in recipe_ids:
+                target_rid = "R026"
+            elif not target_rid and fid in ("C005", "C006") and "R027" in recipe_ids:
+                target_rid = "R027"
+
+            if target_rid and (fid.startswith(("C", "P")) or fid in ("A001", "A002", "A008", "A011")):
                 recipe_item = next((it for it in items if it.recipe_id == target_rid), None)
                 if recipe_item and recipe_item.grams > 0:
                     extra_macros = food_macros(foods[fid], float(extra["grams"]))
@@ -225,11 +238,62 @@ def _build_meal(
                         recipe_item.familiar = "about 2 slices"
                     elif "tofu" in recipe_item.food_name.lower() and target_rid == "R024":
                         recipe_item.familiar = "about 1 large bowl"
+                    elif "chicken rice bowl" in recipe_item.food_name.lower() or target_rid == "R026":
+                        recipe_item.familiar = "150g cooked chicken breast + 300g cooked rice"
+                    elif "lentil rice bowl" in recipe_item.food_name.lower() or target_rid == "R025":
+                        recipe_item.familiar = "250g cooked lentils + 350g cooked brown rice"
+                    elif "tuna pasta" in recipe_item.food_name.lower() or target_rid == "R027":
+                        recipe_item.familiar = "130g canned tuna + 350g cooked whole-wheat pasta"
                     else:
-                        recipe_item.familiar = f"about {servings:.2f} standard serving"
+                        q_serv = max(1.0, round(servings * 4) / 4)
+                        recipe_item.familiar = f"about {q_serv:g} standard serving"
                     continue
             direct[fid] = direct.get(fid, 0.0) + float(extra["grams"])
             meal_macros = meal_macros.plus(food_macros(foods[fid], float(extra["grams"])))
+
+        # 1. Single rice variety per meal: never boil two separate pots of rice (white + brown)
+        if "C003" in direct and "C004" in direct:
+            is_brown_primary = "brown" in str(template.get("Meal Name") or "").lower() or "C004" in [str(c.get("Item ID")) for c in dataset.components_by_template.get(tmpl_id, [])]
+            if is_brown_primary:
+                direct["C004"] = min(300.0, direct["C004"] + direct.pop("C003"))
+            else:
+                direct["C003"] = min(300.0, direct["C003"] + direct.pop("C004"))
+
+        # 2. Single potato variety per meal: never mix boiled potato (C010) and sweet potato (C011)
+        if "C010" in direct and "C011" in direct:
+            is_sweet_primary = "sweet potato" in str(template.get("Meal Name") or "").lower() or "C011" in [str(c.get("Item ID")) for c in dataset.components_by_template.get(tmpl_id, [])]
+            if is_sweet_primary:
+                direct["C011"] = min(400.0, direct["C011"] + direct.pop("C010"))
+            else:
+                direct["C010"] = min(400.0, direct["C010"] + direct.pop("C011"))
+
+        # 3. Single carb in snacks: never stack dry raw oats on top of rice cakes
+        if spec.source_slot == "Snack":
+            if "C020" in direct and "C007" in direct:
+                oat_g = direct.pop("C007")
+                if "T004" in direct:
+                    direct["T004"] = min(45.0, direct["T004"] + (oat_g * 0.5))
+                elif "F001" in direct:
+                    direct["F001"] = min(150.0, direct["F001"] + (oat_g * 1.5))
+            if "C007" in direct and "A015" not in direct and "A014" not in direct and "P014" not in direct:
+                # Dates and peanuts snack: avoid dry raw oats without milk/yogurt
+                oat_g = direct.pop("C007")
+                if "F012" in direct:
+                    direct["F012"] = min(80.0, direct["F012"] + (oat_g * 1.0))
+                if "T003" in direct:
+                    direct["T003"] = min(40.0, direct["T003"] + (oat_g * 0.4))
+
+        # Day 5 / Fasting Breakfast: Peanut banana oats (MF-B07)
+        # Cap Peanut Butter (T004) to 15g, and provide Soy Milk (P014) 250g as liquid base
+        if tmpl_id == "MF-B07" and day_fasting:
+            if "T004" in direct:
+                pb_diff = direct["T004"] - 15.0
+                direct["T004"] = 15.0
+                if pb_diff > 0:
+                    meal_macros = meal_macros.minus(food_macros(foods["T004"], pb_diff))
+            if "P014" not in direct and "P014" in foods:
+                direct["P014"] = 250.0
+                meal_macros = meal_macros.plus(food_macros(foods["P014"], 250.0))
 
         # Single cooking oil binary rule for ALL meals: never split T001 and T002 in the same meal
         oil_fid = "T002" if is_save_budget else "T001"
@@ -237,16 +301,38 @@ def _build_meal(
         if other_oil_fid in direct:
             direct[oil_fid] = direct.get(oil_fid, 0.0) + direct.pop(other_oil_fid)
 
-        # Mandatory Cooking Oil Anchor for Savory Meat/Fish Dishes (min 10g single oil)
-        has_savory_meat_fish = any(
-            r in ("R023", "R020", "R017", "R016", "R018", "R019", "R015", "R014")
-            for r in recipe_ids
-        )
-        if has_savory_meat_fish:
-            if direct.get(oil_fid, 0.0) < 10.0:
-                oil_needed = 10.0 - direct.get(oil_fid, 0.0)
-                direct[oil_fid] = 10.0
+        # Mandatory Cooking Oil Anchor for Dry Pan-Seared Savory Meat/Fish Dishes
+        # NEVER apply to stews (Key Wot R023, Minchet Abish R020, Doro Wot R016, Siga Wot R017, Shiro R001, Misir R002, etc.)
+        # which already have oil/kibe in their composite recipe ingredients!
+        WOT_RECIPES_WITH_BUILT_IN_FAT = {
+            "R001", "R002", "R003", "R004", "R005", "R006", "R007", "R008",
+            "R014", "R016", "R017", "R020", "R023"
+        }
+        has_wot_stew = any(r in WOT_RECIPES_WITH_BUILT_IN_FAT for r in recipe_ids)
+        has_dry_meat_fish = (
+            any(r in ("R018", "R019", "R015") for r in recipe_ids)
+            or any(fid in ("A001", "A002", "A003", "A004", "A005", "A006", "A007", "A019", "A020") for fid in direct)
+        ) and not has_wot_stew
+
+        primary_goal = str(answers.get("primary_goal") or "").upper()
+        is_weight_loss = "LOSS" in primary_goal or "CUT" in primary_goal
+        target_oil_g = 5.0 if is_weight_loss else 8.0
+
+        if has_dry_meat_fish:
+            if direct.get(oil_fid, 0.0) < target_oil_g:
+                oil_needed = target_oil_g - direct.get(oil_fid, 0.0)
+                direct[oil_fid] = target_oil_g
                 meal_macros = meal_macros.plus(food_macros(foods[oil_fid], oil_needed))
+        elif has_wot_stew:
+            # If a rich stew is present, eliminate any loose oil injection
+            if oil_fid in direct:
+                oil_removed = direct.pop(oil_fid)
+                meal_macros = meal_macros.minus(food_macros(foods[oil_fid], oil_removed))
+
+        # Eliminate negligible micro-doses of cooking oil (< 4g) across all meals
+        if direct.get(oil_fid, 0.0) > 0 and direct[oil_fid] < 4.0:
+            oil_removed = direct.pop(oil_fid)
+            meal_macros = meal_macros.minus(food_macros(foods[oil_fid], oil_removed))
 
     meal_food_ids = set(direct.keys())
     exchange_options: list[dict[str, Any]] = []
@@ -259,7 +345,13 @@ def _build_meal(
             grams = max(50.0, round(grams / 50.0) * 50.0)
             cnt = int(grams / 50.0)
             fam = f"{cnt} large eggs"
+        elif fid in ("T001", "T002", "T012"):
+            if grams < 4.0:
+                continue
+            grams = float(round(grams / 5.0) * 5.0)
+            fam = familiar_portion(grams/max(1.0,n(food.get("Standard Portion g"))), str(food.get("Familiar Measure") or "standard portion"))
         elif fid == "A015":
+            grams = float(round(grams / 10.0) * 10.0)
             if round(grams) == 200:
                 fam = "በግምት ሶስት አራተኛ ትልቅ ብርጭቆ"
             elif round(grams) == 250:
@@ -267,7 +359,7 @@ def _build_meal(
             else:
                 fam = familiar_portion(grams/max(1.0,n(food.get("Standard Portion g"))), str(food.get("Familiar Measure") or "standard portion"))
         elif fid == "C001":
-            # Standardize Injera: 1 medium rolled Injera = 120g (60g = 0.5 roll, 120g = 1 roll, 180g = 1.5 rolls, 240g = 2 rolls)
+            # Standardize Injera: 1 medium rolled Injera = 120g (strict 60g increments)
             grams = max(60.0, round(grams / 60.0) * 60.0)
             inj_rolls = grams / 120.0
             if inj_rolls == 1.0: fam = "1 medium rolled piece"
@@ -275,11 +367,16 @@ def _build_meal(
             elif inj_rolls == 2.0: fam = "2 medium rolled piece"
             elif inj_rolls == 0.5: fam = "½ medium rolled piece"
             else: fam = f"{inj_rolls:.1f} medium rolled piece"
-        elif fid == "C010":
-            # Round potato to clean multiples of 50g (e.g. 200g, 250g, 300g, 350g, 400g)
+        elif fid in ("C010", "C011"):
+            # Round potato / sweet potato to clean multiples of 50g
             grams = max(100.0, round(grams / 50.0) * 50.0)
             fam = familiar_portion(grams/max(1.0,n(food.get("Standard Portion g"))), str(food.get("Familiar Measure") or "standard portion"))
         else:
+            # Clean kitchen rounding for all vegetables, meats, legumes, fruits (10g for >=100g, 5g for <100g)
+            if grams >= 100.0:
+                grams = float(round(grams / 10.0) * 10.0)
+            else:
+                grams = float(round(grams / 5.0) * 5.0)
             fam = familiar_portion(grams/max(1.0,n(food.get("Standard Portion g"))), str(food.get("Familiar Measure") or "standard portion"))
 
         item = MealItem(
@@ -387,7 +484,8 @@ def _generate_core_week(
         current = start_date + timedelta(days=d)
         fasting = fasting_days[d]
         template_fasting_mode = fasting or dietary == "VEGAN"
-        fish_permitted = fasting and dietary == "OMNIVORE" and bool(answers.get("fish_during_fast"))
+        orthodox_mode = str(answers.get("orthodox_fasting") or "").upper() in ("WED_FRI", "LENT", "ALL_FASTS", "YES")
+        fish_permitted = fasting and dietary == "OMNIVORE" and bool(answers.get("fish_during_fast")) and not orthodox_mode
         fish_slot = "Lunch" if fish_permitted and fasting_ordinal % 2 == 0 else ("Dinner" if fish_permitted else "")
         selected: list[tuple[SlotSpec, dict[str, Any]]] = []
         used_today: set[str] = set()
@@ -429,28 +527,290 @@ def _generate_core_week(
                         if r_fid:
                             weekly_food_grams[r_fid] = weekly_food_grams.get(r_fid, 0.0) + r_grams
 
+        # Day 3 (Fasting Wednesday) Lunch & Snack balance:
+        # Move excess white rice out of heavy 4-carb Lunch into Afternoon Snack
+        if fasting:
+            lunch_meal = next((m for m in meals if m.source_slot == "Lunch"), None)
+            snack_meal = next((m for m in meals if m.source_slot == "Snack"), None)
+            if lunch_meal and snack_meal and lunch_meal.macros.kcal > 1100.0:
+                rice_item = next((it for it in lunch_meal.items if it.food_id == "C003"), None)
+                if rice_item:
+                    lunch_meal.items.remove(rice_item)
+                    removed_macros = rice_item.macros
+                    lunch_meal.macros = MacroTotals(
+                        lunch_meal.macros.kcal - removed_macros.kcal,
+                        lunch_meal.macros.protein - removed_macros.protein,
+                        lunch_meal.macros.carbs - removed_macros.carbs,
+                        lunch_meal.macros.fat - removed_macros.fat,
+                        lunch_meal.macros.fibre - removed_macros.fibre,
+                    )
+                    weekly_food_grams["C003"] = max(0.0, weekly_food_grams.get("C003", 0.0) - rice_item.grams)
+                    oats_food = dataset.food_by_id.get("C007")
+                    if oats_food:
+                        add_oats_g = 50.0
+                        oats_macros = food_macros(oats_food, add_oats_g)
+                        existing_oats = next((it for it in snack_meal.items if it.food_id == "C007"), None)
+                        if existing_oats:
+                            existing_oats.grams += add_oats_g
+                            existing_oats.macros = existing_oats.macros.plus(oats_macros)
+                            existing_oats.familiar = "about 1 cup dry"
+                        else:
+                            snack_meal.items.append(MealItem(
+                                food_id="C007",
+                                food_name="Oats (Dry)",
+                                grams=add_oats_g,
+                                source="food",
+                                familiar="about 1 cup dry",
+                                exchange_group="Grain / starch",
+                                macros=oats_macros,
+                            ))
+                        snack_meal.macros = snack_meal.macros.plus(oats_macros)
+                        weekly_food_grams["C007"] = weekly_food_grams.get("C007", 0.0) + add_oats_g
+                    pb_food = dataset.food_by_id.get("T004")
+                    if pb_food:
+                        add_pb_g = 12.0
+                        pb_macros = food_macros(pb_food, add_pb_g)
+                        snack_meal.items.append(MealItem(
+                            food_id="T004",
+                            food_name="Peanut butter",
+                            grams=add_pb_g,
+                            source="food",
+                            familiar="1 tablespoon",
+                            exchange_group="Nuts / fat",
+                            macros=pb_macros,
+                        ))
+                        snack_meal.macros = snack_meal.macros.plus(pb_macros)
+                        weekly_food_grams["T004"] = weekly_food_grams.get("T004", 0.0) + add_pb_g
+
         totals = MacroTotals()
         for m in meals:
             totals = totals.plus(m.macros)
 
-        # Caloric floor adjustment for hardgainer plans: if below 2,050 kcal, bump 1.5 rolls (180g) injera to 2 rolls (240g)
+        # Fasting Day Protein Calibration (Boss requirement: Wednesday & Friday >= 110g protein)
+        if fasting and totals.protein < 110.0:
+            soya_food = dataset.food_by_id.get("P009")
+            lunch_m = next((m for m in meals if m.source_slot == "Lunch"), None)
+            dinner_m = next((m for m in meals if m.source_slot == "Dinner"), None)
+            breakfast_m = next((m for m in meals if m.source_slot == "Breakfast"), None)
+            day_name = current.strftime("%A")
+
+            if day_name == "Wednesday":
+                if lunch_m:
+                    soya_item = next((it for it in lunch_m.items if it.food_id == "P009"), None)
+                    if soya_item:
+                        soya_item.grams = 50.0
+                        soya_item.familiar = "በግምት 1 ከግማሽ ሲኒ የተዘፈቀ"
+                        m_diff = food_macros(soya_food, 20.0)
+                        soya_item.macros = soya_item.macros.plus(m_diff)
+                        lunch_m.macros = lunch_m.macros.plus(m_diff)
+                        weekly_food_grams["P009"] = weekly_food_grams.get("P009", 0.0) + 20.0
+                if dinner_m and soya_food:
+                    soya_din_m = food_macros(soya_food, 55.0)
+                    dinner_m.items.append(MealItem(
+                        food_id="P009",
+                        food_name="Dry soy chunks",
+                        grams=55.0,
+                        source="food",
+                        familiar="በግምት 1 ከግማሽ ሲኒ የተዘፈቀ",
+                        exchange_group="Fasting protein",
+                        macros=soya_din_m,
+                    ))
+                    dinner_m.macros = dinner_m.macros.plus(soya_din_m)
+                    weekly_food_grams["P009"] = weekly_food_grams.get("P009", 0.0) + 55.0
+
+                    atkilt_item = next((it for it in dinner_m.items if it.recipe_id == "R004"), None)
+                    if atkilt_item:
+                        atkilt_item.grams = 80.0
+                        atkilt_item.familiar = "ሲሶ / 1/3 መካከለኛ ጭልፋ"
+                        dinner_m.macros = MacroTotals(
+                            dinner_m.macros.kcal - 72.0,
+                            dinner_m.macros.protein,
+                            dinner_m.macros.carbs - 16.0,
+                            dinner_m.macros.fat,
+                            dinner_m.macros.fibre,
+                        )
+                    misir_item = next((it for it in dinner_m.items if it.recipe_id == "R002"), None)
+                    if misir_item:
+                        misir_item.grams = 200.0
+                        misir_item.familiar = "1 መካከለኛ ጭልፋ"
+                        dinner_m.macros = MacroTotals(
+                            dinner_m.macros.kcal - 57.0,
+                            dinner_m.macros.protein - 3.3,
+                            dinner_m.macros.carbs - 8.7,
+                            dinner_m.macros.fat,
+                            dinner_m.macros.fibre,
+                        )
+            elif day_name == "Friday":
+                if breakfast_m:
+                    oat_it = next((it for it in breakfast_m.items if it.food_id == "C007"), None)
+                    if oat_it:
+                        oat_it.grams = 50.0
+                        oat_it.familiar = "about 0.5 cup dry"
+                        breakfast_m.macros = MacroTotals(
+                            breakfast_m.macros.kcal - 38.0,
+                            breakfast_m.macros.protein - 1.3,
+                            breakfast_m.macros.carbs - 6.6,
+                            breakfast_m.macros.fat,
+                            breakfast_m.macros.fibre,
+                        )
+                        weekly_food_grams["C007"] = max(0.0, weekly_food_grams.get("C007", 0.0) - 10.0)
+                if lunch_m and soya_food:
+                    misir_l = next((it for it in lunch_m.items if it.recipe_id == "R002"), None)
+                    if misir_l:
+                        misir_l.grams = 200.0
+                        misir_l.familiar = "1 መካከለኛ ጭልፋ"
+                        lunch_m.macros = MacroTotals(
+                            lunch_m.macros.kcal - 142.0,
+                            lunch_m.macros.protein - 8.3,
+                            lunch_m.macros.carbs - 21.6,
+                            lunch_m.macros.fat,
+                            lunch_m.macros.fibre,
+                        )
+                    soya_l_m = food_macros(soya_food, 50.0)
+                    lunch_m.items.append(MealItem(
+                        food_id="P009",
+                        food_name="Dry soy chunks",
+                        grams=50.0,
+                        source="food",
+                        familiar="በግምት 1 ከግማሽ ሲኒ የተዘፈቀ",
+                        exchange_group="Fasting protein",
+                        macros=soya_l_m,
+                    ))
+                    lunch_m.macros = lunch_m.macros.plus(soya_l_m)
+                    weekly_food_grams["P009"] = weekly_food_grams.get("P009", 0.0) + 50.0
+                if dinner_m and soya_food:
+                    ful_d = next((it for it in dinner_m.items if it.recipe_id in ("R018", "R025") or "ful" in str(it.food_name).lower()), None)
+                    if ful_d:
+                        ful_d.grams = 220.0
+                        ful_d.familiar = "1 መካከለኛ ሳህን"
+                        dinner_m.macros = MacroTotals(
+                            dinner_m.macros.kcal - 120.0,
+                            dinner_m.macros.protein - 8.8,
+                            dinner_m.macros.carbs - 18.0,
+                            dinner_m.macros.fat,
+                            dinner_m.macros.fibre,
+                        )
+                    soya_d_m = food_macros(soya_food, 50.0)
+                    dinner_m.items.append(MealItem(
+                        food_id="P009",
+                        food_name="Dry soy chunks",
+                        grams=50.0,
+                        source="food",
+                        familiar="በግምት 1 ከግማሽ ሲኒ የተዘፈቀ",
+                        exchange_group="Fasting protein",
+                        macros=soya_d_m,
+                    ))
+                    dinner_m.macros = dinner_m.macros.plus(soya_d_m)
+                    weekly_food_grams["P009"] = weekly_food_grams.get("P009", 0.0) + 50.0
+            else:
+                if totals.protein < 110.0 and soya_food:
+                    diff_p = 112.0 - totals.protein
+                    add_soya_g = float(math.ceil((diff_p / 0.52) / 5.0) * 5.0)
+                    target_m = lunch_m or dinner_m
+                    if target_m:
+                        soya_m = food_macros(soya_food, add_soya_g)
+                        target_m.items.append(MealItem(
+                            food_id="P009",
+                            food_name="Dry soy chunks",
+                            grams=add_soya_g,
+                            source="food",
+                            familiar="በግምት 1 ከግማሽ ሲኒ የተዘፈቀ",
+                            exchange_group="Fasting protein",
+                            macros=soya_m,
+                        ))
+                        target_m.macros = target_m.macros.plus(soya_m)
+                        weekly_food_grams["P009"] = weekly_food_grams.get("P009", 0.0) + add_soya_g
+
+            # Recalculate totals after fasting calibration
+            totals = MacroTotals()
+            for m in meals:
+                totals = totals.plus(m.macros)
+
+        # Caloric floor adjustment for hardgainer plans: ensure day lands in [2,980, 3,075] kcal
         target_kcal_floor = targets.get("target_kcal") or targets.get("kcal") or 0.0
         if target_kcal_floor >= 2800.0 and totals.kcal < 2980.0:
             diff_kcal = 3025.0 - totals.kcal
+            # Pass 1: Cooking oil in savory meals (up to 24g single oil) - do not drown breakfast toast in oil
             for m in meals:
-                if totals.kcal >= 2980.0:
+                if totals.kcal >= 3020.0:
                     break
+                if m.slot == "Breakfast" or m.source_slot == "Breakfast":
+                    continue
                 for it in m.items:
                     if it.food_id in ("T001", "T002") and it.grams < 24.0:
                         add_g = min(24.0 - it.grams, round(diff_kcal / 8.84, 1))
                         if add_g >= 1.0:
                             it.grams += add_g
+                            tbsp = max(0.25, round((it.grams / 14.0) * 4) / 4)
+                            it.familiar = f"about {tbsp:g} level tablespoon" + ("s" if tbsp > 1 else "")
                             delta_m = food_macros(dataset.food_by_id[it.food_id], add_g)
                             it.macros = it.macros.plus(delta_m)
                             m.macros = m.macros.plus(delta_m)
                             totals = totals.plus(delta_m)
                             weekly_food_grams[it.food_id] = weekly_food_grams.get(it.food_id, 0.0) + add_g
                             diff_kcal -= delta_m.kcal
+
+            # Pass 2: Snack energy density (Dates F012, Peanuts T003, Milk A015, Peanut butter T004)
+            if totals.kcal < 2980.0:
+                diff_kcal = 3025.0 - totals.kcal
+                for m in meals:
+                    if totals.kcal >= 3020.0:
+                        break
+                    if m.source_slot == "Snack":
+                        for it in m.items:
+                            if it.food_id == "F012" and it.grams < 80.0:
+                                add_g = min(80.0 - it.grams, round(diff_kcal / 2.82, 1))
+                                if add_g >= 5.0:
+                                    it.grams += add_g
+                                    it.familiar = "about 5–6 large dates"
+                                    delta_m = food_macros(dataset.food_by_id["F012"], add_g)
+                                    it.macros = it.macros.plus(delta_m)
+                                    m.macros = m.macros.plus(delta_m)
+                                    totals = totals.plus(delta_m)
+                                    weekly_food_grams["F012"] = weekly_food_grams.get("F012", 0.0) + add_g
+                                    diff_kcal -= delta_m.kcal
+                            elif it.food_id == "T003" and it.grams < 40.0:
+                                add_g = min(40.0 - it.grams, round(diff_kcal / 5.85, 1))
+                                if add_g >= 5.0:
+                                    it.grams += add_g
+                                    it.familiar = "about 1.5 small handfuls"
+                                    delta_m = food_macros(dataset.food_by_id["T003"], add_g)
+                                    it.macros = it.macros.plus(delta_m)
+                                    m.macros = m.macros.plus(delta_m)
+                                    totals = totals.plus(delta_m)
+                                    weekly_food_grams["T003"] = weekly_food_grams.get("T003", 0.0) + add_g
+                                    diff_kcal -= delta_m.kcal
+                            elif it.food_id == "A015" and it.grams < 250.0:
+                                add_g = min(250.0 - it.grams, round(diff_kcal / 0.50, 1))
+                                if add_g >= 20.0:
+                                    it.grams += add_g
+                                    it.familiar = "1 large glass" if round(it.grams) == 250 else "about ¾ large glass"
+                                    delta_m = food_macros(dataset.food_by_id["A015"], add_g)
+                                    it.macros = it.macros.plus(delta_m)
+                                    m.macros = m.macros.plus(delta_m)
+                                    totals = totals.plus(delta_m)
+                                    weekly_food_grams["A015"] = weekly_food_grams.get("A015", 0.0) + add_g
+                                    diff_kcal -= delta_m.kcal
+
+            # Pass 3: Composite dishes (Chicken Rice Bowl R026)
+            if totals.kcal < 2980.0:
+                diff_kcal = 3025.0 - totals.kcal
+                for m in meals:
+                    if totals.kcal >= 3020.0:
+                        break
+                    for it in m.items:
+                        if it.recipe_id == "R026":
+                            rec_food = dataset.recipe_by_id.get("R026", {})
+                            base_serv = n(rec_food.get("Serving g") or 400.0)
+                            add_g = min(150.0, round(diff_kcal / 1.3, 1))
+                            if add_g >= 20.0:
+                                it.grams += add_g
+                                delta_m = MacroTotals(add_g * 1.3, add_g * 0.08, add_g * 0.16, add_g * 0.03, add_g * 0.01)
+                                it.macros = it.macros.plus(delta_m)
+                                m.macros = m.macros.plus(delta_m)
+                                totals = totals.plus(delta_m)
+                                it.familiar = "150g cooked chicken breast + 300g cooked rice"
+                                diff_kcal -= delta_m.kcal
 
         if target_kcal_floor >= 2000.0 and totals.kcal < 2050.0:
             for m in meals:

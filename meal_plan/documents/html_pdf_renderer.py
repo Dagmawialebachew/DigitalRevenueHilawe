@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import re
 import shutil
@@ -1427,19 +1428,36 @@ def build_day_html(
                 grams = f"{rounded(raw_grams)} {g_lbl}"
                 if fid == "C001":
                     inj_g = round(raw_grams)
-                    if inj_g >= 220:
+                    if inj_g >= 210:
                         familiar_str = "2 መካከለኛ የተጠቀለለ እንጀራ" if is_am else "2 medium rolled pieces"
-                    elif inj_g >= 160:
+                    elif inj_g >= 150:
                         familiar_str = "1 ከግማሽ መካከለኛ የተጠቀለለ እንጀራ" if is_am else "1 ½ medium rolled pieces"
-                    elif inj_g >= 100:
+                    elif inj_g >= 90:
                         familiar_str = "1 መካከለኛ የተጠቀለለ እንጀራ" if is_am else "1 medium rolled piece"
-                    elif inj_g >= 40:
-                        familiar_str = "ግማሽ መካከለኛ የተጠቀለለ እንጀራ" if is_am else "½ medium rolled piece"
                     else:
-                        familiar_str = familiar_portion(raw_grams / 120.0, "1 medium rolled piece", language="AM" if is_am else "EN")
+                        familiar_str = "ግማሽ መካከለኛ የተጠቀለለ እንጀራ" if is_am else "½ medium rolled piece"
+                elif fid in ("T001", "T002"):
+                    if raw_grams <= 6.0:
+                        familiar_str = "about 1 teaspoon" if not is_am else "1 የሻይ ማንኪያ"
+                    else:
+                        tbsp = max(0.25, round((raw_grams / 14.0) * 4) / 4)
+                        u = "level tablespoon" if tbsp <= 1.0 else "level tablespoons"
+                        familiar_str = f"about {tbsp:g} {u}" if not is_am else f"{tbsp:g} የተስተካከለ የሾርባ ማንኪያ"
+                elif fid == "C007" and 70.0 <= raw_grams <= 100.0:
+                    familiar_str = "about 1 cup dry" if not is_am else "1 ሲኒ ጥሬ"
+                elif fid == "T003" and 35.0 <= raw_grams <= 45.0:
+                    familiar_str = "about 1.5 small handfuls" if not is_am else "1 ከግማሽ አነስተኛ ጭብጥ"
+                elif fid == "F012" and 60.0 <= raw_grams <= 85.0:
+                    familiar_str = "about 5–6 large dates" if not is_am else "5–6 ትላልቅ ቴምር"
                 else:
                     familiar = str(item.get("familiar_am") or item.get("familiar") or "").strip()
-                    if familiar:
+                    if "goat" in familiar.lower() or "oats (dry)" in familiar.lower():
+                        familiar_str = "about 1 cup dry" if not is_am else "1 ሲኒ ጥሬ"
+                    elif "roasted peanuts" in familiar.lower() and re.search(r"\d+\s*g", familiar):
+                        familiar_str = "about 1.5 small handfuls" if not is_am else "1 ከግማሽ አነስተኛ ጭብጥ"
+                    elif "dates (dried)" in familiar.lower() and re.search(r"\d+\s*g", familiar):
+                        familiar_str = "about 5–6 large dates" if not is_am else "5–6 ትላልቅ ቴምር"
+                    elif familiar:
                         if is_am:
                             familiar_str = familiar_portion(1.0, familiar, language="AM")
                         else:
@@ -1447,12 +1465,39 @@ def build_day_html(
                     else:
                         familiar_str = ""
 
+            # Sub-recipe clarity for composite items
+            if "tuna pasta" in name.lower() or item.get("recipe_id") == "R027":
+                familiar_str = "130g canned tuna + 350g cooked whole-wheat pasta" if not is_am else "130ግ የታሸገ ቱና + 350ግ የበሰለ ፓስታ"
+            elif "avocado toast" in name.lower() or item.get("recipe_id") == "R028":
+                familiar_str = "2 whole eggs + 2 slices bread + 0.5 avocado" if not is_am else "2 እንቁላል + 2 ስላይስ ዳቦ + ግማሽ አቮካዶ"
+            elif "chicken rice bowl" in name.lower() or item.get("recipe_id") == "R026":
+                familiar_str = "150g cooked chicken breast + 300g cooked rice" if not is_am else "150ግ የበሰለ የዶሮ ስጋ + 300ግ የበሰለ ሩዝ"
+            elif "lentil rice bowl" in name.lower() or item.get("recipe_id") == "R025":
+                familiar_str = "250g cooked lentils + 350g cooked brown rice" if not is_am else "250ግ የበሰለ ምስር + 350ግ የበሰለ ቡናማ ሩዝ"
+            elif familiar_str:
+                m_srv = re.search(r"about\s+([\d.]+)\s+standard\s+serving", familiar_str, flags=re.I)
+                if m_srv:
+                    val = float(m_srv.group(1))
+                    q = max(1.0, round(val * 4) / 4)
+                    familiar_str = f"about {q:g} standard serving"
+
             if familiar_str:
+                familiar_str = familiar_str.strip()
+                if familiar_str.startswith("(") and familiar_str.endswith(")"):
+                    familiar_str = familiar_str[1:-1].strip()
+                m_nest = re.search(r"በግምት\s*\d+\s*ግ\s*\((በግምት\s*[^)]+)\)", familiar_str)
+                if m_nest:
+                    familiar_str = m_nest.group(1).strip()
+                m_nest2 = re.search(r"\((በግምት\s*[^)]+)\)", familiar_str)
+                if m_nest2:
+                    familiar_str = m_nest2.group(1).strip()
                 line_html = f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams} <span style="color: #64748B;">({escape(familiar_str)})</span></div>'
             else:
                 line_html = f'<div class="meal-item-line">• <strong>{escape(name)}</strong> — {grams}</div>'
 
-            # Clean double em-dashes —— so they render as clean single en-dash: ' — '
+            # Clean double em-dashes and any nested parentheses
+            line_html = re.sub(r"\(በግምት\s*\d+\s*ግ\s*\((በግምት\s*[^)]+)\)\)", r"(\1)", line_html)
+            line_html = re.sub(r"\(\(([^()]+)\)\)", r"(\1)", line_html)
             line_html = re.sub(r"—{2,}", " — ", line_html)
             line_html = re.sub(r"—\s*—", " — ", line_html)
             line_html = re.sub(r"--+", " — ", line_html)
@@ -1673,7 +1718,7 @@ def build_checkin_worksheet_html(
         <div class="card" style="background: #FFFBEB; border: 1.5px solid #FCD34D; padding: 3.5mm 5mm; margin-top: 3mm;">
           <div style="font-size: 11px; color: #92400E; line-height: 1.45;">
             <strong>{"የአሰልጣኝ ህላዌ ምክር፦" if is_am else "Coach Hilawe Pro Tip:"}</strong>
-            {" «ሰውነትህ የሚለወጠው በየቀኑ በምታደርጋቸው ትናንሽ ውሳኔዎች ድምር ውጤት ነው። መለኪያህን በየሳምንቱ በተመሳሳይ ሰዓት (ጠዋት በባዶ ሆድ) መዝግብ!»" if is_am else " \"Progress is the compounding result of small daily disciplines. Log your metrics at the same time each week, ideally first thing in the morning before breakfast.\""}
+            {" «ሰውነትዎ የሚለወጠው በየቀኑ በሚያደርጓቸው ትናንሽ ውሳኔዎች ድምር ውጤት ነው። መለኪያዎን በየሳምንቱ በተመሳሳይ ሰዓት (ጠዋት በባዶ ሆድ) ይመዝግቡ!»" if is_am else " \"Progress is the compounding result of small daily disciplines. Log your metrics at the same time each week, ideally first thing in the morning before breakfast.\""}
           </div>
         </div>
       </div>
@@ -1702,6 +1747,80 @@ def balanced_chunks(items: list[Any], max_per_page: int = 25) -> list[list[Any]]
     return chunks
 
 
+def dedup_grocery_items(grocery_data: list[dict[str, Any]], context: DocumentContext) -> list[dict[str, Any]]:
+    """Deduplicate and aggregate identical grocery rows by name and category."""
+    if not grocery_data:
+        return []
+    is_am = context.normalized_language == "AM"
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in grocery_data:
+        item_name = local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language)
+        category = local_category_name(str(row.get("category") or ""), context.normalized_language)
+        if "plant" in category.lower() and "milk" in category.lower():
+            category = "Plant-based milk" if not is_am else "የዕፅዋት ወተት"
+        elif "soy" in category.lower() or "say" in category.lower():
+            category = "Plant protein & soy" if not is_am else "የጾም ውጤቶች"
+        elif any(k in category.lower() for k in ("meat", "poultry", "animal", "ስጋ")):
+            category = "Meat & poultry" if not is_am else "ስጋ እና የዶሮ ውጤቶች"
+
+        raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
+        if "dry" in raw_qty.lower() or "ጥሬ" in raw_qty:
+            if "(Dry)" in item_name:
+                item_name = item_name.replace("(Dry)", "(Cooked)")
+            elif "(ጥሬ)" in item_name:
+                item_name = item_name.replace("(ጥሬ)", "(የበሰለ)")
+
+        if "ፉል" in item_name:
+            item_name = "ፉል / ባቄላ (የበሰለ)" if is_am else "Cooked ful / fava beans"
+        item_name = re.sub(r"\(የበሰለ\)\s*\(የበሰለ\)", "(የበሰለ)", item_name)
+
+        key = (item_name.strip(), category.strip())
+        if key not in merged:
+            m = dict(row)
+            m["_resolved_name"] = item_name
+            m["_resolved_category"] = category
+            m["_planned_grams"] = float(row.get("planned_grams") or 0.0)
+            m["_buy_weight_g"] = float(row.get("buy_weight_g") or 0.0)
+            merged[key] = m
+        else:
+            merged[key]["_planned_grams"] += float(row.get("planned_grams") or 0.0)
+            merged[key]["_buy_weight_g"] += float(row.get("buy_weight_g") or 0.0)
+            p_g = merged[key]["_planned_grams"]
+            if str(row.get("food_id") or "") == "A011" or "egg" in str(row.get("buy_item") or "").lower():
+                egg_cnt = max(1, int(round(p_g / 50.0)))
+                merged[key]["purchase_quantity_am"] = "1 ካርቶን (10–12 ፍሬ)" if egg_cnt <= 12 else f"1–2 ካርቶን ({egg_cnt} ፍሬ)"
+                merged[key]["purchase_quantity_en"] = "1 carton (10–12 eggs)" if egg_cnt <= 12 else f"1–2 cartons ({egg_cnt} eggs)"
+            elif "meat" in category.lower() or "ስጋ" in category or "ስጋ" in item_name:
+                buy_g = math.ceil((p_g * 1.38) / 10.0) * 10.0
+                buy_kg = buy_g / 1000.0
+                merged[key]["_buy_weight_g"] = buy_g
+                merged[key]["purchase_quantity_am"] = f"~{buy_kg:.1f} ኪ.ግ ጥሬ" if buy_kg >= 1.0 else f"~{round(buy_g)} ግ ጥሬ"
+                merged[key]["purchase_quantity_en"] = f"~{buy_kg:.1f} kg (raw cut)" if buy_kg >= 1.0 else f"~{round(buy_g)} g (raw cut)"
+
+    res = list(merged.values())
+    CATEGORY_SORT_ORDER = {
+        "ስጋ እና የዶሮ ውጤቶች": 1, "Meat & poultry": 1, "Lean animal protein": 1, "Animal protein": 1,
+        "ዓሣ እና የባህር ምግቦች": 2, "Fish & seafood": 2,
+        "እንቁላል": 3, "Eggs": 3,
+        "የወተት ተዋጽኦዎች": 4, "Dairy products": 4, "Dairy protein": 4,
+        "የዕፅዋት ወተት": 5, "Plant-based milk": 5,
+        "የጾም ውጤቶች": 6, "የአኩሪ አተር እና የዕፅዋት ፕሮቲን": 6, "Plant protein & soy": 6, "Plant protein": 6,
+        "ጥራጥሬዎች እና የዕፅዋት ፕሮቲን": 7, "Legumes & plant protein": 7,
+        "እህሎች እና ካርቦሃይድሬት": 8, "Grains & starches": 8,
+        "ስራስር እና ድንች": 9, "Root vegetables & tubers": 9,
+        "አትክልቶች": 10, "Vegetables": 10,
+        "ትኩስ ፍራፍሬዎች": 11, "Fresh fruits": 11,
+        "የደረቁ ፍራፍሬዎች": 12, "Dried fruits": 12,
+        "ጤናማ ቅባት ያላቸው ፍራፍሬዎች": 13, "Healthy fat fruits": 13,
+        "ለውዝ እና የለውዝ ቅቤ": 14, "Nuts & nut butters": 14,
+        "ዘይት እና ቅባቶች": 15, "Added fat & oils": 15,
+        "ቅመማ ቅመሞች እና ማጣፈጫዎች": 16, "Aromatics & seasonings": 16,
+        "ማባያዎች እና መረቆች": 17, "Condiments & sauces": 17,
+    }
+    res.sort(key=lambda x: (CATEGORY_SORT_ORDER.get(x.get("_resolved_category", ""), 99), str(x.get("_resolved_name", ""))))
+    return res
+
+
 def build_grocery_pages(
     plan: dict[str, Any],
     context: DocumentContext,
@@ -1714,7 +1833,8 @@ def build_grocery_pages(
 ) -> tuple[list[str], int]:
     """Render grocery items chunked gracefully into distinct A4 pages."""
     is_am = context.normalized_language == "AM"
-    grocery_data = (plan.get("fasting_grocery") if is_fasting else plan.get("grocery")) or []
+    raw_grocery = (plan.get("fasting_grocery") if is_fasting else plan.get("grocery")) or []
+    grocery_data = dedup_grocery_items(raw_grocery, context)
     g_lbl = c.get("g_unit", "ግ" if is_am else "g")
 
     kicker = "ክፍል 05" if is_am else "SECTION 05"
@@ -1746,17 +1866,24 @@ def build_grocery_pages(
 
         table_rows = []
         for row in chunk:
-            item_name = local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language)
-            category = local_category_name(str(row.get("category") or ""), context.normalized_language)
-            if str(row.get("food_id") or "") == "A011" or "egg" in str(row.get("buy_item") or "").lower():
-                egg_cnt = max(1, int(round(float(row.get("planned_grams") or 0) / 50.0)))
+            item_name = row.get("_resolved_name") or local_food_name(str(row.get("food_id") or ""), str(row.get("buy_item") or ""), context.normalized_language)
+            category = row.get("_resolved_category") or local_category_name(str(row.get("category") or ""), context.normalized_language)
+            planned_val = float(row.get("_planned_grams") if "_planned_grams" in row else (row.get("planned_grams") or 0.0))
+            raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
+
+            fid = str(row.get("food_id") or "")
+            if fid == "A011" or "egg" in str(row.get("buy_item") or "").lower():
+                egg_cnt = max(1, int(round(planned_val / 50.0)))
                 planned = f"{egg_cnt} ፍሬ" if is_am else f"{egg_cnt} eggs"
-                raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
                 buy_qty = local_purchase_quantity(raw_qty, context.normalized_language) if raw_qty else ("1 ካርቶን (10–12 ፍሬ)" if is_am else "1 carton (10–12 eggs)")
-            else:
-                planned_rounded = round(float(row.get('planned_grams') or 0) / 10.0) * 10.0
+            elif fid == "V001":
+                planned_rounded = round(planned_val / 10.0) * 10.0
                 planned = f"{planned_rounded:,.0f} {g_lbl}"
-                raw_qty = str(row.get("purchase_quantity_am") or row.get("purchase_quantity") or "") if is_am else str(row.get("purchase_quantity_en") or row.get("purchase_quantity") or "")
+                bags = max(1, math.ceil(planned_rounded / 500.0))
+                buy_qty = f"{bags} መረብ ሽንኩርት (~{bags*0.5:.1f} ኪ.ግ)" if is_am else f"{bags} net bag{'s' if bags > 1 else ''} (~{bags*0.5:.1f} kg)"
+            else:
+                planned_rounded = round(planned_val / 10.0) * 10.0
+                planned = f"{planned_rounded:,.0f} {g_lbl}"
                 buy_qty = local_purchase_quantity(raw_qty, context.normalized_language)
 
             table_rows.append(f"""
@@ -1975,8 +2102,10 @@ def render_html_document(plan: dict[str, Any], context: DocumentContext, *, is_c
     fasting_grocery = plan.get("fasting_grocery") or []
 
     # Calculate exact grocery chunk counts
-    grocery_chunks_count = len(balanced_chunks(grocery_data, max_per_page=25)) if grocery_data else 1
-    fasting_grocery_chunks_count = len(balanced_chunks(fasting_grocery, max_per_page=25)) if fasting_grocery else 0
+    deduped_g = dedup_grocery_items(grocery_data, context)
+    deduped_fg = dedup_grocery_items(fasting_grocery, context)
+    grocery_chunks_count = len(balanced_chunks(deduped_g, max_per_page=25)) if deduped_g else 1
+    fasting_grocery_chunks_count = len(balanced_chunks(deduped_fg, max_per_page=25)) if deduped_fg else 0
 
     total_pages = 1 + 1 + 1 + 1 + len(core_days)
     if fasting_core:
@@ -2092,14 +2221,16 @@ def render_html_pdf(
         "--disable-background-networking",
         "--no-first-run",
         "--hide-scrollbars",
-        "--virtual-time-budget=10000",
+        "--run-all-compositor-stages-before-draw",
+        "--font-render-hinting=none",
+        "--disable-threaded-animation",
         "--no-pdf-header-footer",
         f"--print-to-pdf={target_tmp_pdf.resolve()}",
         str(html_path.resolve()),
     ]
 
     with _RENDER_SEMAPHORE:
-        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=150)
     if res.returncode != 0 or not target_tmp_pdf.exists() or target_tmp_pdf.stat().st_size == 0:
         err_msg = res.stderr or res.stdout or f"Chromium exited with code {res.returncode}"
         raise RuntimeError(f"Headless Chromium PDF print failed: {err_msg}")
@@ -2107,11 +2238,24 @@ def render_html_pdf(
     # Atomically replace target PDF. If locked by an external PDF viewer, fall back gracefully
     try:
         shutil.move(str(target_tmp_pdf), str(pdf_path))
-    except (PermissionError, OSError) as lock_err:
-        fallback_path = pdf_path.with_name(f"{pdf_path.stem}-PERFECT.pdf")
-        shutil.copyfile(str(target_tmp_pdf), str(fallback_path))
-        target_tmp_pdf.unlink(missing_ok=True)
-        pdf_path = fallback_path
+    except (PermissionError, OSError):
+        saved = False
+        candidates = [
+            pdf_path.with_name(f"{pdf_path.stem}_LATEST.pdf"),
+            pdf_path.with_name(f"{pdf_path.stem}_NEW.pdf"),
+            pdf_path.with_name(f"{pdf_path.stem}-PERFECT.pdf"),
+        ]
+        for cand in candidates:
+            try:
+                shutil.copyfile(str(target_tmp_pdf), str(cand))
+                target_tmp_pdf.unlink(missing_ok=True)
+                pdf_path = cand
+                saved = True
+                break
+            except (PermissionError, OSError):
+                continue
+        if not saved:
+            pdf_path = target_tmp_pdf
 
     if not keep_html and html_path.exists():
         try:

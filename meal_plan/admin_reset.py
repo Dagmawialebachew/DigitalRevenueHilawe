@@ -16,6 +16,7 @@ from aiogram.fsm.context import FSMContext
 
 from config import settings
 from database.db import Database
+from meal_plan.review_repository import MealPlanReviewRepository
 from meal_plan.runtime import admin_ids
 
 router = Router(name="meal_plan_admin_reset")
@@ -276,3 +277,56 @@ async def handle_admin_reset_command(
             f"❌ <b>Reset Failed:</b> <code>{exc}</code>",
             parse_mode="HTML",
         )
+
+
+@router.message(Command("requeue", "requeue_meal_plan"))
+async def handle_admin_requeue_command(
+    message: types.Message, db: Database
+) -> None:
+    """Handle /requeue <order_id> for authorized admins to manually re-trigger stalled/failed generations."""
+    if not message.from_user:
+        return
+
+    admin_id = message.from_user.id
+    if not is_admin_user(admin_id):
+        logger.warning("Unauthorized /requeue attempted by non-admin user_id=%s", admin_id)
+        return
+
+    args = (message.text or "").strip().split()
+    if len(args) < 2 or not args[1].isdigit():
+        await message.answer(
+            "⚠️ <b>Usage:</b> <code>/requeue &lt;order_id&gt;</code>\n"
+            "<i>Example:</i> <code>/requeue 26</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    order_id = int(args[1])
+    pool = getattr(db, "_pool", None)
+    if not pool:
+        await message.answer("⚠️ Database connection pool is currently unavailable.")
+        return
+
+    repo = MealPlanReviewRepository(pool)
+    try:
+        prog_msg = await message.answer(
+            f"⏳ <code>[░░░░░░░░░░]   0%</code> · 🎯 <b>Order #{order_id} Re-queued</b>\n"
+            f"<i>Initializing Nutrition Targets & Engine...</i>",
+            parse_mode="HTML",
+        )
+        job_id = await repo.requeue_order_generation(
+            order_id,
+            progress_chat_id=message.chat.id,
+            progress_message_id=prog_msg.message_id,
+        )
+        logger.info(
+            "Admin %s re-queued order %s as job %s with live progress in chat %s msg %s",
+            admin_id, order_id, job_id, message.chat.id, prog_msg.message_id,
+        )
+    except Exception as exc:
+        logger.exception("Failed to requeue order %s: %s", order_id, exc)
+        await message.answer(
+            f"❌ <b>Requeue Failed:</b> <code>{exc}</code>",
+            parse_mode="HTML",
+        )
+

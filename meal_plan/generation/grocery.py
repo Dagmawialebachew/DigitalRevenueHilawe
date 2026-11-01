@@ -36,6 +36,8 @@ def _dry_name(name: str) -> str:
 
 CATEGORY_ORDER: dict[str, int] = {
     "Lean animal protein": 1,
+    "Animal protein": 1,
+    "Meat & poultry": 1,
     "Fish & seafood": 2,
     "Eggs": 3,
     "Dairy products": 4,
@@ -76,7 +78,7 @@ def _standard_category(cat: str) -> str:
         return "Eggs"
     if "fish" in c_lower or "seafood" in c_lower or "tuna" in c_lower or "tilapia" in c_lower:
         return "Fish & seafood"
-    if "meat" in c_lower or "poultry" in c_lower or "chicken" in c_lower or "beef" in c_lower or "turkey" in c_lower:
+    if "meat" in c_lower or "poultry" in c_lower or "chicken" in c_lower or "beef" in c_lower or "turkey" in c_lower or "animal" in c_lower or "mince" in c_lower:
         return "Lean animal protein"
     if "legume" in c_lower or "lentil" in c_lower or "bean" in c_lower or "chickpea" in c_lower:
         return "Legumes & plant protein"
@@ -327,15 +329,19 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
             continue
 
         if fid == "V001":
+            bags = max(1, math.ceil(planned_rounded / 500.0))
+            buy_g = float(bags * 500)
+            purchase_qty_en = f"{bags} net bags (~{buy_g/1000:.1f} kg)" if bags > 1 else "1 net bag (~500 g)"
+            purchase_qty_am = f"{bags} መረብ ሽንኩርት (~{buy_g/1000:.1f} ኪ.ግ)" if bags > 1 else "1 መረብ ሽንኩርት (~500 ግ)"
             rows.append({
                 "food_id": fid,
                 "buy_item": "Fresh red/yellow onions",
                 "category": "Vegetables",
                 "planned_grams": float(planned_rounded),
-                "buy_weight_g": 500.0,
-                "purchase_quantity": "1 net bag (~500 g)",
-                "purchase_quantity_en": "1 net bag (~500 g)",
-                "purchase_quantity_am": "1 መረብ ሽንኩርት (~500 ግ)",
+                "buy_weight_g": buy_g,
+                "purchase_quantity": purchase_qty_en,
+                "purchase_quantity_en": purchase_qty_en,
+                "purchase_quantity_am": purchase_qty_am,
                 "plan_yield_guide": f"Plan uses ~{planned_rounded:.0f} g",
                 "budget": food.get("Budget Level"),
                 "fasting_allowed": food.get("Fasting Allowed"),

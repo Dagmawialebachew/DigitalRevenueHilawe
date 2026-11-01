@@ -49,18 +49,24 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
     is_am = str(language).upper() == "AM"
     d_lower = str(default_name or "").lower()
 
-    if food_id == "A011" and ("raw" in d_lower or d_lower == "eggs" or "ፍሬ" in d_lower):
+    if food_id == "A011" and ("raw" in d_lower or "egg" in d_lower or "ፍሬ" in d_lower or "fresh" in d_lower or "carton" in d_lower):
         return "እንቁላል" if is_am else "Eggs"
     if food_id == "C010" and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "ድንች (ጥሬ)" if is_am else "Potatoes (Raw)"
-    if food_id in ("A001", "A002") and ("raw" in d_lower or "ጥሬ" in d_lower):
-        return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
-    if food_id in ("A003", "A004") and ("raw" in d_lower or "ጥሬ" in d_lower):
+    if food_id in ("A001", "A002"):
+        if "raw" in d_lower or "ጥሬ" in d_lower:
+            return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
+        return "የዶሮ ደረት ስጋ (የበሰለ)" if is_am else "Cooked chicken breast"
+    if food_id == "A003" and ("raw" in d_lower or "ጥሬ" in d_lower or "beef" in d_lower):
         return "የበሬ ስጋ (ጥሬ)" if is_am else "Lean beef (Raw)"
+    if food_id == "A004" and ("raw" in d_lower or "ጥሬ" in d_lower or "mince" in d_lower or "ground" in d_lower or "beef" in d_lower):
+        return "የተፈጨ የበሬ ስጋ (ጥሬ)" if is_am else "Lean ground beef (Raw)"
     if food_id in ("A005", "A006", "A019", "A020") and ("raw" in d_lower or "ጥሬ" in d_lower or "cut" in d_lower):
         return "የቱርክ ደረት ስጋ (ጥሬ)" if is_am else "Turkey breast (Raw)"
     if food_id == "A007" and ("raw" in d_lower or "ጥሬ" in d_lower):
         return "ጥሬ አሳ (የተጸዳ)" if is_am else "Tilapia fillet (Raw)"
+    if food_id == "P007":
+        return "ፉል / ባቄላ (የበሰለ)" if is_am else "Cooked ful / fava beans"
     if food_id == "A015":
         return "ወተት (ዝቅተኛ ቅባት)" if is_am else "Milk, low-fat"
 
@@ -77,6 +83,10 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
         name = re.sub(r"\(\s*\)", "", name).strip(" ,")
         if not name.endswith("(ጥሬ)") and not name.endswith("(Dry)") and not name.endswith("(Raw)") and not name.lower().startswith("dry "):
             name = f"{name} (ጥሬ)" if is_am else f"{name} (Dry)"
+    if name.lower().startswith("chickpeas"):
+        name = "Chickpeas" + name[len("chickpeas"):]
+    elif name.lower().startswith("lentils"):
+        name = "Lentils" + name[len("lentils"):]
     return name
 
 
@@ -85,6 +95,8 @@ def local_recipe_name(recipe_id: str, default_name: str, language: str) -> str:
     name = get_recipe_name(recipe_id, default_name, language)
     if "ፋል" in name:
         name = name.replace("የጾም ፋል", "የጾም ፉል").replace("ፋል", "ፉል")
+    if recipe_id == "R015" and "ዓሣ" not in name:
+        name = f"{name} ዓሣ"
     name = name.replace("Coach Hilawe ", "").replace("የአሰልጣኝ ህላዌ ", "").replace("አሰልጣኝ ህላዌ ", "").strip()
     return name
 
@@ -108,11 +120,46 @@ def local_template_name(template_id: str, default_name: str, language: str) -> s
 
 def local_category_name(category: str, language: str) -> str:
     from meal_plan.glossary import get_category_name
-    return get_category_name(category, language)
+    cat = get_category_name(category, language)
+    if str(language).upper() == "AM":
+        eng_fallback_am = {
+            "fish & seafood": "ዓሣ እና የባህር ምግቦች",
+            "eggs": "እንቁላል",
+            "dairy products": "የወተት ተዋጽኦዎች",
+            "dairy protein": "የወተት ፕሮቲን",
+            "meat & poultry": "ስጋ እና የዶሮ ውጤቶች",
+            "legumes & plant protein": "ጥራጥሬዎች እና የዕፅዋት ፕሮቲን",
+            "grains & starches": "እህሎች እና ካርቦሃይድሬት",
+            "root vegetables & tubers": "ስራስር እና ድንች",
+            "vegetables": "አትክልቶች",
+            "fresh fruits": "ትኩስ ፍራፍሬዎች",
+            "dried fruits": "የደረቁ ፍራፍሬዎች",
+            "healthy fat fruits": "ጤናማ ቅባት ያላቸው ፍራፍሬዎች",
+            "nuts & nut butters": "ለውዝ እና የለውዝ ቅቤ",
+            "plant-based milk": "የዕፅዋት ወተት",
+            "plant protein & soy": "የጾም ውጤቶች",
+            "plant protein & say": "የጾም ውጤቶች",
+            "added fat & oils": "ዘይት እና ቅባቶች",
+            "aromatics & seasonings": "ቅመማ ቅመሞች እና ማጣፈጫዎች",
+            "condiments & sauces": "ማባያዎች እና መረቆች",
+        }
+        clean = cat.strip().lower()
+        if clean in eng_fallback_am:
+            return eng_fallback_am[clean]
+    else:
+        cat = re.sub(r"plant[- ]*based\s*[- ]*milk", "Plant-based milk", cat, flags=re.I)
+        cat = re.sub(r"plantbased\s*-\s*milk", "Plant-based milk", cat, flags=re.I)
+        cat = re.sub(r"plant\s+protein\s+&\s+say", "Plant protein & soy", cat, flags=re.I)
+        cat = re.sub(r"\bplant protein & say\b", "Plant protein & soy", cat, flags=re.I)
+    return cat
 
 
 def sanitize_display_text(text: str) -> str:
     res = str(text or "")
+    # Clean serving numbers like 1.21 or 1.73 standard serving
+    res = re.sub(r'\babout\s+1\.[12]\d*\s+standard\s+serving\b', 'about 1.25 standard serving', res, flags=re.I)
+    res = re.sub(r'\babout\s+1\.[678]\d*\s+standard\s+serving\b', 'about 1.75 standard serving', res, flags=re.I)
+    res = re.sub(r'\babout\s+1\.[345]\d*\s+standard\s+serving\b', 'about 1.5 standard serving', res, flags=re.I)
     # Strict boundary fraction replacements: NEVER match integers like 125, 250, etc.
     res = re.sub(r'(?<!\d)1\s*¼(?!\d)', '1.25', res)
     res = re.sub(r'(?<!\d)1\s*½(?!\d)', '1.5', res)
@@ -139,6 +186,10 @@ def sanitize_display_text(text: str) -> str:
     res = re.sub(r'\bgig\s*ke?al\b', '919 kcal', res, flags=re.I)
     res = re.sub(r'\babout\s+[1I]\s+approx\.?\s*', 'about ', res, flags=re.I)
     res = re.sub(r'\babout\s+approx\.?\s*', 'about ', res, flags=re.I)
+    # Category and fallback text sanitization
+    res = re.sub(r'\bPlantbased\s*-\s*milk\b', 'Plant-based milk', res, flags=re.I)
+    res = re.sub(r'\bPlant protein & say\b', 'Plant protein & soy', res, flags=re.I)
+    res = re.sub(r'\b\d+\s*goats\b', 'about 1 cup dry', res, flags=re.I)
     return res
 
 
@@ -283,9 +334,15 @@ def format_swap_text(meal: Any, swap_item: dict[str, Any], is_am: bool = True) -
             fam_text = familiar_portion(1.0, clean_fam, language="AM" if is_am else "EN")
             fam_text = re.sub(r"\babout\s+[1I]\s+approx\.?\s*", "about ", fam_text, flags=re.I)
             fam_text = re.sub(r"\babout\s+approx\.?\s*", "about ", fam_text, flags=re.I)
-        detail = f"{swap_name} ({swap_qty} — {fam_text})"
-    else:
-        detail = f"{swap_name} ({swap_qty})"
+        fam_clean = fam_text.strip()
+        if fam_clean == swap_qty.strip():
+            detail = f"{swap_name} ({swap_qty})"
+        else:
+            fam_clean = re.sub(rf"^{re.escape(swap_qty)}\s*[-—–]?\s*", "", fam_clean).strip()
+            if fam_clean:
+                detail = f"{swap_name} ({swap_qty} — {fam_clean})"
+            else:
+                detail = f"{swap_name} ({swap_qty})"
 
     # Clean double em-dashes
     detail = re.sub(r"—{2,}", " — ", detail)

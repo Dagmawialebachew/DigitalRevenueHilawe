@@ -100,6 +100,7 @@ def build_exchange_options(
 
         # Dynamic familiar portion without redundant 'approx.' / 'በግምት'
         if cand_id == "C001":
+            sg = max(60.0, round(sg / 60.0) * 60.0)
             rolls = sg / 120.0
             if rolls <= 0.5:
                 fam_am, fam_en = "ግማሽ መካከለኛ የተጠቀለለ እንጀራ", "½ medium rolled piece"
@@ -120,17 +121,30 @@ def build_exchange_options(
             slices = round((sg / 40.0) * 2) / 2
             fam_am, fam_en = f"{slices:g} መካከለኛ ስላይስ ዳቦ", f"{slices:g} slices whole-wheat bread"
         elif cand_id == "C007":
-            fam_am, fam_en = f"{round(sg)} ግ አጃ (ደረቅ)", f"{round(sg)} g oats (dry)"
+            fam_am, fam_en = "በግምት ግማሽ ሲኒ አጃ (ደረቅ)", "about ½ cup oats (dry)"
         elif cand_id == "C020":
             cakes = max(1, round(sg / 10.0))
             fam_am, fam_en = f"{cakes} የሩዝ ኬክ", f"{cakes} rice cakes"
+        elif cand_id == "C010":
+            if sg >= 260:
+                fam_am, fam_en = "በግምት 2 ከግማሽ መካከለኛ ድንች", "about 2 ½ medium potatoes"
+            elif sg >= 190:
+                fam_am, fam_en = "በግምት 2 መካከለኛ ድንች", "about 2 medium potatoes"
+            elif sg >= 130:
+                fam_am, fam_en = "በግምት 1 መካከለኛ ድንች", "about 1 medium potato"
+            else:
+                fam_am, fam_en = "በግምት ግማሽ መካከለኛ ድንች", "about ½ medium potato"
         elif cand_id == "C011":
-            if sg >= 280:
+            if sg >= 260:
                 fam_am, fam_en = "2 መካከለኛ ስኳር ድንች", "2 medium sweet potatoes"
-            elif sg >= 140:
+            elif sg >= 190:
+                fam_am, fam_en = "1 ከግማሽ መካከለኛ ስኳር ድንች", "1 ½ medium sweet potatoes"
+            elif sg >= 130:
                 fam_am, fam_en = "1 መካከለኛ ስኳር ድንች", "1 medium sweet potato"
             else:
-                fam_am, fam_en = "ግማሽ ስኳር ድንች", "½ medium sweet potato"
+                fam_am, fam_en = "ግማሽ መካከለኛ ስኳር ድንች", "½ medium sweet potato"
+        elif cand_id == "C018":
+            fam_am, fam_en = "1 መካከለኛ የስንዴ ቂጣ", "1 medium flatbread"
         elif cand_id in ("C003", "C004"):
             cups = round((sg / 150.0) * 2) / 2
             fam_am, fam_en = f"{cups:g} ሲኒ የበሰለ ሩዝ", f"{cups:g} cups cooked rice"
@@ -158,9 +172,9 @@ def build_exchange_options(
 
         # Sanitize Ethiopian-only staple foods for international profiles
         if is_international:
-            if fid == "C018":  # Kocho -> Whole-wheat bread
+            if fid in ("C017", "C018"):  # Kocho -> Whole-wheat bread
                 fid = "C008"
-            elif fid == "C013":  # Cooked barley / Kinche -> Oats (dry)
+            elif fid in ("C013", "C014", "C015"):  # Cooked barley / Kinche -> Oats (dry)
                 fid = "C007"
             elif fid == "C001":  # Injera -> Boiled potato
                 fid = "C010"
@@ -188,8 +202,8 @@ def build_exchange_options(
         # Context-aware slot filtering:
         slot_lower = str(source_slot or "").strip().lower()
         if "snack" in slot_lower:
-            # In snack slots: NEVER offer hot-meal starches (pasta, rice, injera, potatoes) as snack swaps!
-            if fid in ("C005", "C006", "C003", "C004", "C001", "C010", "C011", "C013", "C014", "C015", "C018"):
+            # In snack slots: NEVER offer hot-meal starches (pasta, rice, injera, potatoes, kocho) as snack swaps!
+            if fid in ("C005", "C006", "C003", "C004", "C001", "C010", "C011", "C013", "C014", "C015", "C017", "C018"):
                 continue
             # Also forbid meat / fish in snack slots
             if fid in ("A001", "A002", "A003", "A004", "A005", "A006", "A007", "A019", "A020"):

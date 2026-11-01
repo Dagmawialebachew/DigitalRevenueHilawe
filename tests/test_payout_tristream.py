@@ -175,6 +175,71 @@ class TriStreamFinancialCoreTests(unittest.IsolatedAsyncioTestCase):
         # Coach share: 5000*0.70 (3500) + 3000*0.65 (1950) + 4000*0.60 (2400) = 7850
         self.assertEqual(data["coach_share"], 7850.0)
         # Dagmawi share: 5000*0.30 (1500) + 3000*0.35 (1050) + 4000*0.40 (1600) = 4150
+        self.assertEqual(data["dagmawi_share"], 4150.0)
+
+    async def test_deductions_allocated_solely_to_digital_products(self):
+        """All operational deductions are subtracted 100% from digital products, 0% from club & meal plan."""
+        db = MagicMock()
+        db.fetchval = AsyncMock(return_value=None)
+        db.fetchrow = AsyncMock()
+        db.fetchrow.side_effect = [
+            # 1. pending_row: 10,000 products, 5,000 club, 8,000 meal
+            {
+                "products_total": 10000, "products_count": 10,
+                "club_total": 5000, "club_count": 10,
+                "meal_total": 8000, "meal_count": 2,
+            },
+            # 2. club_stats
+            {"cumulative_gross": 20000, "total_subscriptions": 50},
+            # 3. meal_stats
+            {"cumulative_gross": 10000, "total_plans": 2},
+            # 4. infra_stats
+            {"current_month_burn": 3000},
+            # 5. unsettled_burn_row: 3,000 pending deductions
+            {"pending_burn": 3000},
+            # 6. lifetime_stats
+            {
+                "lt_products_gross": 10000, "lt_club_gross": 20000,
+                "lt_meal_gross": 10000, "lt_burn": 3000, "lt_paid": 0,
+            }
+        ]
+        db.fetch = AsyncMock(return_value=[])
+
+        request = MagicMock()
+        request.app = {"db": db}
+
+        resp = await get_pending_payout_stats(request)
+        self.assertEqual(resp.status, 200)
+
+        import json
+        data = json.loads(resp.text)
+
+        # Assertions on Stream A (Digital Products): Absorbs ALL 3,000 ETB burn
+        self.assertEqual(data["products_stream"]["gross"], 10000.0)
+        self.assertEqual(data["products_stream"]["deductions"], 3000.0)
+        self.assertEqual(data["products_stream"]["net"], 7000.0)
+        self.assertEqual(data["products_stream"]["coach_share"], 4900.0)  # 7,000 * 0.70
+        self.assertEqual(data["products_stream"]["dagmawi_share"], 2100.0)  # 7,000 * 0.30
+
+        # Assertions on Stream B (Transformation Club): ZERO deductions
+        self.assertEqual(data["club_stream"]["gross"], 5000.0)
+        self.assertEqual(data["club_stream"]["deductions"], 0.0)
+        self.assertEqual(data["club_stream"]["net"], 5000.0)
+        self.assertEqual(data["club_stream"]["coach_share"], 3000.0)  # 5,000 * 0.60
+        self.assertEqual(data["club_stream"]["dagmawi_share"], 2000.0)  # 5,000 * 0.40
+
+        # Assertions on Stream C (Meal Plan System): ZERO deductions
+        self.assertEqual(data["meal_stream"]["gross"], 8000.0)
+        self.assertEqual(data["meal_stream"]["deductions"], 0.0)
+        self.assertEqual(data["meal_stream"]["net"], 8000.0)
+        self.assertEqual(data["meal_stream"]["coach_share"], 4800.0)  # 8,000 * 0.60
+        self.assertEqual(data["meal_stream"]["dagmawi_share"], 3200.0)  # 8,000 * 0.40
+
+        # Total Distributable = 7,000 + 5,000 + 8,000 = 20,000 ETB
+        self.assertEqual(data["net_distributable"], 20000.0)
+        self.assertEqual(data["coach_total_payout"], 4900.0 + 3000.0 + 4800.0)
+        self.assertEqual(data["dagmawi_total_payout"], 2100.0 + 2000.0 + 3200.0)
+
     def test_payout_routes_registration(self):
         """Ensure setup_admin_routes registers the critical payout endpoints."""
         from api.api import setup_admin_routes

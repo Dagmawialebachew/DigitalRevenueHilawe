@@ -590,21 +590,14 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
         """, last_payout_ts)
         pending_deductions = Decimal(str(unsettled_burn_row['pending_burn']))
 
-        # 6. Pro-Rata Apportionment of Pending Deductions across 3 streams
-        if pending_gross_total > 0 and pending_deductions > 0:
-            prod_ratio = pending_products / pending_gross_total
-            club_ratio = pending_club / pending_gross_total
-            products_deductions = round(pending_deductions * prod_ratio, 2)
-            club_deductions = round(pending_deductions * club_ratio, 2)
-            meal_deductions = pending_deductions - products_deductions - club_deductions
-        else:
-            products_deductions = Decimal('0')
-            club_deductions = Decimal('0')
-            meal_deductions = Decimal('0')
+        # 6. Operational Deductions: 100% allocated strictly to Stream A (Digital Products)
+        products_deductions = round(pending_deductions, 2)
+        club_deductions = Decimal('0')
+        meal_deductions = Decimal('0')
 
         net_products = max(Decimal('0'), pending_products - products_deductions)
-        net_club = max(Decimal('0'), pending_club - club_deductions)
-        net_meal = max(Decimal('0'), pending_meal - meal_deductions)
+        net_club = pending_club
+        net_meal = pending_meal
 
         # 7. Exact Partner Splits (Products: 70/30 | Club: 60/40 or 65/35 | Meal Plan: 60/40 or 65/35)
         prod_coach_share = round(net_products * Decimal('0.70'), 2)
@@ -783,21 +776,14 @@ async def confirm_payout(request: web.Request) -> web.Response:
             meal_coach_rate = Decimal('0.65') if is_meal_mature else Decimal('0.60')
             meal_dag_rate = Decimal('0.35') if is_meal_mature else Decimal('0.40')
 
-            # Pro-rata deduction distribution across 3 streams
-            if total_gross > 0 and deductions > 0:
-                prod_weight = products_gross / total_gross
-                club_weight = club_gross / total_gross
-                prod_deduct = round(deductions * prod_weight, 2)
-                club_deduct = round(deductions * club_weight, 2)
-                meal_deduct = deductions - prod_deduct - club_deduct
-            else:
-                prod_deduct = Decimal('0')
-                club_deduct = Decimal('0')
-                meal_deduct = Decimal('0')
+            # Operational deductions are applied 100% to digital products (Stream A)
+            prod_deduct = round(deductions, 2)
+            club_deduct = Decimal('0')
+            meal_deduct = Decimal('0')
 
             net_products = max(Decimal('0'), products_gross - prod_deduct)
-            net_club = max(Decimal('0'), club_gross - club_deduct)
-            net_meal = max(Decimal('0'), meal_gross - meal_deduct)
+            net_club = club_gross
+            net_meal = meal_gross
 
             prod_coach_share = round(net_products * Decimal('0.70'), 2)
             prod_dag_share = net_products - prod_coach_share

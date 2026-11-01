@@ -40,7 +40,7 @@ FOOD_GLOSSARY: dict[str, tuple[str, str]] = {
     "P004": ("Kidney beans (Cooked)", "ቀይ ቦሎቄ (የበሰለ)"),
     "P005": ("White beans (Cooked)", "ነጭ ቦሎቄ (የበሰለ)"),
     "P006": ("Cooked split peas", "ክክ"),
-    "P007": ("Cooked ful / fava beans", "ፉል (የበሰለ ባቄላ)"),
+    "P007": ("Cooked ful / fava beans", "ፉል / ባቄላ (የበሰለ)"),
     "P008": ("Green peas (Cooked)", "አተር (የበሰለ)"),
     "P009": ("Dry soy chunks", "የሶያ ስጋ (ጥሬ)"),
     "P010": ("Firm tofu", "ቶፉ (የአኩሪ አተር አይብ)"),
@@ -209,6 +209,28 @@ CATEGORY_GLOSSARY: dict[str, tuple[str, str]] = {
     "Seeds / fat": ("Seeds & seed oils", "ጠቃሚ ዘሮች (ሰሊጥ፣ ተልባ)"),
     "Seasoning": ("Seasonings & salt", "ቅመማ ቅመም እና ጨው"),
     "Spice": ("Spices & Berbere", "ቅመሞች እና በርበሬ"),
+
+    # Retail Aisle Display Categories
+    "Fish & seafood": ("Fish & seafood", "ዓሣ እና የባህር ምግቦች"),
+    "Eggs": ("Eggs", "እንቁላል"),
+    "Dairy products": ("Dairy products", "የወተት ተዋጽኦዎች"),
+    "Dairy protein": ("Dairy protein", "የወተት ፕሮቲን"),
+    "Meat & poultry": ("Meat & poultry", "ስጋ እና የዶሮ ውጤቶች"),
+    "Lean animal protein": ("Meat & poultry", "ስጋ እና የዶሮ ውጤቶች"),
+    "Animal protein": ("Meat & poultry", "ስጋ እና የዶሮ ውጤቶች"),
+    "Legumes & plant protein": ("Legumes & plant protein", "ጥራጥሬዎች እና የዕፅዋት ፕሮቲን"),
+    "Grains & starches": ("Grains & starches", "እህሎች እና ካርቦሃይድሬት"),
+    "Root vegetables & tubers": ("Root vegetables & tubers", "ስራስር እና ድንች"),
+    "Vegetables": ("Vegetables", "አትክልቶች"),
+    "Fresh fruits": ("Fresh fruits", "ትኩስ ፍራፍሬዎች"),
+    "Dried fruits": ("Dried fruits", "የደረቁ ፍራፍሬዎች"),
+    "Healthy fat fruits": ("Healthy fat fruits", "ጤናማ ቅባት ያላቸው ፍራፍሬዎች"),
+    "Nuts & nut butters": ("Nuts & nut butters", "ለውዝ እና የለውዝ ቅቤ"),
+    "Plant-based milk": ("Plant-based milk", "የዕፅዋት ወተት"),
+    "Plant protein & soy": ("Plant protein & soy", "የአኩሪ አተር እና የዕፅዋት ፕሮቲን"),
+    "Added fat & oils": ("Added fat & oils", "ዘይት እና ቅባቶች"),
+    "Aromatics & seasonings": ("Aromatics & seasonings", "ቅመማ ቅመሞች እና ማጣፈጫዎች"),
+    "Condiments & sauces": ("Condiments & sauces", "ማባያዎች እና መረቆች"),
 }
 
 # ==========================================
@@ -405,6 +427,12 @@ def get_category_name(category: str, language: str = "EN") -> str:
     lang = "AM" if str(language).upper() == "AM" else "EN"
     norm = str(category or "").strip()
     pair = CATEGORY_GLOSSARY.get(norm)
+    if not pair:
+        norm_lower = norm.lower()
+        for k, v in CATEGORY_GLOSSARY.items():
+            if k.lower() == norm_lower:
+                pair = v
+                break
     if pair:
         return pair[1] if lang == "AM" else pair[0]
     return norm

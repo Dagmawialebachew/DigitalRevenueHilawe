@@ -22,6 +22,15 @@ class MacroTotals:
             self.fibre + other.fibre,
         )
 
+    def minus(self, other: "MacroTotals") -> "MacroTotals":
+        return MacroTotals(
+            max(0.0, self.kcal - other.kcal),
+            max(0.0, self.protein - other.protein),
+            max(0.0, self.carbs - other.carbs),
+            max(0.0, self.fat - other.fat),
+            max(0.0, self.fibre - other.fibre),
+        )
+
     def scale(self, factor: float) -> "MacroTotals":
         return MacroTotals(
             self.kcal * factor,

@@ -236,7 +236,19 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
         name_run = line.add_run(food_name)
         _set_run_font(name_run, size=9, bold=True, color=INK)
         detail = f"  {grams} {g_lbl}"
-        if familiar_raw:
+        if "tuna pasta" in food_name.lower() or item.get("recipe_id") == "R027":
+            familiar = "130g canned tuna + 350g cooked whole-wheat pasta" if not is_am else "130ግ የታሸገ ቱና + 350ግ የበሰለ ፓስታ"
+            detail += f"  ·  {familiar}"
+        elif "avocado toast" in food_name.lower() or item.get("recipe_id") == "R028":
+            familiar = "2 whole eggs + 2 slices bread + 0.5 avocado" if not is_am else "2 እንቁላል + 2 ስላይስ ዳቦ + ግማሽ አቮካዶ"
+            detail += f"  ·  {familiar}"
+        elif "chicken rice bowl" in food_name.lower() or item.get("recipe_id") == "R026":
+            familiar = "150g cooked chicken breast + 300g cooked rice" if not is_am else "150ግ የበሰለ የዶሮ ስጋ + 300ግ የበሰለ ሩዝ"
+            detail += f"  ·  {familiar}"
+        elif "lentil rice bowl" in food_name.lower() or item.get("recipe_id") == "R025":
+            familiar = "250g cooked lentils + 350g cooked brown rice" if not is_am else "250ግ የበሰለ ምስር + 350ግ የበሰለ ቡናማ ሩዝ"
+            detail += f"  ·  {familiar}"
+        elif familiar_raw:
             if is_am:
                 from meal_plan.generation.formatting import familiar_portion
                 familiar = familiar_portion(1.0, familiar_raw, language="AM")
@@ -535,9 +547,23 @@ def _grocery(doc: Document, plan: dict[str, Any], language: str) -> None:
         else:
             p_val = f"{rounded(row.get('planned_grams'))} {g_lbl}"
             b_val = local_purchase_quantity(str(row.get("purchase_quantity") or ""), language)
+        item_name = local_food_name(fid, str(row.get("buy_item") or ""), language)
+        raw_qty = str(row.get("purchase_quantity") or "")
+        if "dry" in raw_qty.lower() or "ጥሬ" in raw_qty:
+            if "(Dry)" in item_name:
+                item_name = item_name.replace("(Dry)", "(Cooked)")
+            elif "(ጥሬ)" in item_name:
+                item_name = item_name.replace("(ጥሬ)", "(የበሰለ)")
+
+        cat_name = local_category_name(str(row.get("category") or ""), language)
+        if "plant" in cat_name.lower() and "milk" in cat_name.lower():
+            cat_name = "Plant-based milk" if language != "AM" else "የዕፅዋት ወተት"
+        elif "soy" in cat_name.lower() or "say" in cat_name.lower():
+            cat_name = "Plant protein & soy" if language != "AM" else "የጾም ውጤቶች"
+
         values = [
-            local_food_name(fid, str(row.get("buy_item") or ""), language),
-            local_category_name(str(row.get("category") or ""), language),
+            item_name,
+            cat_name,
             p_val,
             b_val,
         ]

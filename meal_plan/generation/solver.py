@@ -161,11 +161,12 @@ class DaySolver:
         }
         if target["protein"] <= 155.0 and scalable_base.protein > 0:
             if fasting:
-                # On fasting days, all protein is plant protein (lentils/tofu); scale to hit protein directly
+                # On fasting days, scale to meet protein target while constrained by remaining calories
                 prot_scale = remaining_target["protein"] / scalable_base.protein
-                scale = max(1.10, min(1.22, prot_scale)) if target["kcal"] >= 2800 else max(0.82, min(1.08, prot_scale))
+                kcal_scale = remaining_target["kcal"] / scalable_base.kcal
+                scale = min(kcal_scale, prot_scale)
+                scale = max(0.90, min(1.35, scale))
             else:
-                # On omnivore days, dynamic plant protein estimation prevents over-scaling heavy meat/grain days
                 if target["kcal"] >= 2800:
                     if fixed_macros.protein == 0:
                         plant_protein_est = 14.0
@@ -177,14 +178,24 @@ class DaySolver:
                         prot_scale = target_scalable_prot / scalable_base.protein
                         scale = max(0.64, min(0.82, prot_scale))
                 else:
-                    plant_protein_est = 20.0 if scalable_base.protein >= 100.0 else 14.0
+                    plant_protein_est = 8.0 if scalable_base.protein >= 100.0 else 5.0
                     target_scalable_prot = max(20.0, target["protein"] - fixed_macros.protein - plant_protein_est)
                     prot_scale = target_scalable_prot / scalable_base.protein
-                    scale = max(0.74, min(1.10, prot_scale))
+                    kcal_scale = remaining_target["kcal"] / scalable_base.kcal
+                    scale = min(kcal_scale, prot_scale)
+                    scale = max(0.80, min(1.18, scale))
         elif scalable_base.kcal > 0:
             scale = max(0.80, min(1.20, remaining_target["kcal"] / scalable_base.kcal))
         else:
             scale = 1.0
+
+        # Hard Calorie Deficit Guard on WEIGHT_LOSS / FAT_LOSS:
+        # Scale must never push the day beyond the target calorie ceiling
+        primary_goal = str(self.answers.get("primary_goal") or "").upper()
+        is_weight_loss = "LOSS" in primary_goal or "CUT" in primary_goal
+        if is_weight_loss and scalable_base.kcal > 0:
+            max_scale_by_kcal = remaining_target["kcal"] / scalable_base.kcal
+            scale = min(scale, max(0.70, max_scale_by_kcal))
 
         fixed_slots = {spec.label for spec, t in selected if str(t.get("Template ID")) in ("MN-B02", "MF-B02", "MN-S-SHAKE", "MN-B07") or spec.source_slot == "Breakfast"}
         extras: dict[str, list[dict[str, float]]] = {spec.label: [] for spec, _ in selected}
@@ -266,6 +277,10 @@ class DaySolver:
                 mass_by_slot[spec.label] += amount
                 if str(c.get("Item Type")) == "Food":
                     fid = str(c.get("Item ID"))
+                    if is_weight_loss and fid == "C001":
+                        amount = min(amount, 120.0)
+                    if fid == "A011" and target["protein"] >= 130.0 and spec.source_slot == "Breakfast":
+                        amount = max(amount, 150.0)
                     if is_save:
                         if fid == "T001": fid = "T002"
                     else:
@@ -320,7 +335,11 @@ class DaySolver:
             upper_protein = 153.0 if target["kcal"] >= 2800 else 150.0
         else:
             upper_protein = target["protein"] * 1.10
-        upper = {"kcal": target["kcal"] * 1.03, "protein": upper_protein, "carbs": target["carbs"] * 1.15, "fat": target["fat"] * 1.15}
+        upper_carbs = target["carbs"] * 1.65 if fasting else (target["carbs"] * 1.08 if is_weight_loss else target["carbs"] * 1.15)
+        if is_weight_loss:
+            upper = {"kcal": target["kcal"] * 1.02, "protein": upper_protein, "carbs": upper_carbs, "fat": target["fat"] * 1.06}
+        else:
+            upper = {"kcal": target["kcal"] * 1.03, "protein": upper_protein, "carbs": upper_carbs, "fat": target["fat"] * 1.15}
 
         def candidate(fid: str, cap: float, daily_cap: float = math.inf) -> dict[str, float | str]:
             return {"id": fid, "cap": cap, "daily_cap": daily_cap}
@@ -409,13 +428,17 @@ class DaySolver:
                 # Breakfast: ONLY Peanut Butter (T004), Peanuts (T003), Soy milk (P014), or Tofu (P010).
                 # NEVER inject Ful (P007) or Shiro powder (P012) into breakfast bowls.
                 if spec.source_slot == "Breakfast":
-                    return [candidate("P014", 250), candidate("T004", 30), candidate("T003", 30), candidate("P010", 150)]
+                    return [candidate("P014", 250), candidate("T004", 15), candidate("T003", 25), candidate("P010", 150)]
                 if spec.source_slot == "Snack":
-                    return [candidate("P013", 40), candidate("T003", 30), candidate("T004", 30), candidate("P014", 250)]
+                    return [candidate("P013", 40), candidate("P014", 250), candidate("T003", 25), candidate("T004", 20)]
                 
                 # Lunch / Dinner stews & dishes:
-                # Scale lentils/tofu. NEVER inject Shiro powder (P012) or Peanut Butter (T004).
-                base = [candidate("P001", 180), candidate("P010", 150), candidate("P009", 50)]
+                # If the dish is already a traditional stew (Shiro R001, Misir R002, Kik Alicha R003, Dinich R007),
+                # NEVER stack loose plain boiled lentils (P001) or loose boiled ful (P007) on top!
+                if stew:
+                    # Provide clean plant protein side (Soya chunks P009 or Tofu P010)
+                    return [candidate("P009", 50), candidate("P010", 150)]
+                base = [candidate("P009", 50), candidate("P010", 150), candidate("P001", 220), candidate("P007", 200), candidate("P002", 200)]
                 if spec.label in fish_slots:
                     return [candidate("A007", 180), candidate("A020", 180)] + base
                 return base
@@ -542,14 +565,9 @@ class DaySolver:
             elif spec.source_slot == "Snack":
                 fat_candidates[spec.label] = [candidate("T004", 30)] if "T004" in food_by_slot[spec.label] else [candidate("T003", 25)]
             elif stew:
-                # Traditional savory stews: strictly restricted to cooking oils / kibbeh
-                if is_save_budget:
-                    fat_candidates[spec.label] = [candidate("T002", 14)]
-                else:
-                    stew_fats = [candidate("T001", 14)]
-                    if not plant_based:
-                        stew_fats.append(candidate("T012", 12))  # Niter kibbeh
-                    fat_candidates[spec.label] = stew_fats
+                # Traditional savory stews already contain oil/kibbeh in recipe formulation;
+                # NEVER inject extra loose cooking oil into cooked stews (prevents calorie/fat overshoot).
+                fat_candidates[spec.label] = []
             else:
                 # Other savory lunch/dinner
                 if is_save_budget:
@@ -583,7 +601,7 @@ class DaySolver:
             if fid == "V020" and daily_used("V020") >= 100.0: return 0.0
             if is_small_frame and macro == "protein" and totals["protein"] >= 105.0: return 0.0
             if not is_small_frame and target["protein"] <= 150.0 and fid.startswith(("A", "P")):
-                prot_cutoff = target["protein"] * 0.98 if fasting else target["protein"] * 0.86
+                prot_cutoff = target["protein"] * 0.98
                 if totals["protein"] >= prot_cutoff:
                     return 0.0
             food = self.foods.get(fid)
@@ -601,7 +619,10 @@ class DaySolver:
             grams = min(grams, (target["kcal"]*slot_specs[slot].kcal_cap_fraction-meal_state[slot]["kcal"]) / max(0.01,per_total.kcal))
             for key in ("kcal","protein","carbs","fat"):
                 p = getattr(per_total,key)
-                if p > 0: grams = min(grams,(upper[key]-totals[key])/p)
+                if p > 0:
+                    if fasting and macro == "protein" and key == "carbs":
+                        continue
+                    grams = min(grams,(upper[key]-totals[key])/p)
             if not math.isfinite(grams) or grams < minimum_addition(fid): return 0.0
             grams = max(0.0, grams)
             found = next((x for x in extras[slot] if x["id"]==fid),None)

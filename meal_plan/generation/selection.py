@@ -71,18 +71,32 @@ class TemplateSelector:
                     continue
 
             is_tmpl_fasting = str(template.get("Fasting")) == "Yes"
+            is_orthodox_fast = str(self.answers.get("orthodox_fasting") or "").upper() in ("WED_FRI", "LENT", "ALL_FASTS", "YES")
+            primary_goal = str(self.answers.get("primary_goal") or "").upper()
+            is_weight_loss = "LOSS" in primary_goal or "CUT" in primary_goal
+
             if fasting:
                 if not is_tmpl_fasting:
                     continue
+                # Strict Ethiopian Orthodox fasting: completely abstain from all fish (ዓሣ)
+                if is_orthodox_fast and str(template.get("Fish Required")) == "Yes":
+                    continue
+
             allow_for_omnivore = False
             if not fasting and is_tmpl_fasting:
                 if is_international:
                     # In international mode, non-fasting omnivore days stick to animal protein staples
                     continue
-                elif dietary == "OMNIVORE" and source_slot in ("Lunch", "Dinner") and tid in ("MF-L01", "MF-L02", "MF-L03", "MF-L07", "MF-D01", "MF-D04", "MF-D07"):
-                    allow_for_omnivore = True
-                elif dietary == "OMNIVORE" and source_slot == "Breakfast" and tid in ("MF-B01", "MF-B02", "MF-B07"):
-                    allow_for_omnivore = True
+                elif dietary == "OMNIVORE":
+                    # On weight-loss / fat-loss cutting days, ban low-protein vegan dinner (Shiro)
+                    if is_weight_loss and source_slot == "Dinner":
+                        continue
+                    if source_slot in ("Lunch", "Dinner") and tid in ("MF-L01", "MF-L02", "MF-L03", "MF-L07", "MF-D01", "MF-D04", "MF-D07"):
+                        allow_for_omnivore = True
+                    elif source_slot == "Breakfast" and tid in ("MF-B01", "MF-B02", "MF-B07"):
+                        allow_for_omnivore = True
+                    else:
+                        continue
                 elif dietary in ("VEGETARIAN", "PESCATARIAN"):
                     allow_for_omnivore = True
                 else:
@@ -296,6 +310,9 @@ class TemplateSelector:
 
                     comps = self.dataset.components_by_template.get(tid, [])
                     recipe_ids = {str(c.get("Item ID")) for c in comps if str(c.get("Item Type")) == "Recipe"}
+                    if fasting:
+                        if tid in ("MF-D03", "MF-L05", "MF-D06", "MF-L04"):
+                            score += 65.0
                     if "R024" in recipe_ids or tid == "MN-D05":
                         score += 45.0
                     elif any(r in recipe_ids for r in ("R014", "R015")) or tid in ("MN-D01", "MF-D05"):
