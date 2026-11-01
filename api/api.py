@@ -493,7 +493,7 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
           * Initial Stage (< 100,000 ETB cumulative gross): 60% Coach / 40% Dagmawi
           * Mature Stage (>= 100,000 ETB cumulative gross): 65% Coach / 35% Dagmawi
       - Infrastructure Cap: 5,000 ETB/month (Section 5.1)
-      - Apportionment: Pro-rata deduction across active streams
+      - Settlement: Deductions applied to digital product sales
     """
     db = request.app["db"]
     try:

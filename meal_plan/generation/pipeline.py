@@ -14,6 +14,7 @@ from database.db import Database
 from meal_plan.documents import DocumentContext, render_plan_artifacts
 from meal_plan.generation.db_dataset import load_dataset_from_db
 from meal_plan.generation.engine import generate_plan
+from meal_plan.generation.linter import MealPlanLinter
 from meal_plan.followup_policy import apply_revision_payload
 from meal_plan.review_card import review_card_text, review_keyboard
 from meal_plan.review_repository import MealPlanReviewRepository
@@ -120,6 +121,15 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     if revision_context:
         plan["revision_context"] = revision_context
 
+    # Pre-Flight Programmatic Quality Linting (Pillar 2 Architecture)
+    linter = MealPlanLinter(strict=True)
+    lint_report = linter.lint_plan(plan, answers=answers, nutrition_profile=nutrition_profile)
+    plan["lint_report"] = lint_report.to_dict()
+    logger.info(
+        "Order #%s pre-flight linting result: score=%.1f/10.0, passed=%s, errors=%d, warnings=%d",
+        order_id, lint_report.score, lint_report.passed, lint_report.errors_count, lint_report.warnings_count
+    )
+
     # 75% - GROCERIES
     await review_repo.set_job_stage(job["id"], "GROCERIES")
     await update_job_progress(
@@ -158,6 +168,15 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
         hydration_target_l=nutrition_profile.get("hydration_target_l"),
     )
     artifacts = render_plan_artifacts(plan, doc_context)
+
+    # Verify physical page budget on generated PDF
+    if artifacts.pdf and artifacts.pdf.path:
+        page_findings = []
+        linter._audit_physical_page_budget(plan, artifacts.pdf.path, page_findings)
+        if any(f.severity.value == "ERROR" for f in page_findings):
+            for pf in page_findings:
+                logger.error("Physical print budget violation for order #%s: %s", order_id, pf.message)
+
     for artifact in (artifacts.docx, artifacts.pdf):
         await review_repo.store_artifact(
             version["id"],

@@ -31,6 +31,18 @@ def template_macros(t: dict[str, Any]) -> MacroTotals:
     return MacroTotals(n(t.get("kcal")), n(t.get("Protein g")), n(t.get("Carbs g")), n(t.get("Fat g")), n(t.get("Fibre g")))
 
 
+def recipe_macros(recipe: dict[str, Any], grams: float) -> MacroTotals:
+    std_g = n(recipe.get("Serving g") or recipe.get("Standard Portion g") or recipe.get("Yield g") or 250.0)
+    scale = grams / std_g if std_g > 0 else 1.0
+    return MacroTotals(
+        n(recipe.get("kcal / Serving") or recipe.get("kcal")) * scale,
+        n(recipe.get("Protein g") or recipe.get("protein_g")) * scale,
+        n(recipe.get("Carbs g") or recipe.get("carbs_g")) * scale,
+        n(recipe.get("Fat g") or recipe.get("fat_g")) * scale,
+        n(recipe.get("Fibre g") or recipe.get("fibre_g")) * scale,
+    )
+
+
 def practical_group(food_id: str) -> str:
     if food_id.startswith("F") and food_id[1:].isdigit(): return "fruit"
     if food_id in {"C003", "C004"}: return "rice"
