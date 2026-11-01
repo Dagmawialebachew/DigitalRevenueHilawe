@@ -13,8 +13,9 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
+from meal_plan.generation.feedback_store import FeedbackStore, get_feedback_store
 from meal_plan.generation.safety import ALLERGY_TERMS, DISLIKE_TERMS, profile_exclusion_terms
 
 
@@ -67,8 +68,9 @@ class LintReport:
 class MealPlanLinter:
     """10-Point Programmatic Pre-Flight Meal Plan Auditor."""
 
-    def __init__(self, strict: bool = True):
+    def __init__(self, strict: bool = True, feedback_store: Optional[FeedbackStore] = None):
         self.strict = strict
+        self.feedback_store = feedback_store or get_feedback_store()
 
     def lint_plan(
         self,
@@ -340,35 +342,54 @@ class MealPlanLinter:
         findings: list[LintFinding],
     ) -> float:
         score = 1.0
-        legume_stew_rids = {"R001", "R002", "R003"}  # Kik, Misir, Shiro
+        forbidden_rules = self.feedback_store.get_forbidden_pairings() if hasattr(self, "feedback_store") else []
+        portion_caps = self.feedback_store.get_portion_caps() if hasattr(self, "feedback_store") else {"C020": 40.0}
+        legume_stew_rids = {"R001", "R002", "R003"}  # Kik, Misir, Shiro baseline
 
         for day in core_week:
             day_name = day.get("day_name", "Unknown Day")
             for meal in day.get("meals", []):
                 slot = meal.get("slot", "Meal")
                 items = meal.get("items", [])
-                
-                has_legume_stew = any(it.get("recipe_id") in legume_stew_rids for it in items)
-                loose_legumes = [it for it in items if it.get("food_id") in ("P001", "P007")]
+                active_ids = {it.get("recipe_id") for it in items if it.get("recipe_id")} | {it.get("food_id") for it in items if it.get("food_id")}
 
-                if has_legume_stew and loose_legumes:
-                    for ll in loose_legumes:
-                        findings.append(LintFinding(
-                            "RULE_5", "Legume & Carb Realism", LintSeverity.ERROR,
-                            f"Duplicate loose legume '{ll.get('food_name')}' stacked on composite stew in {day_name} {slot}",
-                            {"day": day_name, "slot": slot, "loose_legume": ll.get("food_name")}
-                        ))
-                        score = max(0.0, score - 0.25)
+                # 1. Dynamic pairing exclusion checks from Feedback Catalog
+                for rule in forbidden_rules:
+                    if rule["primary_ids"].intersection(active_ids):
+                        bad_items = [it for it in items if it.get("food_id") in rule["forbidden_secondary_ids"] or it.get("recipe_id") in rule["forbidden_secondary_ids"]]
+                        for bi in bad_items:
+                            sev = LintSeverity.ERROR if rule.get("severity") == "ERROR" else LintSeverity.WARNING
+                            findings.append(LintFinding(
+                                "RULE_5", "Legume & Carb Realism", sev,
+                                f"Forbidden pairing '{bi.get('food_name')}' stacked on composite stew ({rule.get('name')}) in {day_name} {slot}",
+                                {"day": day_name, "slot": slot, "item": bi.get("food_name"), "rule_id": rule.get("rule_id")}
+                            ))
+                            score = max(0.0, score - 0.25)
 
-                # Check rice cakes portion cap: <= 4 cakes (40g)
-                for it in items:
-                    if it.get("food_id") == "C020":
-                        g = float(it.get("grams") or 0.0)
-                        if g > 40.0:
+                # Fallback baseline check for composite legume stews
+                if not forbidden_rules:
+                    has_legume_stew = any(it.get("recipe_id") in legume_stew_rids for it in items)
+                    loose_legumes = [it for it in items if it.get("food_id") in ("P001", "P007")]
+                    if has_legume_stew and loose_legumes:
+                        for ll in loose_legumes:
                             findings.append(LintFinding(
                                 "RULE_5", "Legume & Carb Realism", LintSeverity.ERROR,
-                                f"Rice cakes portion {g:.0f}g exceeds safety cap of 40g (4 thin cakes) in {day_name} {slot}",
-                                {"day": day_name, "slot": slot, "grams": g}
+                                f"Duplicate loose legume '{ll.get('food_name')}' stacked on composite stew in {day_name} {slot}",
+                                {"day": day_name, "slot": slot, "loose_legume": ll.get("food_name")}
+                            ))
+                            score = max(0.0, score - 0.25)
+
+                # 2. Dynamic portion caps checks from Feedback Catalog
+                for it in items:
+                    fid = it.get("food_id")
+                    if fid in portion_caps:
+                        g = float(it.get("grams") or 0.0)
+                        max_g = portion_caps[fid]
+                        if g > max_g:
+                            findings.append(LintFinding(
+                                "RULE_5", "Legume & Carb Realism", LintSeverity.ERROR,
+                                f"Portion for '{it.get('food_name')}' ({g:.0f}g) exceeds safety cap of {max_g:.0f}g in {day_name} {slot}",
+                                {"day": day_name, "slot": slot, "food_id": fid, "grams": g, "cap": max_g}
                             ))
                             score = max(0.0, score - 0.3)
 

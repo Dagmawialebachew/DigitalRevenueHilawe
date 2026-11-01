@@ -49,7 +49,19 @@ def review_card_text(version: Any) -> str:
     warning_line = "None" if not warnings and not uncal else f"{len(warnings)} practical · {len(uncal)} recipe calibration"
     lint = dict(plan.get("lint_report") or {})
     audit_score = lint.get("score")
-    audit_line = f"\n🛡️ Pre-Flight Audit: <b>{float(audit_score):.1f}/10.0</b> ({'✅ PASSED' if lint.get('passed') else '⚠️ CHECK'})" if audit_score is not None else ""
+    check_line = ""
+    if audit_score is not None:
+        check_status = "Passed" if lint.get("passed") else "Needs review"
+        check_line = f"\n✅ Quality Check: <b>{float(audit_score):.1f}/10</b> ({check_status})"
+
+    ai_audit = dict(plan.get("ai_audit") or {})
+    ai_line = ""
+    if ai_audit:
+        ai_briefing = str(ai_audit.get("coach_briefing") or "").strip()
+        if ai_briefing:
+            ai_line = f"\n🤖 AI Coach: <b>Approved</b> · <i>{html.escape(ai_briefing)}</i>"
+        else:
+            ai_line = "\n🤖 AI Coach: <b>Approved</b>"
     return (
         "🥗 <b>HILAWE MEAL PLAN · COACH REVIEW</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
@@ -64,7 +76,7 @@ def review_card_text(version: Any) -> str:
         f"🎯 Goal: <b>{html.escape(str(profile.get('goal') or '—'))}</b>\n"
         f"🔥 Target: <b>{targets.get('target_kcal', '—')} kcal</b>\n"
         f"🥩 Protein: <b>{targets.get('protein_g', '—')} g</b> · 🍚 Carbs: <b>{targets.get('carbs_g', '—')} g</b> · 🥑 Fat: <b>{targets.get('fat_g', '—')} g</b>\n"
-        f"⚕️ Review flags: <b>{html.escape(warning_line)}</b>{audit_line}\n"
+        f"⚕️ Review flags: <b>{html.escape(warning_line)}</b>{check_line}{ai_line}\n"
         f"⚙️ Engine: <code>{html.escape(str(version.get('engine_version') or '—'))}</code>\n"
         f"🗃 Dataset: <code>{html.escape(str(version.get('dataset_version') or '—'))}</code>"
         f"{override_note}{revision_note}\n"

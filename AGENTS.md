@@ -30,3 +30,13 @@ Every session in this repository **MUST** actively maintain and update `session-
 - Rice cakes (`C020`) must never exceed 4 cakes (35–40 g) per meal to prevent gastric distension.
 - Grocery procurement must contain all 41 commodities with standardized retail packaging (`1 carton 10–12 eggs`, `1 bottle 500ml oil`, `1 fresh loaf sourdough`, etc.).
 - Never output raw unstyled markdown text dumps for client deliverable requests.
+
+---
+
+## 3. Communication & Language Rules: "Stay Easy Bro" (Zero Robotic AI Jargon)
+- **Forever Memory Directive:** NEVER use robotic, pretentious, or overly academic AI jargon (e.g. *"pre-flight programmatic linter"*, *"semantic RAG auditor"*, *"adherence friction matrix"*, *"programmatic telemetry"*).
+- Always keep communication, progress bars, review cards, and explanations simple, natural, friendly, and human:
+  - Instead of *"Pre-Flight Audit"* / *"Linter"* ➔ use **"Quality Check"** or **"Plan Check"**.
+  - Instead of *"Semantic RAG Audit"* ➔ use **"AI Coach Review"** or **"Coach Check"**.
+  - Instead of clinical academic jargon in UI/Telegram cards, use clean everyday language (*"Checking meals & fasting balance"*, *"All balanced and clean"*).
+- When talking to the user, stay chill, straightforward, and easy-going. No buzzword soup.

@@ -83,8 +83,8 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     await review_repo.set_job_stage(job["id"], "FOOD_MATCHING")
     await update_job_progress(
         bot, context, client_name, order_id, 25,
-        "🥗 Exploring & Matching Foods",
-        "Selecting optimal nutrition templates and candidate foods..."
+        "🥗 Matching Foods",
+        "Picking balanced meal templates and local Ethiopian staples..."
     )
 
     pool = getattr(db, "_pool", None)
@@ -105,8 +105,8 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     await review_repo.set_job_stage(job["id"], "WEEK_STRUCTURE")
     await update_job_progress(
         bot, context, client_name, order_id, 50,
-        "📅 Structuring 7-Day Week & Fasting",
-        "Balancing meal portions, macro targets, and Orthodox fasting rules..."
+        "📅 Setting Up 7-Day Plan",
+        "Balancing portions and Orthodox fasting days..."
     )
     plan = generate_plan(
         answers=answers,
@@ -121,21 +121,48 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     if revision_context:
         plan["revision_context"] = revision_context
 
-    # Pre-Flight Programmatic Quality Linting (Pillar 2 Architecture)
+    # Quality Check
     linter = MealPlanLinter(strict=True)
     lint_report = linter.lint_plan(plan, answers=answers, nutrition_profile=nutrition_profile)
     plan["lint_report"] = lint_report.to_dict()
     logger.info(
-        "Order #%s pre-flight linting result: score=%.1f/10.0, passed=%s, errors=%d, warnings=%d",
+        "Order #%s quality check result: score=%.1f/10.0, passed=%s, errors=%d, warnings=%d",
         order_id, lint_report.score, lint_report.passed, lint_report.errors_count, lint_report.warnings_count
     )
 
-    # 75% - GROCERIES
+    # 65% - AI_COACH_REVIEW
+    await review_repo.set_job_stage(job["id"], "AI_COACH_REVIEW")
+    await update_job_progress(
+        bot, context, client_name, order_id, 65,
+        "🤖 AI Coach Review",
+        "Checking meal balance, food variety, and fasting days..."
+    )
+    try:
+        import asyncio
+        from dataclasses import asdict
+        from meal_plan.ai.gemini_coach import get_gemini_coach
+
+        coach = get_gemini_coach()
+        if coach.is_available():
+            loop = asyncio.get_running_loop()
+            ai_res = await asyncio.wait_for(
+                loop.run_in_executor(None, coach.audit_plan_semantics, plan, answers, nutrition_profile),
+                timeout=15.0
+            )
+            if hasattr(ai_res, "__dataclass_fields__"):
+                plan["ai_audit"] = asdict(ai_res)
+            elif isinstance(ai_res, dict):
+                plan["ai_audit"] = ai_res
+            logger.info("Order #%s AI review complete: score=%.1f", order_id, getattr(ai_res, "score", 0))
+    except Exception as exc:
+        logger.warning("Order #%s AI review skipped gracefully: %s", order_id, exc)
+
+    # 80% - GROCERIES
     await review_repo.set_job_stage(job["id"], "GROCERIES")
     await update_job_progress(
-        bot, context, client_name, order_id, 75,
-        "🛒 Aggregating Groceries & Unpacking",
-        "Unpacking composite recipes and calculating weekly shopping commodities..."
+        bot, context, client_name, order_id, 80,
+        "🛒 Grocery List",
+        "Calculating weekly grocery items and packaging..."
     )
 
     version = await review_repo.create_generated_version(
@@ -151,8 +178,8 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     await review_repo.set_job_stage(job["id"], "DOCUMENTS")
     await update_job_progress(
         bot, context, client_name, order_id, 90,
-        "📄 Compiling High-Def 15-Page PDF",
-        "Rendering certified typography, layout tables, and client DOCX..."
+        "📄 Creating 15-Page PDF",
+        "Rendering clean layout, tables, and printable guide..."
     )
     plan_public_id = f"MP-{context['order_id']:06d}"
     doc_context = DocumentContext(
@@ -220,7 +247,7 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
     # Update progress card to 100% Complete in place
     await update_job_progress(
         bot, context, client_name, order_id, 100,
-        "🏅 Generation Complete · Delivered to Group",
-        "Official review packet with certified 15-page PDF & DOCX posted."
+        "🎉 Ready for Coach Review",
+        "Quality check passed · Plan ready in Coach Review Group"
     )
     return version["id"]

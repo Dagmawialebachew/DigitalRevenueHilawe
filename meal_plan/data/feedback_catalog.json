@@ -1,0 +1,200 @@
+{
+  "catalog_version": "1.0.0",
+  "updated_at": "2026-11-01T12:05:43.029149+00:00",
+  "description": "Canonical Coach Boss Feedback Catalog and Dynamic Rule Repository. Contains persistent clinical, culinary, and physical print rules.",
+  "rules": [
+    {
+      "id": "RULE_PORTION_CAP_RICE_CAKES",
+      "type": "portion_cap",
+      "name": "Rice Cake Maximum Portion Cap",
+      "description": "Rice cakes (C020) must never exceed 4 cakes (35-40g) per meal to prevent gastric distension and volumetric bloat.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR",
+      "target_type": "food",
+      "target_id": "C020",
+      "max_grams": 40.0,
+      "enforced_familiar": "4 cakes (35-40g)",
+      "applies_to": "all"
+    },
+    {
+      "id": "RULE_PAIRING_EXCLUDE_LEGUME_STACKING",
+      "type": "pairing_exclusion",
+      "name": "No Plain Legume Stacking on Traditional Stews",
+      "description": "When composite legume stews (Shiro R001, Misir Wot R002, Kik Alicha R003) are planned, forbid plain boiled lentils (P001) or boiled ful (P007) in the same meal.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR",
+      "primary_ids": [
+        "R001",
+        "R002",
+        "R003"
+      ],
+      "forbidden_secondary_ids": [
+        "P001",
+        "P007"
+      ],
+      "action": "remove_secondary"
+    },
+    {
+      "id": "RULE_INJERA_MOD_60_STANDARDIZATION",
+      "type": "portion_discrete",
+      "name": "Injera Portions Strict 60g Increments",
+      "description": "Every single Injera (C001) portion across all 7 days must be strictly locked to clean multiples of 60g (60g, 120g, 180g, 240g) with matched Amharic familiar measure.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR",
+      "target_id": "C001",
+      "allowed_multiples_of": 60.0,
+      "min_grams": 60.0,
+      "max_grams": 240.0,
+      "familiar_map": {
+        "60": "ግማሽ እንጀራ",
+        "120": "1 እንጀራ",
+        "180": "1 ከግማሽ እንጀራ",
+        "240": "2 እንጀራ"
+      }
+    },
+    {
+      "id": "RULE_FAMILIAR_MEASURE_SOYA_CHUNKS",
+      "type": "familiar_override",
+      "name": "Soya Chunks Standard Household Measure",
+      "description": "Dry soy chunks (P009) must consistently display 'በግምት 1 ከግማሽ ሲኒ የተዘፈቀ' as familiar household measure to prevent raw/soaked dry weight confusion.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "WARNING",
+      "target_id": "P009",
+      "familiar_text": "በግምት 1 ከግማሽ ሲኒ የተዘፈቀ"
+    },
+    {
+      "id": "RULE_STEW_PORTION_STANDARDIZATION",
+      "type": "portion_standard",
+      "name": "Traditional Stew Standard Portions",
+      "description": "Traditional stews must use standard cultural ladle portions: Atkilt Wot (R004) -> 80g; Misir Wot (R002) -> 200g; Ful (R018, R025) -> 220g.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "WARNING",
+      "standards": {
+        "R004": {
+          "grams": 80.0,
+          "familiar": "ሲሶ / 1/3 መካከለኛ ጭልፋ"
+        },
+        "R002": {
+          "grams": 200.0,
+          "familiar": "1 መካከለኛ ጭልፋ"
+        },
+        "R018": {
+          "grams": 220.0,
+          "familiar": "1 መካከለኛ ሳህን"
+        },
+        "R025": {
+          "grams": 220.0,
+          "familiar": "1 መካከለኛ ሳህን"
+        },
+        "ful": {
+          "match_name": "ful",
+          "grams": 220.0,
+          "familiar": "1 መካከለኛ ሳህን"
+        }
+      }
+    },
+    {
+      "id": "RULE_FASTING_BREAKFAST_LIQUID_BALANCE",
+      "type": "breakfast_balance",
+      "name": "Fasting Breakfast Oats Liquid Balance",
+      "description": "When fasting breakfast contains Oats (C007) and Peanut Butter (T004): cap PB to 12g (cutting) or 15g (balanced); cap Oats to 40g (cutting) or 50g (balanced); inject Soy Milk (P014) at 200g/250g.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "WARNING",
+      "pb_cap_cutting": 12.0,
+      "pb_cap_balanced": 15.0,
+      "oats_cap_cutting": 40.0,
+      "oats_cap_balanced": 50.0,
+      "soymilk_grams_cutting": 200.0,
+      "soymilk_grams_balanced": 250.0
+    },
+    {
+      "id": "RULE_NO_LOOSE_OIL_ON_RICH_STEWS",
+      "type": "pairing_exclusion",
+      "name": "No Loose Oil on Oil-Rich Stews",
+      "description": "Key Wot (R020), Minchet Abish (R023), and rich stews already contain ample cooking oil. Forbid adding loose cooking oil (T001) to these meals.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR",
+      "primary_ids": [
+        "R007",
+        "R008",
+        "R020",
+        "R023"
+      ],
+      "forbidden_secondary_ids": [
+        "T001"
+      ],
+      "action": "remove_secondary"
+    },
+    {
+      "id": "RULE_BREAKFAST_OIL_CAP",
+      "type": "portion_cap",
+      "name": "Breakfast Cooking Oil Maximum Cap",
+      "description": "Breakfast cooking oil (T001) cannot exceed 15g to avoid excessive early morning fat saturation.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "WARNING",
+      "target_id": "T001",
+      "meal_slots": [
+        "Breakfast"
+      ],
+      "max_grams": 15.0
+    },
+    {
+      "id": "RULE_FASTING_PROTEIN_FLOOR_PERCENT",
+      "type": "target_floor",
+      "name": "Proportional Fasting Day Protein Floor",
+      "description": "On fasting days, daily protein must achieve at least 78% of target protein (or 135g for hardgainers >= 2800 kcal).",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR",
+      "fasting_target_ratio": 0.78,
+      "hardgainer_min_grams": 135.0,
+      "regular_min_grams": 90.0
+    },
+    {
+      "id": "RULE_TYPOGRAPHY_NO_NESTED_PARENS",
+      "type": "typography",
+      "name": "Zero Nested Parentheses in Rendered Text",
+      "description": "Prevent visual formatting glitches such as double parentheses ((...)) or (በግምት ... (በግምት ...)) across all meal item familiar descriptions.",
+      "author": "Coach Hilawe",
+      "created_at": "2026-11-01T10:00:00Z",
+      "is_active": true,
+      "severity": "ERROR"
+    },
+    {
+      "id": "RULE_PAIRING_EXCLUDE_FRIED_EGGS_PEANUT_BUTTER",
+      "type": "pairing_exclusion",
+      "name": "No Fried Eggs with Peanut Butter at Breakfast",
+      "description": "Forbids pairing fried eggs with peanut butter in breakfast meals due to culinary incompatibility and heavy digestive burden from combined saturated fats and dense nut lipids.",
+      "author": "Coach Boss",
+      "created_at": "2026-11-01T12:01:31.047962+00:00",
+      "is_active": true,
+      "severity": "ERROR",
+      "primary_ids": [
+        "P002"
+      ],
+      "forbidden_secondary_ids": [
+        "T004"
+      ],
+      "meal_slots": [
+        "Breakfast"
+      ]
+    }
+  ]
+}

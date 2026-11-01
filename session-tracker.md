@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Neutralize Deduction Reporting on Exported Financial Settlement Statements (PDF Statements) |
-| **Session Status** | ✅ **COMPLETED** |
-| **Overall Progress** | `[████████████████████] 100%` |
-| **Session Started** | 2026-11-01 13:38:00 (EAT) |
-| **Last Updated** | 2026-11-01 13:40:00 (EAT) |
-| **Current In-Flight Step** | Completed PDF statement neutralization, Vite production build, and remote Git push |
+| **Active Task / Request** | Upgrade Verifier to multi-bank Veritas (Dashen, Abyssinia, CBE Birr, M-Pesa, Universal) & Audit transactions since last payout to find the 2,000 ETB gap |
+| **Session Status** | ⏳ **IN PROGRESS** |
+| **Overall Progress** | `[████░░░░░░░░░░░░░░░░]` 20% |
+| **Session Started** | 2026-11-01 15:06:52 (EAT) |
+| **Last Updated** | 2026-11-01 15:07:30 (EAT) |
+| **Current In-Flight Step** | Inspecting `handlers/verify.py` and Veritas configuration to add Dashen, Abyssinia, CBE Birr, M-Pesa, and Universal `/verify` |
 
 ---
 
@@ -21,9 +21,10 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1: Neutralize Audit Note & Confirmation in `pdfExport.js`** — Removed all phrases mentioning "100% from Stream A", "strictly from Digital Product Sales", or "100% protected zero burn rate" from exported PDF statements so the boss sees a unified corporate settlement without explicit stream deduction disclosure.
-- [x] **Milestone 2: Frontend Production Build & Verification** — Executed Vite production build in `DigitalRevenueHilaweMiniApp`; all 275 modules transformed, bundling cleanly in 25.71s with zero errors.
-- [x] **Milestone 3: Git Commit & Push Both Repositories** — Committed and pushed changes in `DigitalRevenueHilaweMiniApp` (`c179085`) and `DigitalRevenueHilawe`.
+- [ ] **Milestone 1: Inspect Current Verifier (`handlers/verify.py` & `config.py`)** — Check existing Veritas endpoint routing, API key/token handling, and response envelope parsing.
+- [ ] **Milestone 2: Upgrade Verifier to Multi-Bank Support** — Implement Dashen (`/verify-dashen`), Bank of Abyssinia (`/verify-abyssinia`), CBE Birr (`/verify-cbebirr`), M-Pesa (`/verify-mpesa`), and Universal (`/verify`) routing.
+- [ ] **Milestone 3: Build Post-Payout Transaction Extractor & Audit Script** — Automatically pull all transactions across Products, Club, and Meal Plans from `last_payout_at` to `NOW()`.
+- [ ] **Milestone 4: Run AI & Multi-Bank Verification to Reconcile the 2k ETB Gap** — Verify transactions against Veritas and DB records, flagging duplicates, amount mismatches, unverified receipts, and pinpointing the exact 2k ETB difference.
 
 ---
 
@@ -31,14 +32,74 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
-| **Neutralized Statement PDF Exporter** | Standardized corporate settlement PDF generation without stream-specific deduction disclosures | [pdfExport.js](file:///d:/The%20hobby%202/DigitalRevenueHilaweMiniApp/src/services/pdfExport.js) |
-| **Financial Settlement Engine & Route** | Backend engine routing 100% burn rate to digital products | [api.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/api/api.py) |
-| **Pre-Flight Meal Plan Linter** | Programmatic 10-rule pre-flight clinical and print audit engine | [linter.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/linter.py) |
-| **Generalized Fasting Generation Engine** | Architecture free of hardcoded day strings with dynamic protein boosters & calorie trimming | [engine.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/engine.py) |
+| **Permanent Tone & Language Rule** | Rule 3 added to repository guidelines banning robotic AI jargon forever | [AGENTS.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/AGENTS.md) |
+| **Clean Review Card Formatter** | Friendly card format with "Quality Check" score and natural AI Coach note | [review_logic.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
+| **Progress Bar Pipeline** | Clean Telegram generation stages (25% Matching, 50% 7-Day Plan, 65% AI Review, 80% Groceries, 90% PDF, 100% Ready) | [pipeline.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/pipeline.py) |
+| **Friendly Review Card Test** | Test script confirming zero robotic jargon and clean output | [test_friendly_review_card.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/test_friendly_review_card.py) |
+| **Gemini 3.8 Flash AI Coach Engine** | Autonomous RAG-driven semantic auditor and natural feedback-to-rule synthesizer | [gemini_coach.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/ai/gemini_coach.py) |
+| **AI Feedback Synthesis Test Suite** | Live test harness validating Gemini 3.8 Flash translation of Coach feedback to catalog rules | [test_ai_parse.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/test_ai_parse.py) |
+| **Canonical Coach Feedback Catalog** | Persistent JSON rule catalog encoding clinical constraints & household overrides | [feedback_catalog.json](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/data/feedback_catalog.json) |
+| **FeedbackStore & NLP Parser** | High-performance rule query engine and natural language coach feedback parser | [feedback_store.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/feedback_store.py) |
+| **Coach Feedback Management CLI** | Command-line tool with `--use-ai` Gemini synthesis, portion caps, and toggles | [feedback_cli.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/feedback_cli.py) |
+| **Pre-Flight Meal Plan Linter** | Programmatic 10-rule pre-flight clinical and print audit engine with dynamic rules | [linter.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/linter.py) |
+| **Generalized Fasting Generation Engine** | Architecture free of hardcoded day strings with dynamic catalog rule enforcement | [engine.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/engine.py) |
 
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-01 — Plain Language Refactor ("Stay Easy Bro") & AI Check Integration
+
+* **Goal:** Eliminate all artificial, robotic AI jargon ("pre-flight programmatic linter", "semantic RAG auditor", "adherence friction") and replace them permanently with simple, friendly everyday language ("Quality Check", "AI Coach Review", "Stay Easy Bro"). Wire the AI review smoothly into the generation progress bar and Telegram review cards.
+* **Changes Implemented & Verified:**
+  1. **Permanent Workspace Rule Added (`AGENTS.md`):**
+     - Authored Rule 3: Enforcing plain, friendly, everyday language across all future sessions, code comments, progress bars, and review cards. Banned robotic AI jargon permanently.
+  2. **Review Card Format Simplified (`meal_plan/review_logic.py`):**
+     - Replaced `🛡️ Pre-Flight Audit: 9.9/10.0 (✅ PASSED)` with `✅ Quality Check: 9.9/10 (Passed)`.
+     - Added clean AI coach review note: `🤖 AI Coach: Approved · Clean fasting day balance with soy milk at breakfast...`
+  3. **Generation Progress Bar Wired (`meal_plan/generation/pipeline.py`):**
+     - 25%: `🥗 Matching Foods`
+     - 50%: `📅 Setting Up 7-Day Plan`
+     - 65%: `🤖 AI Coach Review` (Calls Gemini 3.8 Flash with safe timeout and fallback)
+     - 80%: `🛒 Grocery List`
+     - 90%: `📄 Creating 15-Page PDF`
+     - 100%: `🎉 Ready for Coach Review`
+  4. **Verification:**
+     - Verified with `scratch/test_friendly_review_card.py` (0 errors, zero robotic jargon confirmed).
+     - Verified with `scratch/test_feedback_store.py` (6/6 tests passed).
+     - Verified with `tests/test_meal_plan_phase8.py` (22/22 tests passed).
+
+### Session: 2026-11-01 — Gemini 3.8 Flash AI Coach & RAG System Implementation
+
+* **Goal:** Implement the intelligence layer on top of the deterministic clinical meal engine: (1) Authenticate and connect the user's `gemini_api_key` using the official `google-genai` SDK and `gemini-3.8-flash` model; (2) Build `GeminiCoachClient` with contextual RAG over `feedback_catalog.json` and Ethiopian culinary stews; (3) Implement live autonomous critique translation (`synthesize_feedback_rule`), turning natural Coach Boss comments into structured catalog rules; (4) Add `--use-ai` integration to `feedback_cli.py`.
+* **Changes Implemented & Verified:**
+  1. **SDK Authentication & Model Selection:**
+     - Verified `gemini_api_key` (`AQ.Ab8RN6K9...`) from `.env`. Successfully executed live generation requests with `gemini-3.8-flash`.
+  2. **`GeminiCoachClient` (`meal_plan/ai/gemini_coach.py`):**
+     - `audit_plan_semantics`: Gathers 7-day plan summaries and evaluates cultural meal cohesion, satiety ratings, client friction points, and executive coach briefings.
+     - `synthesize_feedback_rule`: Uses RAG over active catalog rules and Ethiopian food IDs (`C001`, `C007`, `C020`, `T001`, `P009`, `R018`, `R020`) to map freeform Coach critique into validated rules.
+  3. **Live Feedback-to-Rule Verification (`scratch/test_ai_parse.py`):**
+     - Fed natural critique: `"Fasting clients get bloated from 250g evening ful. Please cap dinner ful portions at 160g."`
+     - Gemini 3.8 Flash automatically synthesized `RULE_PORTION_CAP_DINNER_FUL`, correctly mapped `target_id="R018"`, `max_grams=160.0`, `meal_slots=["Dinner"]`, `severity="ERROR"`, and persisted it directly into `meal_plan/data/feedback_catalog.json`.
+  4. **CLI Integration (`meal_plan/feedback_cli.py`):**
+     - Added `--use-ai` flag to `parse-feedback` command for immediate CLI access to the Gemini 3.8 Flash synthesizer.
+
+### Session: 2026-11-01 — Pillar 3: Persistent Feedback Memory & Dynamic Rule Catalog
+
+* **Goal:** Implement Pillar 3 architecture—eliminating manual Python code edits whenever Coach Boss provides feedback by creating a persistent, self-healing rule catalog (`feedback_catalog.json`) and a dynamic querying/mutation engine (`FeedbackStore`) wired into generation and linting.
+* **Changes Implemented & Verified:**
+  1. **Canonical Rule Catalog (`meal_plan/data/feedback_catalog.json`):**
+     - Seeded 10 canonical rules: `RULE_PORTION_CAP_RICE_CAKES` (40g cap), `RULE_PAIRING_EXCLUDE_LEGUME_STACKING` (no loose legumes on composite stews), `RULE_INJERA_MOD_60_STANDARDIZATION` (60/120/180/240g multiples), `RULE_FAMILIAR_MEASURE_SOYA_CHUNKS` (በግምት 1 ከግማሽ ሲኒ የተዘፈቀ), `RULE_STEW_PORTION_STANDARDIZATION` (Atkilt 80g, Misir 200g, Ful 220g), `RULE_FASTING_BREAKFAST_LIQUID_BALANCE` (PB cap + soy milk), `RULE_NO_LOOSE_OIL_ON_RICH_STEWS`, `RULE_BREAKFAST_OIL_CAP` (15g cap), `RULE_FASTING_PROTEIN_FLOOR_PERCENT` (78% floor), and `RULE_TYPOGRAPHY_NO_NESTED_PARENS`.
+  2. **`FeedbackStore` Engine (`meal_plan/generation/feedback_store.py`):**
+     - Thread-safe singleton with sub-millisecond query caches: `get_portion_caps()`, `get_forbidden_pairings()`, `get_enforced_familiars()`, `get_portion_standards()`, `get_breakfast_liquid_rules()`.
+     - Natural language feedback parser (`record_coach_feedback`) translating sentences like `"Cap rice cakes to 35g"` or `"Never pair plain lentils with misir wot"` into structured rules.
+  3. **Dynamic Generator & Linter Wiring (`engine.py`, `linter.py`):**
+     - `engine.py` dynamically queries `FeedbackStore` for stew portions, pairing exclusions, portion caps, and familiar text during plan generation.
+     - `linter.py` dynamically audits generated days against active pairing exclusions and portion caps stored in `FeedbackStore`.
+  4. **Interactive CLI & Verification Suite:**
+     - Built `meal_plan/feedback_cli.py` (`list`, `add-cap`, `add-exclusion`, `parse-feedback`, `toggle`).
+     - Authored `scratch/test_feedback_store.py` (6 unit tests, 100% pass rate in 0.046s).
+     - Executed multi-persona benchmark (`scratch/verify_multi_persona_linter.py`); all 4 diverse personas scored >= 9.7/10.0 (Bezawit 9.9, Yohannes 9.7, Bethelhem 9.9, Dawit 9.8) with 0 errors.
 
 ### Session: 2026-11-01 — Financial Settlement PDF Statement Neutralization & Git Push
 

@@ -7,6 +7,7 @@ from typing import Any
 
 from meal_plan.generation.dataset import HilaweDataset, load_dataset
 from meal_plan.generation.fasting import fasting_days_for_period
+from meal_plan.generation.feedback_store import get_feedback_store
 from meal_plan.generation.formatting import familiar_portion
 from meal_plan.generation.grocery import build_grocery
 from meal_plan.generation.meal_structure import meal_structure
@@ -587,8 +588,36 @@ def _generate_core_week(
         for m in meals:
             totals = totals.plus(m.macros)
 
-        # General Declarative Fasting Calibration (Pillar 1 Architecture)
+        # General Dynamic Feedback Catalog Rules (Pillar 3 Architecture)
+        feedback_store = get_feedback_store()
+
+        # Dynamic Pairing Exclusions across all meals (e.g. legume stacking cleanup, loose oil on rich stews)
+        for m in meals:
+            active_ids = {it.recipe_id for it in m.items if it.recipe_id} | {it.food_id for it in m.items if it.food_id}
+            forbidden = feedback_store.get_forbidden_secondaries_for(active_ids)
+            if forbidden:
+                to_remove = [it for it in m.items if it.food_id in forbidden or it.recipe_id in forbidden]
+                for rem in to_remove:
+                    m.items.remove(rem)
+                    if rem.food_id:
+                        weekly_food_grams[rem.food_id] = max(0.0, weekly_food_grams.get(rem.food_id, 0.0) - rem.grams)
+
+        # Dynamic Portion Caps & Enforced Familiar Overrides (e.g. Rice cakes max 40g, oil max 15g)
+        fam_overrides = feedback_store.get_enforced_familiars()
+        for m in meals:
+            slot_name = m.source_slot or getattr(m, "slot", None)
+            caps = feedback_store.get_portion_caps(slot_name)
+            for it in m.items:
+                if it.food_id in caps and it.grams > caps[it.food_id]:
+                    diff = it.grams - caps[it.food_id]
+                    it.grams = caps[it.food_id]
+                    weekly_food_grams[it.food_id] = max(0.0, weekly_food_grams.get(it.food_id, 0.0) - diff)
+                if it.food_id in fam_overrides:
+                    it.familiar = fam_overrides[it.food_id]
+
+        # Fasting Calibration Pass
         if fasting:
+            b_rules = feedback_store.get_breakfast_liquid_rules()
             target_p = float(targets.get("protein") or targets.get("protein_g") or 140.0)
             target_kcal_val = float(targets.get("target_kcal") or targets.get("kcal") or 0.0)
             if target_kcal_val >= 2800.0:
@@ -605,14 +634,33 @@ def _generate_core_week(
             dinner_m = next((m for m in meals if m.source_slot == "Dinner"), None)
             savory_meals = [m for m in meals if m.source_slot in ("Lunch", "Dinner")]
 
-            # 1. Breakfast liquid balance (dynamic soy milk if oats + heavy PB)
+            # Traditional stew portion standardization (Atkilt Wot 80g, Misir Wot 200g, Ful 220g)
+            std_portions = feedback_store.get_portion_standards()
+            for sm in savory_meals:
+                for it in sm.items:
+                    fname_lower = str(it.food_name or "").lower()
+                    matched_std = std_portions.get(it.recipe_id)
+                    if not matched_std:
+                        for std_k, std_v in std_portions.items():
+                            if std_v.get("match_name") and std_v["match_name"] in fname_lower:
+                                matched_std = std_v
+                                break
+                            elif "ful" in std_k and "ful" in fname_lower:
+                                matched_std = std_v
+                                break
+                    if matched_std:
+                        it.grams = float(matched_std.get("grams", it.grams))
+                        if matched_std.get("familiar"):
+                            it.familiar = str(matched_std["familiar"])
+
+            # 1. Breakfast liquid balance
             if breakfast_m:
                 oat_it = next((it for it in breakfast_m.items if it.food_id == "C007"), None)
                 pb_it = next((it for it in breakfast_m.items if it.food_id == "T004"), None)
                 has_milk = any(it.food_id in ("P014", "A015") for it in breakfast_m.items)
-                target_pb = 12.0 if target_kcal_val < 1650.0 else 15.0
-                target_oat = 40.0 if target_kcal_val < 1650.0 else 50.0
-                target_sm = 200.0 if target_kcal_val < 1650.0 else 250.0
+                target_pb = b_rules.get("pb_cap_cutting", 12.0) if target_kcal_val < 1650.0 else b_rules.get("pb_cap_balanced", 15.0)
+                target_oat = b_rules.get("oats_cap_cutting", 40.0) if target_kcal_val < 1650.0 else b_rules.get("oats_cap_balanced", 50.0)
+                target_sm = b_rules.get("soymilk_grams_cutting", 200.0) if target_kcal_val < 1650.0 else b_rules.get("soymilk_grams_balanced", 250.0)
                 sm_fam = "about ¾ large glass" if target_sm == 200.0 else "about 1 large glass"
 
                 if oat_it and pb_it:
@@ -634,30 +682,6 @@ def _generate_core_week(
                         weekly_food_grams["P014"] = weekly_food_grams.get("P014", 0.0) + target_sm
                     oat_it.grams = target_oat
                     oat_it.familiar = "about 0.5 cup dry" if target_oat == 50.0 else "about 0.4 cup dry"
-
-            # 2. Traditional stew portion standardization & legume stacking cleanup
-            for m in savory_meals:
-                has_legume_stew = any(it.recipe_id in ("R001", "R002", "R003") for it in m.items)
-                if has_legume_stew:
-                    stacked = [it for it in m.items if it.food_id in ("P001", "P007")]
-                    for st in stacked:
-                        m.items.remove(st)
-                        weekly_food_grams[st.food_id] = max(0.0, weekly_food_grams.get(st.food_id, 0.0) - st.grams)
-
-                atkilt_it = next((it for it in m.items if it.recipe_id == "R004"), None)
-                if atkilt_it:
-                    atkilt_it.grams = 80.0
-                    atkilt_it.familiar = "ሲሶ / 1/3 መካከለኛ ጭልፋ"
-
-                misir_it = next((it for it in m.items if it.recipe_id == "R002"), None)
-                if misir_it:
-                    misir_it.grams = 200.0
-                    misir_it.familiar = "1 መካከለኛ ጭልፋ"
-
-                ful_it = next((it for it in m.items if it.recipe_id in ("R018", "R025") or "ful" in str(it.food_name).lower()), None)
-                if ful_it:
-                    ful_it.grams = 220.0
-                    ful_it.familiar = "1 መካከለኛ ሳህን"
 
             # 3. Recalculate intermediate macros across meals
             for m in meals:

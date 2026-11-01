@@ -17,6 +17,7 @@ from aiogram.types import FSInputFile
 from database.db import Database
 from meal_plan.nutrition_targets import calculate_nutrition_profile
 from meal_plan.generation.engine import generate_plan
+from aiogram.client.session.aiohttp import AiohttpSession
 from meal_plan.generation.db_dataset import load_dataset_from_db
 from meal_plan.documents.models import DocumentContext
 from meal_plan.documents.service import render_plan_artifacts
@@ -26,7 +27,8 @@ from meal_plan.runtime import review_group_id
 
 async def main():
     print("=== TRIGGERING YOHANNES (MP-000016) MEAL PLAN TO COACH REVIEW GROUP ===")
-    bot = Bot(token=os.getenv("BOT_TOKEN"))
+    session = AiohttpSession(timeout=300.0)
+    bot = Bot(token=os.getenv("BOT_TOKEN"), session=session)
     target_group = review_group_id()
     print(f"Target Review Group: {target_group}")
     
@@ -121,6 +123,14 @@ async def main():
 
     # 4. Database Registration for Version 21
     print("\n--- 3. Updating Version 21 in Database ---")
+    try:
+        await db.disconnect()
+    except Exception:
+        pass
+    db = Database(os.getenv("DATABASE_URL"))
+    await db.connect()
+    repo = MealPlanReviewRepository(db._pool)
+
     async with db._pool.acquire() as conn:
         v_row = await conn.fetchrow(
             """
@@ -166,23 +176,51 @@ async def main():
     docx_file = FSInputFile(named_docx_path, filename="Yohannes-7days-plan.docx")
     pdf_file = FSInputFile(named_pdf_path, filename="Yohannes-7days-plan.pdf")
 
-    sent_docx = await bot.send_document(
-        target_group,
-        docx_file,
-        caption="📄 DOCX · V1 · Yohannes-7days-plan (Editable Plan)",
-        reply_to_message_id=card.message_id,
-    )
-    if sent_docx.document and sent_docx.document.file_id:
+    # Send DOCX with retries
+    sent_docx = None
+    for attempt in range(1, 4):
+        try:
+            print(f"Sending DOCX (attempt {attempt}/3)...")
+            sent_docx = await bot.send_document(
+                target_group,
+                docx_file,
+                caption="📄 DOCX · V1 · Yohannes-7days-plan (Editable Plan)",
+                reply_to_message_id=card.message_id,
+                request_timeout=300,
+            )
+            break
+        except Exception as e:
+            print(f"Attempt {attempt} failed to send DOCX: {e}")
+            if attempt < 3:
+                await asyncio.sleep(3)
+            else:
+                raise
+
+    if sent_docx and sent_docx.document and sent_docx.document.file_id:
         await repo.set_artifact_telegram_file_id(version_id, "DOCX", sent_docx.document.file_id)
         print("Sent Yohannes-7days-plan.docx to Telegram group.")
 
-    sent_pdf = await bot.send_document(
-        target_group,
-        pdf_file,
-        caption="📕 PDF · V1 · Yohannes-7days-plan (Flawless Hardened Plan · English)",
-        reply_to_message_id=card.message_id,
-    )
-    if sent_pdf.document and sent_pdf.document.file_id:
+    # Send PDF with retries
+    sent_pdf = None
+    for attempt in range(1, 4):
+        try:
+            print(f"Sending PDF (attempt {attempt}/3)...")
+            sent_pdf = await bot.send_document(
+                target_group,
+                pdf_file,
+                caption="📕 PDF · V1 · Yohannes-7days-plan (Flawless Hardened Plan · English)",
+                reply_to_message_id=card.message_id,
+                request_timeout=300,
+            )
+            break
+        except Exception as e:
+            print(f"Attempt {attempt} failed to send PDF: {e}")
+            if attempt < 3:
+                await asyncio.sleep(5)
+            else:
+                raise
+
+    if sent_pdf and sent_pdf.document and sent_pdf.document.file_id:
         await repo.set_artifact_telegram_file_id(version_id, "PDF", sent_pdf.document.file_id)
         print("Sent Yohannes-7days-plan.pdf to Telegram group.")
 
