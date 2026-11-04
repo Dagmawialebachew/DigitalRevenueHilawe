@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Upgrade Verifier to multi-bank Veritas (Dashen, Abyssinia, CBE Birr, M-Pesa, Universal) & Audit transactions since last payout to find the 2,000 ETB gap |
-| **Session Status** | ⏳ **IN PROGRESS** |
-| **Overall Progress** | `[████░░░░░░░░░░░░░░░░]` 20% |
-| **Session Started** | 2026-11-01 15:06:52 (EAT) |
-| **Last Updated** | 2026-11-01 15:07:30 (EAT) |
-| **Current In-Flight Step** | Inspecting `handlers/verify.py` and Veritas configuration to add Dashen, Abyssinia, CBE Birr, M-Pesa, and Universal `/verify` |
+| **Active Task / Request** | Investigating & Resolving Stuck Meal Plan (Order #72 Approved by Dagmaros) |
+| **Session Status** | ✅ **COMPLETED** |
+| **Overall Progress** | [████████████████████] 100% |
+| **Session Started** | 2026-11-04 21:31:00 (EAT) |
+| **Last Updated** | 2026-11-04 22:37:00 (EAT) |
+| **Current In-Flight Step** | Order #72 15-page PDF compiled, verified, delivered to Coach Review Group (-5592866261), order state = REVIEW_PENDING |
 
 ---
 
@@ -21,34 +21,148 @@
 
 ### Current Session Tasks
 
-- [ ] **Milestone 1: Inspect Current Verifier (`handlers/verify.py` & `config.py`)** — Check existing Veritas endpoint routing, API key/token handling, and response envelope parsing.
-- [ ] **Milestone 2: Upgrade Verifier to Multi-Bank Support** — Implement Dashen (`/verify-dashen`), Bank of Abyssinia (`/verify-abyssinia`), CBE Birr (`/verify-cbebirr`), M-Pesa (`/verify-mpesa`), and Universal (`/verify`) routing.
-- [ ] **Milestone 3: Build Post-Payout Transaction Extractor & Audit Script** — Automatically pull all transactions across Products, Club, and Meal Plans from `last_payout_at` to `NOW()`.
-- [ ] **Milestone 4: Run AI & Multi-Bank Verification to Reconcile the 2k ETB Gap** — Verify transactions against Veritas and DB records, flagging duplicates, amount mismatches, unverified receipts, and pinpointing the exact 2k ETB difference.
+- [x] **Milestone 1: Order #72 Forensics** — Identified PostgreSQL check constraint failure (`CheckViolationError` on stage `AI_COACH_REVIEW`).
+- [x] **Milestone 2: Database Schema Fix** — Altered `meal_generation_jobs_stage_check` on Neon PostgreSQL to include `AI_COACH_REVIEW` and `FAILED`.
+- [x] **Milestone 3: End-to-End Pipeline Execution** — Executed full 9-step generation pipeline (food matching, 7-day schedule, quality check, AI Coach review, grocery list, and 15-page PDF rendering via Chromium).
+- [x] **Milestone 4: Deliverables & Handoff** — Stored artifacts in DB, uploaded certified PDF and DOCX to Telegram, dispatched review card to Coach Review Group (`-5592866261`), moved order state to `REVIEW_PENDING`.
 
 ---
 
-## 📦 Recent Session Deliverables & File Links
+## 📦 ## 📦 ## 📦 Recent Session Deliverables & File Links
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
-| **Permanent Tone & Language Rule** | Rule 3 added to repository guidelines banning robotic AI jargon forever | [AGENTS.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/AGENTS.md) |
-| **Clean Review Card Formatter** | Friendly card format with "Quality Check" score and natural AI Coach note | [review_logic.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
+| **743 Hot Leads Hyper-Personalized Engine** | 1-on-1 personalized recovery engine injecting name, gender, days, goal, and obstacle | [retarget_hot_unpaid_leads.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_hot_unpaid_leads.py) |
+| **Full-Price Incomplete Retargeting Engine** | CLI & Telegram broadcast engine targeting 440 drop-offs with Addis native voice | [retarget_incomplete_onboarding.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_incomplete_onboarding.py) |
+| **Incomplete Users CSV Ledger** | Itemized CSV export of all 439 drop-off users with IDs, usernames, and language | [incomplete_workout_onboarding_users.csv](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/incomplete_workout_onboarding_users.csv) |
+| **DigitalRevenueBiruktawit Workspace** | Standalone workout-only bot platform for Biruktawit Fikre (@gibdaw) | [DigitalRevenueBiruktawit](file:///d:/The%20hobby%202/DigitalRevenueBiruktawit) |
+| **Standalone Tri-Stream Audit Folder** | Root directory containing all stamped images, unverified queue, suspicious items, and PDFs | [2026-10-02 to 11-01](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01) |
+| **Master Tri-Stream Audit PDF** | Comprehensive PDF ledger covering Stream A, B, and C with executive partner splits | [MASTER_TRI_STREAM_AUDIT.pdf](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/MASTER_TRI_STREAM_AUDIT.pdf) |
+| **Forensic Discrepancy & Gap PDF** | Deep analysis of 2,000 ETB gap, underpayment PID #638, pending meal plans, and rejected genuine receipts | [FORENSIC_DISCREPANCY_AND_GAP_REPORT.pdf](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/FORENSIC_DISCREPANCY_AND_GAP_REPORT.pdf) |
+| **Tri-Stream Spreadsheet Ledger** | Excel-ready CSV containing all 114 scanned records with bank payer names, references, and amounts | [tri_stream_transactions_ledger.csv](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/tri_stream_transactions_ledger.csv) |
+| **Tri-Stream JSON State** | Complete machine-readable state of all audited transactions | [tri_stream_transactions_ledger.json](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/tri_stream_transactions_ledger.json) |
+| **Suspicious & Gaps Directory** | Isolated folder containing underpaid slips, pending meal plans (Freselam #52), and rejected slips | [suspicious_and_gaps](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/suspicious_and_gaps) |
+| **Unverified Receipts Directory** | Stamped receipt screenshots where bank verification is unconfirmed or rate-limited | [unverified_receipts](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/unverified_receipts) |
+| **Verified Transactions Directory** | Confirmed genuine bank payments organized by stream (`product_sales`, `club_payments`, `meal_plans`) | [verified_transactions](file:///d:/The%20hobby%202/DigitalRevenueHilawe/2026-10-02%20to%2011-01/verified_transactions) |
+e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 | **Progress Bar Pipeline** | Clean Telegram generation stages (25% Matching, 50% 7-Day Plan, 65% AI Review, 80% Groceries, 90% PDF, 100% Ready) | [pipeline.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/pipeline.py) |
-| **Friendly Review Card Test** | Test script confirming zero robotic jargon and clean output | [test_friendly_review_card.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/test_friendly_review_card.py) |
 | **Gemini 3.8 Flash AI Coach Engine** | Autonomous RAG-driven semantic auditor and natural feedback-to-rule synthesizer | [gemini_coach.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/ai/gemini_coach.py) |
-| **AI Feedback Synthesis Test Suite** | Live test harness validating Gemini 3.8 Flash translation of Coach feedback to catalog rules | [test_ai_parse.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/test_ai_parse.py) |
 | **Canonical Coach Feedback Catalog** | Persistent JSON rule catalog encoding clinical constraints & household overrides | [feedback_catalog.json](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/data/feedback_catalog.json) |
-| **FeedbackStore & NLP Parser** | High-performance rule query engine and natural language coach feedback parser | [feedback_store.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/feedback_store.py) |
-| **Coach Feedback Management CLI** | Command-line tool with `--use-ai` Gemini synthesis, portion caps, and toggles | [feedback_cli.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/feedback_cli.py) |
-| **Pre-Flight Meal Plan Linter** | Programmatic 10-rule pre-flight clinical and print audit engine with dynamic rules | [linter.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/linter.py) |
-| **Generalized Fasting Generation Engine** | Architecture free of hardcoded day strings with dynamic catalog rule enforcement | [engine.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/generation/engine.py) |
 
 ---
 
 ## 📜 Historical Session Log
 
-### Session: 2026-11-01 — Plain Language Refactor ("Stay Easy Bro") & AI Check Integration
+### Session: 2026-11-03 — Live Dispatch: 743 Hot Unpaid Leads Recovery & Admin Report
+
+* **Goal:** Broadcast the hyper-personalized Coach Hilawe 1-on-1 recovery message to the 743 fresh unpaid leads from the past 7 days, injecting their exact intake parameters, and send the delivery report to Admin `1131741322` on Telegram.
+* **Execution Results:**
+  1. **Total Queue:** 743 users.
+  2. **Delivered:** **640 users** (86.1% live delivery rate).
+  3. **Blocked:** 103 users.
+  4. **Failed:** **0 users** (100% fault-tolerant delivery with zero entity parse drop-offs).
+  5. **Admin Telegram Report:** Successfully sent live execution report to Coach / Admin ID `1131741322`.
+  6. **Cumulative Day Impact:** 978 active clients (338 incomplete + 640 hot leads) now have direct 1-tap full-price 949 ETB checkout & assessment prompts active in their Telegram chats.
+
+### Session: 2026-11-03 — 743 Hot Unpaid Leads Hyper-Personalized Recovery Engine
+
+* **Goal:** Build an intensely personalized 1-on-1 recovery engine for the 743 leads who completed onboarding in the past 7 days, injecting their exact intake answers in authentic Coach Hilawe Addis native Amharic.
+* **Key Features Implemented:**
+  1. **Hyper-Personalization Engine (`scheduler/retarget_hot_unpaid_leads.py`):**
+     - Injects real name: `{first_name}`.
+     - Accurate Male vs Female honorifics & grammar (`ወንድሜ ሰላም ነህ?` vs `እህቴ እንዴት ነሽ?`).
+     - Injects exact training split: `በሳምንት 3/4/5 ቀን ሰርተህ/ሽ`.
+     - Injects exact goal: `ጠንካራ ጡንቻ ለመገንባት` vs `ያለህን/ሽን ቦርጭ አጥፍተህ/ሽ ቅርጽህን/ሽን ለመያዝ`.
+     - Injects exact obstacle: `የአመጋገብ ስርዓትህን/ሽን ለማስተካከል` vs `የተነሳሽነትና የወጥነት ችግርህን/ሽን ለመቅረፍ` vs `ግልጽ የሆነ የተዋቀረ እቅድ አግኝተህ/ሽ ለመስራት`.
+  2. **1-Tap Direct Checkout (949 ETB):**
+     - Matches exact product ID based on gender, level, and frequency (fallback mapping ensures 100% resolution).
+     - Single high-intent button: `⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት (949 ብር)` triggers official CBE/BOA bank invoice.
+  3. **Verification:**
+     - Verified with `--dry-run` across all 743 leads (636 male, 107 female, 653 Amharic, 90 English).
+     - Integrated automated Telegram admin execution reporting upon live launch.
+
+### Session: 2026-11-03 — Pre-Language /start Drop-off Investigation
+
+* **Question:** Can we get the exact count of users who pressed `/start` but bounced before even tapping English/Amharic?
+* **Finding:** In `handlers/onboarding.py`, `cmd_start` only dispatches the welcome photo in-memory. Database insertion occurs strictly on callback `process_language`. Users who never tapped a language button left no database footprint in PostgreSQL, making historical pre-click counts untrackable without an earlier telemetry hook.
+
+### Session: 2026-11-03 — Live Onboarding Completion Broadcast & Telegram Admin Report
+
+* **Goal:** Broadcast the revised multi-gender Coach Hilawe onboarding recovery message to all 440 incomplete users and deliver the full completion report to Admin `1131741322` in Telegram.
+* **Execution Results:**
+  1. **Total Targets:** 440 users.
+  2. **Successfully Delivered:** 338 users (76.8% delivery rate).
+  3. **Blocked Bot:** 101 users (handled gracefully without interruption).
+  4. **Failed / Bad Format:** 1 user.
+  5. **Admin Telegram Report:** Successfully delivered live summary card to Coach / Admin ID `1131741322`.
+  6. **Interactive Action:** All 338 delivered users now have the active inline button `🎯 የሰውነት ምዘናዎን ይጨርሱ` waiting in their Telegram chat.
+
+### Session: 2026-11-03 — Personalized Native Addis Retargeting for Incomplete Users (Full Price 949 ETB)
+
+* **Goal:** Create a high-converting, deeply personalized retargeting engine in authentic Coach Hilawe Addis native Amharic, targeting users who abandoned onboarding, selling the 8-Week Blueprint at full price (949 ETB).
+* **Key Implementations:**
+  1. **Addis Persona Copywriting (`scheduler/retarget_incomplete_onboarding.py`):**
+     - Personalized first-name greeting (`ሰላም {first_name}` or `ሰላም ወዳጄ`).
+     - Directly calls out their exact action (*"ባለፈው እኮ ቦት ላይ መጥተህ ቋንቋ መርጠህ መሃል ላይ ቀረህ... ምነው ፈራህ እንዴ? 😄"*).
+     - Unapologetic full price anchor: strictly **949 ETB** (anchored against a single Addis lunch/macchiato, zero discount apology).
+     - 82.2% Amharic / 17.8% English split handled dynamically.
+  2. **1-Tap Direct Checkout & Assessment Resume Buttons:**
+     - `👨 የወንዶች 8-ሳምንት ፕሮግራም (949 ብር)` ➔ triggers `pay_4` directly into CBE/BOA payment invoice.
+     - `👩 የሴቶች ቅርጽና ቦርጭ ማጥፊያ (949 ብር)` ➔ triggers `pay_8` directly into CBE/BOA payment invoice.
+     - `🎯 ጥያቄዎቹን ጨርሼ ፕሮግራሜን ልይ` ➔ triggers `retarget_resume` to complete remaining questions.
+  3. **Onboarding Handler Fortification (`handlers/onboarding.py`):**
+     - Added `process_retarget_resume` to re-enter gender selection seamlessly.
+     - Added wildcard `F.data.startswith('gender_')` with DB fallback so buttons work even if user's FSM state expired.
+  4. **CLI Control:** Added `--dry-run`, `--test-admin`, and `--launch` modes with 0.06s sleep and Semaphore=20 rate-limiting.
+
+### Session: 2026-11-03 — Workout Plan Bot Onboarding Drop-off Analysis
+
+* **Goal:** Analyze the database for users who started the workout bot onboarding but didn't finish, breaking down drop-off stages, cohorts, and re-engagement metrics.
+* **Key Findings:**
+  1. **Total Users:** 6,708 registered users.
+  2. **Completed:** 6,269 users (93.46% completion rate).
+  3. **Incomplete:** 439 users (6.54% drop-off rate).
+  4. **Primary Drop-off Gate:** Step 1 to Step 2 (Chose Language, then dropped off before completing Gender/Goal/Level questions). 44 users (10.0%) dropped off right after claiming the free New Year Gift.
+  5. **Language Split:** 82.2% Amharic (361), 17.8% English (78).
+  6. **Re-engagement Hot Leads:** 61 users joined in the last 7 days; 92 in the last 30 days.
+  7. **Deliverable:** Exported all 439 users to scratch/incomplete_workout_onboarding_users.csv.
+
+### Session: 2026-11-02 — Full Repository Clutter & Test File Cleanup
+
+* **Goal:** Audit, categorize, and safely delete all obsolete test files, broken backups, duplicate client deliverables, trial batch outputs, and scratch files from the workspace upon user approval.
+* **Results & Freed Space:**
+  1. **Total Files Deleted:** 17,806 files.
+  2. **Total Disk Space Recovered:** **750.81 MB**.
+  3. **Broken Venv Removed:** env_broken_backup/ (17,515 files, 450.74 MB).
+  4. **Trial Batch Dumps Removed:** 10_TRIAL_PDFS/ and 20_TRIAL_PDFS/ (60 files, 170.22 MB).
+  5. **Root Deliverables & Duplicates Removed:** 30 files (~70 MB) of HTML/PDF/DOCX (Yohannes-*, Shekur-*, Bezawit-*, PENDING_CLIENT_ORDER_*).
+  6. **Root Zip Archives Removed:** 5 zip files (43.56 MB).
+  7. **Stray Root Scripts Removed:** 	est.py (with hardcoded DB credentials), create_repo.py, uild_unverified_queue.py, generate_unverified_forensics.py, check_demo.ps1, 
+un_full_demo.ps1, demo_plan_7d.json, ll_database_foods.json.
+  8. **Scratch Folder Cleared:** scratch/ cleared of 184 files (157 ad-hoc debug scripts and test outputs).
+  9. **Empty Directories Cleaned:** logs/, main/, uploads/.
+  10. **Verification:** Ran test suite (	ests/test_payout_tristream.py, 	ests/test_meal_plan_admin_reset.py) with 100% passes (13/13).
+
+### Session: 2026-11-01 — Veritas Multi-Bank Upgrade & Post-Payout 2,000 ETB Gap Reconciliation
+
+* **Goal:** (1) Upgrade payment verifier to Veritas's new production API (`https://veritas.et/api`) supporting all banks (CBE, Telebirr, Bank of Abyssinia, Dashen, CBE Birr, M-Pesa); (2) Query all transactions from the latest payout cutoff (`2026-10-01 10:28:13`) till today across all 3 streams; (3) Reconcile and track down the 2,000 ETB gap between Coach Boss's bank account and the system.
+* **Changes Implemented & Findings:**
+  1. **Veritas Verifier Upgrade (`handlers/verify.py`):**
+     - Updated primary base URL to `https://veritas.et/api` with automatic failover to `https://verifyapi.leulzenebe.pro`.
+     - Implemented auto-suffix injection for FT references (`suffix=99533641` for CBE, `suffix=99555` for Abyssinia), resolving the 400 error.
+     - Added dedicated endpoints for CBE, Telebirr, Abyssinia, Dashen, CBE Birr, and M-Pesa.
+     - Verified live: `FT262803DQ37` verified successfully against Veritas in under 1 second.
+  2. **Post-Payout Transaction Extraction (`scripts/audit_latest_payout.py`):**
+     - Checkpoint cutoff: `2026-10-01 10:28:13.994037+00:00`.
+     - Product Sales (Stream A): 46 txns (`32,255.00 ETB`).
+     - Club Subscriptions (Stream B): 4 txns (`1,196.00 ETB`).
+     - Meal Plans (Stream C): 3 txns (`9,629.60 ETB`).
+     - Total Gross: `43,080.60 ETB`, Operational Deductions: `18,936.00 ETB`, Net Distributable: `24,144.60 ETB` (Coach: `15,818.66 ETB`, Dagmawi: `8,325.94 ETB`).
+     - Exported complete itemized ledger to `payments_export/latest_payout_audit/post_payout_transactions.csv`.
+  3. **2,000 ETB Gap Pinpointed:**
+     - **Confirmed Underpaid Bank Settlement:** PID #638 was rejected in DB (order 949 ETB), but Veritas confirmed `450.00 ETB` was settled into Coach Hilawe's CBE account (`FT262803DQ37`) on Oct 7.
+     - **Rejected Real CBE Receipts:** 4 other rejected payments (`FT2629092NN3`, `FT26295PXJ98`, `FT26295D7X9J`, `FT262954VDVQ`) totaling `2,696.00 ETB`.
+     - **Pending Direct Meal Plan Checkouts:** `MID #52` (Freselam Aschenki) has an exact `2,000.00 ETB` order sitting in PENDING.
 
 * **Goal:** Eliminate all artificial, robotic AI jargon ("pre-flight programmatic linter", "semantic RAG auditor", "adherence friction") and replace them permanently with simple, friendly everyday language ("Quality Check", "AI Coach Review", "Stay Easy Bro"). Wire the AI review smoothly into the generation progress bar and Telegram review cards.
 * **Changes Implemented & Verified:**

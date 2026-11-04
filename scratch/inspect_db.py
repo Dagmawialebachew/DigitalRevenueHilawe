@@ -1,37 +1,46 @@
 import asyncio
 import os
-import json
 import sys
-from dotenv import load_dotenv
 
-load_dotenv()
-sys.path.insert(0, ".")
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from config import settings
 from database.db import Database
 
-async def inspect():
-    db = Database(os.getenv("DATABASE_URL"))
+async def main():
+    db = Database(settings.DATABASE_URL)
     await db.connect()
     
-    order = await db.fetchrow("""
-        SELECT o.*, i.answers, i.nutrition_profile
-        FROM meal_orders o
-        LEFT JOIN meal_intakes i ON o.intake_id = i.id
-        WHERE o.id = 47
+    # 1. Get all table names
+    tables = await db.fetch("""
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+        ORDER BY table_name;
     """)
-    ans = order["answers"]
-    if isinstance(ans, str): ans = json.loads(ans)
-    print("Order 47 user_id:", order["user_id"])
-    print("Order 47 duration_days:", order["duration_days"])
-    print("Order 47 answers:")
-    for k, v in ans.items():
-        print(f"  {k}: {v}")
-    
-    # check user
-    u = await db.fetchrow(f"SELECT * FROM users WHERE telegram_id = {order['user_id']}")
-    if u:
-        print("User:", dict(u))
-        
-    await db.disconnect()
+    print("Tables in public schema:")
+    for t in tables:
+        print(f" - {t['table_name']}")
+
+    # 2. Inspect users columns
+    columns = await db.fetch("""
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns 
+        WHERE table_name = 'users'
+        ORDER BY ordinal_position;
+    """)
+    print("\nUsers table columns:")
+    for c in columns:
+        print(f" - {c['column_name']} ({c['data_type']}) default={c['column_default']}")
+
+    # 3. Overall user counts
+    total_users = await db.fetchval("SELECT COUNT(*) FROM users;")
+    completed_users = await db.fetchval("SELECT COUNT(*) FROM users WHERE onboarding_completed = TRUE;")
+    incomplete_users = await db.fetchval("SELECT COUNT(*) FROM users WHERE onboarding_completed = FALSE OR onboarding_completed IS NULL;")
+    print(f"\nTotal users: {total_users}")
+    print(f"Completed onboarding: {completed_users}")
+    print(f"Incomplete onboarding: {incomplete_users}")
 
 if __name__ == "__main__":
-    asyncio.run(inspect())
+    asyncio.run(main())

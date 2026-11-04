@@ -218,6 +218,7 @@ def setup_admin_routes(app: web.Application):
 
     # --- Transaction & Payout Management ---
     app.router.add_get("/api/admin/payouts/pending", get_pending_payout_stats)
+    app.router.add_get("/api/admin/payouts/pending/transactions", get_pending_payout_transactions)
     app.router.add_get("/api/admin/payouts/history", get_payout_history)
     app.router.add_post("/api/admin/payouts/confirm", confirm_payout)
 
@@ -904,3 +905,88 @@ async def get_payout_history(request: web.Request) -> web.Response:
     except Exception:
         LOG.exception("get_payout_history failed")
         return web.json_response([], status=500)
+
+
+async def get_pending_payout_transactions(request: web.Request) -> web.Response:
+    """GET /api/admin/payouts/pending/transactions - Full itemized list of all approved transactions since last payout."""
+    db = request.app["db"]
+    try:
+        last_payout_ts = await db.fetchval(
+            "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
+        )
+        if not last_payout_ts:
+            last_payout_ts = await db.fetchval(
+                "SELECT MAX(payout_date) FROM payout_history WHERE entry_type = 'payout'"
+            )
+        last_payout_ts = last_payout_ts or datetime.min.replace(tzinfo=timezone.utc)
+
+        # 1. Product Sales (Stream A)
+        sales = await db.fetch("""
+            SELECT 
+                p.id,
+                'Stream A (Products)' as stream,
+                p.amount,
+                COALESCE(p.approved_at, p.created_at) as transaction_date,
+                p.user_id,
+                COALESCE(u.full_name, 'Unknown') as customer_name,
+                COALESCE(u.username, '') as username,
+                COALESCE(pr.title, 'Digital Product') as item_title,
+                p.txn_id as bank_reference,
+                'Approved' as status
+            FROM payments p
+            LEFT JOIN users u ON u.telegram_id = p.user_id
+            LEFT JOIN products pr ON pr.id = p.product_id
+            WHERE p.status = 'approved' AND (p.approved_at > $1 OR (p.approved_at IS NULL AND p.created_at > $1))
+            ORDER BY p.created_at DESC
+        """, last_payout_ts)
+
+        # 2. Club Subscriptions (Stream B)
+        club = await db.fetch("""
+            SELECT 
+                cp.id,
+                'Stream B (Club)' as stream,
+                cp.amount,
+                COALESCE(cp.processed_at, cp.created_at) as transaction_date,
+                cp.user_id,
+                COALESCE(u.full_name, 'Unknown') as customer_name,
+                COALESCE(u.username, '') as username,
+                'Hilawe Transformation Club' as item_title,
+                NULL as bank_reference,
+                'Approved' as status
+            FROM club_payments cp
+            LEFT JOIN users u ON u.telegram_id = cp.user_id
+            WHERE cp.status = 'approved' AND (cp.processed_at > $1 OR (cp.processed_at IS NULL AND cp.created_at > $1))
+            ORDER BY cp.created_at DESC
+        """, last_payout_ts)
+
+        # 3. Meal Plans (Stream C)
+        meals = await db.fetch("""
+            SELECT 
+                mp.id,
+                'Stream C (Meal Plans)' as stream,
+                COALESCE(mp.settlement_amount, mp.expected_amount) as amount,
+                COALESCE(mp.approved_at, mp.created_at) as transaction_date,
+                mp.user_id,
+                COALESCE(u.full_name, 'Unknown') as customer_name,
+                COALESCE(u.username, '') as username,
+                CONCAT('Meal Plan: ', COALESCE(mo.service_type, 'Plan')) as item_title,
+                mp.verification_reference as bank_reference,
+                'Approved' as status
+            FROM meal_payments mp
+            LEFT JOIN users u ON u.telegram_id = mp.user_id
+            LEFT JOIN meal_orders mo ON mo.id = mp.order_id
+            WHERE mp.status = 'APPROVED' AND (mp.approved_at > $1 OR (mp.approved_at IS NULL AND mp.created_at > $1))
+            ORDER BY mp.created_at DESC
+        """, last_payout_ts)
+
+        txns = records_to_list(sales) + records_to_list(club) + records_to_list(meals)
+        txns.sort(key=lambda x: str(x.get("transaction_date") or ""), reverse=True)
+
+        return web.json_response({
+            "last_payout_at": last_payout_ts.isoformat() if isinstance(last_payout_ts, datetime) else str(last_payout_ts),
+            "total_count": len(txns),
+            "transactions": txns
+        })
+    except Exception:
+        LOG.exception("get_pending_payout_transactions failed")
+        return web.json_response({"error": "fetch_error"}, status=500)

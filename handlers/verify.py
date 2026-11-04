@@ -24,6 +24,7 @@ import asyncio
 import html
 import io
 import logging
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -51,21 +52,36 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 
 VERIFY_API_KEY = settings.VERIFY_API_KEY
-VERIFY_BASE_URL = getattr(
+VERIFY_PRIMARY_BASE_URL = getattr(
     settings,
     "VERIFY_API_BASE_URL",
-    "https://verifyapi.leulzenebe.pro",
+    os.getenv("VERIFY_API_BASE_URL", "https://verifyapi.leulzenebe.pro"),
+).rstrip("/")
+VERIFY_FALLBACK_BASE_URL = getattr(
+    settings,
+    "VERIFY_FALLBACK_BASE_URL",
+    os.getenv("VERIFY_FALLBACK_BASE_URL", "https://veritas.et/api"),
 ).rstrip("/")
 
-VERIFY_URL = f"{VERIFY_BASE_URL}/verify"
+VERIFY_URL = f"{VERIFY_PRIMARY_BASE_URL}/verify"
+VERIFY_FALLBACK_URL = f"{VERIFY_FALLBACK_BASE_URL}/verify"
 
 DEDICATED_ENDPOINTS = {
-    "CBE": f"{VERIFY_BASE_URL}/verify-cbe",
-    "Telebirr": f"{VERIFY_BASE_URL}/verify-telebirr",
-    "Dashen": f"{VERIFY_BASE_URL}/verify-dashen",
-    "Abyssinia": f"{VERIFY_BASE_URL}/verify-abyssinia",
-    "CBE Birr": f"{VERIFY_BASE_URL}/verify-cbebirr",
-    "M-Pesa": f"{VERIFY_BASE_URL}/verify-mpesa",
+    "CBE": f"{VERIFY_PRIMARY_BASE_URL}/verify-cbe",
+    "Telebirr": f"{VERIFY_PRIMARY_BASE_URL}/verify-telebirr",
+    "Dashen": f"{VERIFY_PRIMARY_BASE_URL}/verify-dashen",
+    "Abyssinia": f"{VERIFY_PRIMARY_BASE_URL}/verify-abyssinia",
+    "CBE Birr": f"{VERIFY_PRIMARY_BASE_URL}/verify-cbebirr",
+    "M-Pesa": f"{VERIFY_PRIMARY_BASE_URL}/verify-mpesa",
+}
+
+DEDICATED_FALLBACK_ENDPOINTS = {
+    "CBE": f"{VERIFY_FALLBACK_BASE_URL}/verify-cbe",
+    "Telebirr": f"{VERIFY_FALLBACK_BASE_URL}/verify-telebirr",
+    "Dashen": f"{VERIFY_FALLBACK_BASE_URL}/verify-dashen",
+    "Abyssinia": f"{VERIFY_FALLBACK_BASE_URL}/verify-abyssinia",
+    "CBE Birr": f"{VERIFY_FALLBACK_BASE_URL}/verify-cbebirr",
+    "M-Pesa": f"{VERIFY_FALLBACK_BASE_URL}/verify-mpesa",
 }
 
 # Existing CBE receiver account suffix.
@@ -881,6 +897,11 @@ _TEMPORARY_ERROR_MARKERS = (
     "gateway",
     "rate limit",
     "too many requests",
+    "public verification limit reached",
+    "create a workspace",
+    "puppeteer",
+    "chrome",
+    "could not find chrome",
 )
 
 _CONCLUSIVE_REJECT_MARKERS = (
@@ -953,20 +974,16 @@ def _build_universal_payload(
     reference: str,
     provider: str,
 ) -> dict:
+    clean_ref = reference.strip()
     payload: dict[str, str] = {
-        "reference": reference.strip(),
+        "reference": clean_ref,
     }
 
-    if provider == "CBE" and CBE_SUFFIX:
-        payload["suffix"] = CBE_SUFFIX
-
-    elif provider == "Abyssinia" and ABYSSINIA_SUFFIX:
+    if provider == "Abyssinia" and ABYSSINIA_SUFFIX:
         payload["suffix"] = ABYSSINIA_SUFFIX
-
-    elif (
-        provider == "CBE Birr"
-        and CBEBIRR_PHONE_NUMBER
-    ):
+    elif (provider == "CBE" or clean_ref.startswith("FT")) and CBE_SUFFIX:
+        payload["suffix"] = CBE_SUFFIX
+    elif provider == "CBE Birr" and CBEBIRR_PHONE_NUMBER:
         payload["phoneNumber"] = CBEBIRR_PHONE_NUMBER
 
     return payload
@@ -1019,53 +1036,71 @@ def _build_dedicated_payload(
 async def _call_veritas(
     url: str,
     payload: dict,
+    fallback_url: str | None = None,
 ) -> tuple[int | None, dict | None, str | None]:
     """
-    Return (status_code, json_body, transport_error).
+    Return (status_code, json_body, transport_error) with automatic multi-endpoint failover.
     """
     client = get_verify_client()
 
-    try:
-        resp = await client.post(
-            url,
-            json=payload,
-        )
+    urls_to_try = [url]
+    if fallback_url and fallback_url != url:
+        urls_to_try.append(fallback_url)
 
-    except httpx.ReadTimeout:
-        return None, None, "Veritas request timed out."
+    last_status, last_body, last_err = None, None, None
 
-    except httpx.ConnectTimeout:
-        return None, None, "Could not connect to Veritas."
+    for target_url in urls_to_try:
+        try:
+            resp = await client.post(
+                target_url,
+                json=payload,
+            )
+            try:
+                body = resp.json()
+            except Exception:
+                body = None
 
-    except httpx.NetworkError as exc:
-        return None, None, f"Network error: {exc}"
+            logger.info(
+                "Veritas response url=%s status=%s body=%s",
+                target_url,
+                resp.status_code,
+                (body if body is not None else resp.text[:500]),
+            )
 
-    except Exception as exc:
-        logger.exception(
-            "Unexpected Veritas request error."
-        )
-        return (
-            None,
-            None,
-            f"{type(exc).__name__}: {exc}",
-        )
+            # If rate limit (429), gateway/server error (5xx), or scraper crash (422 Puppeteer/Chrome), try fallback endpoint
+            is_scraper_crash = resp.status_code == 422 and any(
+                w in (resp.text or "").lower() for w in ("puppeteer", "chrome", "could not find", "scraper", "timeout")
+            )
+            is_retryable_failure = resp.status_code in (429, 500, 502, 503, 504) or is_scraper_crash
 
-    try:
-        body = resp.json()
-    except Exception:
-        body = None
+            if is_retryable_failure and target_url != urls_to_try[-1]:
+                logger.warning(
+                    "Veritas endpoint %s returned %s, failing over to backup %s",
+                    target_url,
+                    resp.status_code,
+                    urls_to_try[-1],
+                )
+                continue
 
-    logger.info(
-        "Veritas response status=%s body=%s",
-        resp.status_code,
-        (
-            body
-            if body is not None
-            else resp.text[:1000]
-        ),
-    )
+            return resp.status_code, body, None
 
-    return resp.status_code, body, None
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.NetworkError) as exc:
+            last_err = f"Network error: {exc}"
+            if target_url != urls_to_try[-1]:
+                logger.warning(
+                    "Veritas endpoint %s network error (%s), trying fallback %s",
+                    target_url,
+                    exc,
+                    urls_to_try[-1],
+                )
+                continue
+            return None, None, last_err
+
+        except Exception as exc:
+            logger.exception("Unexpected Veritas request error.")
+            return None, None, f"{type(exc).__name__}: {exc}"
+
+    return last_status, last_body, last_err
 
 
 # ─────────────────────────────────────────────
@@ -1126,6 +1161,7 @@ async def verify_external(
         status, body, transport_error = await _call_veritas(
             VERIFY_URL,
             universal_payload,
+            fallback_url=VERIFY_FALLBACK_URL,
         )
 
         last_status = status
@@ -1269,9 +1305,11 @@ async def verify_external(
             dedicated_url,
         )
 
+        dedicated_fallback_url = DEDICATED_FALLBACK_ENDPOINTS.get(provider)
         status, body, transport_error = await _call_veritas(
             dedicated_url,
             dedicated_payload,
+            fallback_url=dedicated_fallback_url,
         )
 
         if transport_error:

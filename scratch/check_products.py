@@ -1,18 +1,20 @@
-import asyncio, os, sys
-sys.stdout.reconfigure(encoding='utf-8')
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + "/.."))
-import config, asyncpg
+import asyncio
+import os
+import sys
 
-async def check():
-    conn = await asyncpg.connect(config.settings.DATABASE_URL)
-    rows = await conn.fetch('''
-        SELECT id, title, language, gender, level, frequency, price, is_active 
-        FROM products 
-        ORDER BY language, gender, level, frequency, id
-    ''')
-    for r in rows:
-        print(f"{r['id']:<3} | {r['language']:<3} | {r['gender']:<7} | {r['level']:<15} | Freq: {r['frequency']} | Price: {r['price']} | Active: {r['is_active']} | {r['title'][:35]}")
-    await conn.close()
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from config import settings
+from database.db import Database
+
+async def main():
+    db = Database(settings.DATABASE_URL)
+    await db.connect()
+    products = await db.fetch("SELECT id, language, gender, level, frequency, price FROM products ORDER BY id")
+    print(f"Total products: {len(products)}")
+    for p in products:
+        print(f"ID: {p['id']}, Lang: {p['language']}, Gender: {p['gender']}, Level: {p['level']}, Freq: {p['frequency']}, Price: {p['price']}")
 
 if __name__ == "__main__":
-    asyncio.run(check())
+    asyncio.run(main())
+

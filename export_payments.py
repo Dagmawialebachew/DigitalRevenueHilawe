@@ -1006,18 +1006,24 @@ def generate_master_pdf(
 # ──────────────────────────────────────────────────────────────────────────────
 async def fetch_approved_sales(
     conn: asyncpg.Connection,
-    date_from: date | None,
-    date_to:   date | None,
+    date_from: datetime | date | None,
+    date_to:   datetime | date | None,
 ) -> list[dict]:
     clauses = ["p.status = 'approved'"]
     params: list = []
 
     if date_from:
         params.append(date_from)
-        clauses.append(f"p.created_at::date >= ${len(params)}")
+        if isinstance(date_from, datetime):
+            clauses.append(f"(p.approved_at > ${len(params)} OR (p.approved_at IS NULL AND p.created_at > ${len(params)}))")
+        else:
+            clauses.append(f"p.created_at::date >= ${len(params)}")
     if date_to:
         params.append(date_to)
-        clauses.append(f"p.created_at::date <= ${len(params)}")
+        if isinstance(date_to, datetime):
+            clauses.append(f"p.created_at <= ${len(params)}")
+        else:
+            clauses.append(f"p.created_at::date <= ${len(params)}")
 
     query = f"""
         SELECT
@@ -1046,18 +1052,25 @@ async def fetch_approved_sales(
 
 async def fetch_approved_club(
     conn: asyncpg.Connection,
-    date_from: date | None,
-    date_to:   date | None,
+    date_from: datetime | date | None,
+    date_to:   datetime | date | None,
 ) -> list[dict]:
     clauses = ["cp.status = 'approved'"]
     params: list = []
 
     if date_from:
         params.append(date_from)
-        clauses.append(f"cp.created_at::date >= ${len(params)}")
+        if isinstance(date_from, datetime):
+            clauses.append(f"(cp.processed_at > ${len(params)} OR (cp.processed_at IS NULL AND cp.created_at > ${len(params)}))")
+        else:
+            clauses.append(f"cp.created_at::date >= ${len(params)}")
     if date_to:
         params.append(date_to)
-        clauses.append(f"cp.created_at::date <= ${len(params)}")
+        if isinstance(date_to, datetime):
+            clauses.append(f"cp.created_at <= ${len(params)}")
+        else:
+            clauses.append(f"cp.created_at::date <= ${len(params)}")
+
 
     query = f"""
         SELECT
@@ -1775,6 +1788,7 @@ async def main(
     sales_to: date | None = None,
     club_from: date | None = None,
     club_to: date | None = None,
+    since_payout: bool = False,
 ):
     if not DATABASE_URL:
         log.error("DATABASE_URL not set in .env"); sys.exit(1)
@@ -1792,8 +1806,21 @@ async def main(
     log.info("Connecting to database …")
     conn = await asyncpg.connect(DATABASE_URL)
     try:
+        if since_payout:
+            last_payout_ts = await conn.fetchval(
+                "SELECT value_timestamp FROM system_metadata WHERE key = 'last_payout_at'"
+            )
+            if not last_payout_ts:
+                last_payout_ts = await conn.fetchval(
+                    "SELECT MAX(payout_date) FROM payout_history WHERE entry_type = 'payout'"
+                )
+            if last_payout_ts:
+                log.info("Found last payout checkpoint: %s. Filtering all post-payout activity.", last_payout_ts)
+                s_from = c_from = last_payout_ts
+
         all_payments      = []
         all_club_payments = []
+
 
         if stream in ("both", "sales"):
             all_payments = await fetch_approved_sales(conn, s_from, s_to)
@@ -1945,6 +1972,10 @@ if __name__ == "__main__":
         default="both",
         help="Which revenue stream to export (default: both)",
     )
+    parser.add_argument(
+        "--since-payout", dest="since_payout", action="store_true",
+        help="Automatically start from the latest payout checkpoint in system_metadata",
+    )
     args = parser.parse_args()
 
     def _d(v): return datetime.strptime(v, "%Y-%m-%d").date() if v else None
@@ -1957,4 +1988,6 @@ if __name__ == "__main__":
         sales_to=_d(args.sales_to),
         club_from=_d(args.club_from),
         club_to=_d(args.club_to),
+        since_payout=args.since_payout,
     ))
+

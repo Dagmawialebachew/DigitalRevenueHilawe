@@ -1,31 +1,55 @@
 import asyncio
 import os
-import json
 import sys
-from dotenv import load_dotenv
-import asyncpg
 
-load_dotenv(r"d:\The hobby 2\DigitalRevenueHilawe\.env")
-sys.stdout.reconfigure(encoding='utf-8')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-async def main():
-    conn = await asyncpg.connect(os.getenv("DATABASE_URL"))
-    cols = await conn.fetch("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'meal_payments'")
-    print("meal_payments columns:", [c['column_name'] for c in cols])
+from config import settings
+from database.db import Database
+
+async def inspect_payments():
+    db = Database(settings.DATABASE_URL)
+    await db.connect()
     
-    rows = await conn.fetch("""
-        SELECT p.id, p.order_id, p.status, p.bank_code, p.proof_file_id IS NOT NULL as has_proof,
-               p.verification_reference, p.created_at, o.amount, o.currency, u.full_name, u.username, u.telegram_id
-        FROM meal_payments p
-        JOIN meal_orders o ON p.order_id = o.id
-        LEFT JOIN users u ON o.user_id = u.telegram_id
-        ORDER BY p.id DESC
+    mp_cols = await db.fetch("""
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'meal_payments'
+        ORDER BY ordinal_position;
     """)
-    print("\nPayments count:", len(rows))
-    for r in rows:
-        print(f"Payment #{r['id']} | Order #{r['order_id']} | Status: {r['status']} | Bank: {r['bank_code']} | Proof: {r['has_proof']} | Ref: {r['verification_reference']} | User: {r['full_name']} (@{r['username']}, ID: {r['telegram_id']})")
+    print("meal_payments columns:")
+    for c in mp_cols:
+        print(f" - {c['column_name']} ({c['data_type']})")
 
-    await conn.close()
+    # Also inspect the 5 club payments
+    incomplete_rows = await db.fetch("""
+        SELECT telegram_id FROM users WHERE onboarding_completed = FALSE OR onboarding_completed IS NULL
+    """)
+    uids = [r["telegram_id"] for r in incomplete_rows]
+    
+    club_payments = await db.fetch("""
+        SELECT * FROM club_payments WHERE user_id = ANY($1::bigint[])
+    """, uids)
+    print(f"\nClub payments count: {len(club_payments)}")
+    for cp in club_payments:
+        print(dict(cp))
+
+    # Also check orders
+    orders = await db.fetch("""
+        SELECT * FROM orders WHERE user_id = ANY($1::bigint[])
+    """, uids)
+    print(f"\nOrders count: {len(orders)}")
+    for o in orders:
+        print(dict(o))
+
+    # Check meal_orders
+    meal_orders = await db.fetch("""
+        SELECT * FROM meal_orders WHERE user_id = ANY($1::bigint[])
+    """, uids)
+    print(f"\nMeal orders count: {len(meal_orders)}")
+    for mo in meal_orders:
+        print(dict(mo))
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(inspect_payments())
+
