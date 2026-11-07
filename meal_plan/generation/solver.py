@@ -147,7 +147,7 @@ class DaySolver:
                 base = base.plus(m_fixed)
                 fixed_macros = fixed_macros.plus(m_fixed)
             elif tid == "MN-B07":
-                m_fixed = MacroTotals(443.0, 19.6, 53.8, 16.5, 5.5)
+                m_fixed = MacroTotals(603.5, 27.0, 77.0, 21.8, 8.0)
                 base = base.plus(m_fixed)
                 fixed_macros = fixed_macros.plus(m_fixed)
             elif spec.source_slot == "Breakfast":
@@ -244,14 +244,18 @@ class DaySolver:
                 comps = [
                     {"Item Type": "Recipe", "Item ID": "R021", "Portion g": 180},
                     {"Item Type": "Food", "Item ID": "C001", "Portion g": 120},
+                    {"Item Type": "Food", "Item ID": "A011", "Portion g": 50},
+                    {"Item Type": "Food", "Item ID": "F001", "Portion g": 100},
                     {"Item Type": "Food", "Item ID": "V012", "Portion g": 60},
                 ]
-                m = MacroTotals(443.0, 19.6, 53.8, 16.5, 5.5)
+                m = MacroTotals(603.5, 27.0, 77.0, 21.8, 8.0)
             elif spec.source_slot == "Breakfast":
                 comps = self.components.get(tid, [])
                 m = template_macros(t)
             else:
                 comps = self.components.get(tid, [])
+                if tid == "MN-D07" and not any(str(c.get("Item ID")) in ("T001", "T002") for c in comps):
+                    comps = list(comps) + [{"Item Type": "Food", "Item ID": "T001", "Portion g": 5}]
                 m = template_macros(t).scale(scale)
 
             meal_state[spec.label] = m.to_dict()
@@ -363,9 +367,9 @@ class DaySolver:
             t = slot_templates.get(slot, {})
             tmpl_id = str(t.get("Template ID") or "")
             t_name = (str(t.get("Meal Name") or "") + " " + str(t.get("Tags") or "")).lower()
-            if "pasta" in t_name or any(str(c.get("Item ID")) in ("R027", "R014") for c in self.components.get(tmpl_id, [])):
+            if "pasta" in t_name or any(str(c.get("Item ID")) in ("R027",) for c in self.components.get(tmpl_id, [])):
                 return "C006"
-            if "rice" in t_name or any(str(c.get("Item ID")) in ("R026", "R010", "R011") for c in self.components.get(tmpl_id, [])):
+            if "rice" in t_name or any(str(c.get("Item ID")) in ("R026", "R010", "R011", "R014") for c in self.components.get(tmpl_id, [])):
                 return "C003"
             if "potato" in t_name or "dinich" in t_name:
                 return "C010"
@@ -475,6 +479,10 @@ class DaySolver:
             has_meat_fish = any(w in t_name for w in ("chicken", "beef", "tuna", "tilapia", "fish", "turkey", "siga", "doro", "asa"))
             if has_meat_fish:
                 return []
+
+            if "ayib" in t_name:
+                # In Ayib dishes (e.g. Ayib Gomen Bowl), scale Ayib or egg whites; NEVER inject whole boiled eggs (A011)!
+                return [candidate("A018", 150), candidate("A012", 150)]
 
             if is_save_budget:
                 # Strictly affordable Ethiopian proteins for Save tier:
@@ -610,7 +618,10 @@ class DaySolver:
             fid = str(spec["id"])
             # Permanent blacklist guard: Raw Shiro powder P012 is a raw flour, never a filler!
             if fid == "P012": return 0.0
-            if fid == "V020" and daily_used("V020") >= 100.0: return 0.0
+            if fid == "V020":
+                # Never inject tiny slivers of avocado (< 50g); client cannot buy 15g avocado for 1 meal!
+                if daily_used("V020") >= 100.0 or need < 7.0:
+                    return 0.0
             if is_small_frame and macro == "protein" and totals["protein"] >= 105.0: return 0.0
             if not is_small_frame and target["protein"] <= 150.0 and fid.startswith(("A", "P")):
                 prot_cutoff = target["protein"] * 0.98
@@ -701,9 +712,9 @@ class DaySolver:
                 # Never inject loose carbs into composite dishes unless scaling native carb
                 comp_rids = [str(c.get("Item ID")) for c in self.components.get(tmpl_id, []) if str(c.get("Item Type")) == "Recipe"]
                 if any(r in COMPOSITE_RECIPES for r in comp_rids):
-                    if any(r in ("R027", "R014") for r in comp_rids):
+                    if any(r in ("R027",) for r in comp_rids):
                         carb_fill_order.append((spec.label, "C006"))
-                    elif any(r in ("R026", "R010", "R011") for r in comp_rids):
+                    elif any(r in ("R026", "R010", "R011", "R014") for r in comp_rids):
                         carb_fill_order.append((spec.label, "C003"))
                     elif any(r == "R028" for r in comp_rids):
                         carb_fill_order.append((spec.label, "C008"))

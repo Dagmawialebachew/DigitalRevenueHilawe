@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Investigating & Resolving Stuck Meal Plan (Order #72 Approved by Dagmaros) |
+| **Active Task / Request** | Live Multi-Cohort Broadcast Execution (2nd Time Buyers & Fresh Hot Leads) with Multi-Admin Logging |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-04 21:31:00 (EAT) |
-| **Last Updated** | 2026-11-04 22:37:00 (EAT) |
-| **Current In-Flight Step** | Order #72 15-page PDF compiled, verified, delivered to Coach Review Group (-5592866261), order state = REVIEW_PENDING |
+| **Session Started** | 2026-11-07 11:00:00 (EAT) |
+| **Last Updated** | 2026-11-07 11:20:00 (EAT) |
+| **Current In-Flight Step** | All live broadcasts completed. Summary execution report cards delivered to Dagmaros (1131741322) and Coach Hilawe (1597966240). |
 
 ---
 
@@ -21,17 +21,55 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1: Order #72 Forensics** — Identified PostgreSQL check constraint failure (`CheckViolationError` on stage `AI_COACH_REVIEW`).
-- [x] **Milestone 2: Database Schema Fix** — Altered `meal_generation_jobs_stage_check` on Neon PostgreSQL to include `AI_COACH_REVIEW` and `FAILED`.
-- [x] **Milestone 3: End-to-End Pipeline Execution** — Executed full 9-step generation pipeline (food matching, 7-day schedule, quality check, AI Coach review, grocery list, and 15-page PDF rendering via Chromium).
-- [x] **Milestone 4: Deliverables & Handoff** — Stored artifacts in DB, uploaded certified PDF and DOCX to Telegram, dispatched review card to Coach Review Group (`-5592866261`), moved order state to `REVIEW_PENDING`.
+- [x] **Milestone 1: Database & Cohort Forensics** — Verified exact live audience numbers: 448 Ascension 8-week graduates, 716 fresh 7-day hot leads (excluding paid users), and 99 meal plan pre-checkout leads.
+- [x] **Milestone 2: Multi-Admin Logging Routing & Anti-Paid Guard** — Guaranteed broadcast logs dispatch to both `1131741322` (Dagmaros) and `1597966240` (Coach Hilawe), excluded all users with approved payments in DB, and ensured zero preview spam to admins.
+- [x] **Milestone 3: Cohort 1 Execution (2nd Time Buyers · Ascension)** — Successfully launched 448 8-week graduates at 749 ETB alumni rate. Delivered 367 messages (75 blocked, 6 failed). Report cards dispatched to all admin IDs.
+- [x] **Milestone 4: Cohort 2 Execution (Fresh Hot Unpaid Leads)** — Successfully launched 716 hot leads at full price 949 ETB with native Addis 1-on-1 copy. Delivered 607 messages (109 blocked, 0 failed). Report cards dispatched to all admin IDs.
+- [x] **Milestone 5: Multi-Admin Delivery Verification** — Verified execution report cards arrived cleanly in Telegram for both Dagmaros and Coach Hilawe without any extraneous test cards.
 
 ---
 
-## 📦 ## 📦 ## 📦 Recent Session Deliverables & File Links
+## 📦 Recent Session Deliverables & File Links
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Hot Leads Recovery Engine** | 1-on-1 personalized Addis native engine targeting fresh unpaid leads at 949 ETB | [retarget_hot_unpaid_leads.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_hot_unpaid_leads.py) |
+| **Ascension Broadcast Engine** | Phase 1 graduate recovery targeting 8-week alumni at 749 ETB | [ascension_broadcast.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/ascension_broadcast.py) |
+| **Pre-Checkout Meal Plan Engine** | In-chat 1-tap checkout for PROFILE_READY leads (7d, 14d, 30d) | [meal_plan_precheckout_recovery.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/meal_plan_precheckout_recovery.py) |
+| **Semehar Ali V5 Certified 15-Page PDF** | 10/10 deliverable with yogurt oats, 450g bowl, 220g fish rice, and boosted Sunday breakfast | [MP-000072-Semehar-Ali-V5.pdf](file:///d:/The%20hobby%202/DigitalRevenueHilawe/artifacts/meal_plans/MP-000072/v5/MP-000072-Semehar-Ali-V5.pdf) |
+
+---
+
+## 📜 Historical Session Log
+
+### Session: 2026-11-07 — Multi-Cohort Live Broadcast Execution & Multi-Admin Logging
+
+* **Goal:** Execute live broadcast runs for 2nd time buyers (Ascension) and fresh hot leads (last 7 days), guaranteeing zero duplicate messages to paid users and routing execution logs directly to all admin IDs (`1131741322` and `1597966240`).
+* **Key Achievements & Deliverables:**
+  1. **Paid-User Safety Guard:** Added `AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.user_id = u.telegram_id AND p.status = 'approved')` to `retarget_hot_unpaid_leads.py`, preventing any client who already paid from receiving an unpaid lead pitch.
+  2. **Multi-Admin Logging Config:** Updated `.env` and scheduler dispatchers (`ascension_broadcast.py`, `retarget_hot_unpaid_leads.py`, `meal_plan_precheckout_recovery.py`) to loop over `settings.ADMIN_IDS` so both Dagmaros (`1131741322`) and Coach Hilawe (`1597966240`) receive final report cards.
+  3. **Cohort 1: 2nd Time Buyers (Ascension 8-Week Graduates):**
+     - Total Targets: 448
+     - Delivered: 367
+     - Blocked: 75
+     - Failed: 6 (timeout retried)
+     - Offer: 749 ETB next-level upgrade locked for 24h.
+  4. **Cohort 2: Fresh Hot Unpaid Leads (Last 7 Days):**
+     - Total Targets: 716
+     - Delivered: 607 (84.8%)
+     - Blocked: 109
+     - Failed: 0
+     - Offer: Full price 949 ETB with Addis native 1-on-1 copy (Name, Gender, Split, Goal, Obstacle).
+  5. **Admin Privacy Directives:** Zero test preview cards sent to admins; strictly final delivery reports dispatched.
+
+---
+
+## 📦 Recent Session Deliverables & File Links
+
+| Deliverable | Description | File Path |
+| --- | --- | --- |
+| **Boss VAT Briefing & Citation Dossier** | Ready-to-send Amharic/English talking points and verifiable legal citations for management | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
+| **Ethiopian Digital VAT Legal Analysis** | Comprehensive breakdown of Proclamation No. 1341/2024, 2M ETB threshold, and bot pricing strategy | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
 | **743 Hot Leads Hyper-Personalized Engine** | 1-on-1 personalized recovery engine injecting name, gender, days, goal, and obstacle | [retarget_hot_unpaid_leads.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_hot_unpaid_leads.py) |
 | **Full-Price Incomplete Retargeting Engine** | CLI & Telegram broadcast engine targeting 440 drop-offs with Addis native voice | [retarget_incomplete_onboarding.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_incomplete_onboarding.py) |
 | **Incomplete Users CSV Ledger** | Itemized CSV export of all 439 drop-off users with IDs, usernames, and language | [incomplete_workout_onboarding_users.csv](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scratch/incomplete_workout_onboarding_users.csv) |
@@ -52,6 +90,39 @@ e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-06 — Semehar Ali V2 10/10 Deliverable (Boss Audit Fixes & 1,900 kcal Cut)
+
+* **Goal:** Elevate Semehar Ali's meal plan (Order #72) from 8.9/10 to a certified 10/10 deliverable by resolving all 6 audit items from Boss's line-by-line review.
+* **Key Achievements & Deliverables:**
+  1. **Calorie & Protein Targets (Option 1):** Calibrated Semehar's profile to 1,900 kcal / 150g protein fat-loss cut (7-day average: 1,864 kcal, 141g protein). Trimmed meal sizes from 950 kcal down to a comfortable 400–750 kcal per sitting.
+  2. **Dual-Starch Fix:** Patched `solver.py` so Fish Tibs (`R014`) scales White rice only, eliminating the Whole-wheat pasta collision on Day 6 Lunch.
+  3. **Odd Side Additions Removed:** Removed the random boiled egg from Day 1 Ayib be Gomen, eliminated the 15g avocado sliver on Day 7 Dinner, and swapped Day 5 Breakfast from soy milk to peanut banana oats (saving the cost of 1L soy milk).
+  4. **Day 5 Dinner Label & Swaps:** Corrected beef plate label from raw to `የተፈጨ የበሬ ስጋ (የበሰለ) — 140g`. Updated chicken swap to `በግምት 1 የእጅ መዳፍ`.
+  5. **Swaps Household Measures & Moisture:** Added `በግምት 2 የሾርባ ማንኪያ` for sesame, `በግምት 1 የእጅ መዳፍ` for tilapia, and ensured Day 4 Dinner brown rice + tuna has olive oil moisture.
+  6. **Dynamic Canned Tuna Packaging:** Patched `grocery.py` so 170g tuna dynamically calculates to `1–2 ቆርቆሮ (185 ግ እያንዳንዱ)`.
+  7. **Strict 15-Page PDF Budget:** Generated and verified exact 15-page client PDF via headless Chromium (`MP-000072-Semehar-Ali-V3.pdf`), uploaded artifacts to Telegram, and dispatched review card to Coach Review Group (`-5592866261`).
+
+---
+
+### Session: 2026-11-06 — Boss Briefing Dossier: Halting Premature 15% VAT Implementation
+
+* **Goal:** Equip user with airtight legal arguments, exact proclamation articles, and credible links to convince management/boss why adding 15% VAT right now is legally dangerous and commercially harmful.
+* **Key Findings Provided:**
+  1. **Federal Tax Administration Proclamation No. 983/2016, Article 127:** Charging VAT without official Ministry of Revenues registration is a criminal offense punishable by a 50k–75k ETB fine and 5–7 years imprisonment.
+  2. **VAT Proclamation No. 1341/2024:** Mandatory VAT registration threshold is 2,000,000 ETB annual taxable turnover.
+  3. **Target of Law:** Designed for foreign remote service giants (Netflix, Meta, Google, Apple), not unregistered local micro-merchants.
+  4. **Deliverable:** Created copy-paste Amharic/English briefing script and compiled verified links (MoFED, Federal Negarit Gazette, EY Global Tax Alert, 2Merkato).
+
+### Session: 2026-11-06 — Ethiopian New VAT Law & Digital Products Compliance Audit
+
+* **Goal:** Research the newly enacted Ethiopian VAT Proclamation No. 1341/2024 and Regulation No. 570/2025 regarding the 15% VAT on digital products and e-commerce, and advise whether DigitalRevenue / Coach Hilawe must add 15% VAT on bot products immediately.
+* **Findings & Legal Framework:**
+  1. **New Proclamation:** Passed in August 2024 (Proclamation No. 1341/2024), officially repealing the 2002 law.
+  2. **Who 15% Digital VAT Targets:** Primarily cross-border tech giants (Netflix, Meta, Google, Zoom, Apple, Canva) and foreign SaaS/content platforms delivering remote services into Ethiopia.
+  3. **Domestic Mandatory Threshold:** Set strictly at **2,000,000 ETB (2M Birr)** annual taxable turnover.
+  4. **Crucial Rule on Collecting VAT:** Under Ethiopian tax law, an entity **CANNOT** collect or quote VAT to customers unless they possess an official VAT Registration Certificate from the Ministry of Revenues. Collecting VAT without registration is illegal.
+  5. **Action Plan:** Do not blindly slap +15% on checkout prices right now. Determine 12-month turnover first; if crossing 2M ETB, register officially and use VAT-inclusive pricing to preserve conversion.
 
 ### Session: 2026-11-04 — Order #72 Generation Recovery, Neon DB Schema Fix & Full Remote Git Push
 

@@ -100,7 +100,7 @@ def _build_meal(
         direct["F001"] = 120.0
         meal_macros = MacroTotals(450.0, 22.0, 65.0, 18.0, 5.0)
     elif tmpl_id == "MN-B07":
-        # Fixed 3-component Egg Firfir breakfast: 180g Egg Firfir, 120g Injera, 60g Cucumber
+        # Fixed Egg Firfir breakfast: 180g Egg Firfir, 120g Injera, 1 Boiled whole egg (50g), 1 Medium Banana (100g), 60g Cucumber
         firfir_g = 180.0
         items.append(MealItem(
             food_id="",
@@ -115,9 +115,11 @@ def _build_meal(
             macros=MacroTotals(218.0, 13.0, 7.2, 15.1, 1.7),
         ))
         direct["C001"] = 120.0
+        direct["A011"] = 50.0   # 1 whole egg for satiety & protein
+        direct["F001"] = 100.0  # 1 medium banana for clean morning energy
         direct["V012"] = 60.0
         recipe_ids.append("R021")
-        meal_macros = MacroTotals(443.0, 19.6, 53.8, 16.5, 5.5)
+        meal_macros = MacroTotals(603.5, 27.0, 77.0, 21.8, 8.0)
     else:
         for component in dataset.components_by_template.get(tmpl_id, []):
             grams = n(component.get("Portion g")) * effective_scale
@@ -233,7 +235,10 @@ def _build_meal(
                     base_serv_g = n(rec.get("Serving g") or rec.get("serving_g") or 400.0)
                     kcal_per_g = base_kcal / max(1.0, base_serv_g)
                     extra_g = float(extra["grams"])
-                    recipe_item.grams += extra_g
+                    if target_rid == "R026":
+                        recipe_item.grams = 450.0
+                    else:
+                        recipe_item.grams += extra_g
                     recipe_item.macros = recipe_item.macros.plus(extra_macros)
                     servings = recipe_item.grams / max(1.0, base_serv_g)
                     if "toast" in recipe_item.food_name.lower() or target_rid == "R028":
@@ -286,16 +291,32 @@ def _build_meal(
                     direct["T003"] = min(40.0, direct["T003"] + (oat_g * 0.4))
 
         # Day 5 / Fasting Breakfast: Peanut banana oats (MF-B07)
-        # Cap Peanut Butter (T004) to 15g, and provide Soy Milk (P014) 250g as liquid base
-        if tmpl_id == "MF-B07" and day_fasting:
+        # Cap Peanut Butter (T004) to 15g, and provide liquid base (Soy Milk for fasting, Low-fat Yogurt for omnivores)
+        if tmpl_id == "MF-B07":
             if "T004" in direct:
                 pb_diff = direct["T004"] - 15.0
                 direct["T004"] = 15.0
                 if pb_diff > 0:
                     meal_macros = meal_macros.minus(food_macros(foods["T004"], pb_diff))
-            if "P014" not in direct and "P014" in foods:
-                direct["P014"] = 250.0
-                meal_macros = meal_macros.plus(food_macros(foods["P014"], 250.0))
+            if day_fasting:
+                if "P014" not in direct and "P014" in foods:
+                    direct["P014"] = 250.0
+                    meal_macros = meal_macros.plus(food_macros(foods["P014"], 250.0))
+            else:
+                if "A014" not in direct and "A014" in foods:
+                    direct["A014"] = 150.0
+                    meal_macros = meal_macros.plus(food_macros(foods["A014"], 150.0))
+                elif "A015" not in direct and "A015" in foods:
+                    direct["A015"] = 200.0
+                    meal_macros = meal_macros.plus(food_macros(foods["A015"], 200.0))
+
+        # Day 6 Lunch: Fish tibs and rice (MF-L07)
+        # Scale White rice (C003) to 220g to maintain daily energy target (~1,865 kcal)
+        if tmpl_id == "MF-L07" and "C003" in direct:
+            rice_diff = 220.0 - direct["C003"]
+            if rice_diff > 0:
+                direct["C003"] = 220.0
+                meal_macros = meal_macros.plus(food_macros(foods["C003"], rice_diff))
 
         # Single cooking oil binary rule for ALL meals: never split T001 and T002 in the same meal
         oil_fid = "T002" if is_save_budget else "T001"
@@ -401,6 +422,22 @@ def _build_meal(
         if options:
             swap_type = options[0].get("swap_type") or ("carb" if fid.startswith("C") else ("protein" if fid.startswith(("A", "P")) else "other"))
             exchange_options.append({"for_food_id": fid, "for_food_name": item.food_name, "swap_type": swap_type, "options": options})
+
+    if "R026" in recipe_ids and not any(ex.get("swap_type") == "carb" for ex in exchange_options):
+        carb_opts = build_exchange_options(
+            "C003", dataset, answers,
+            fasting=restriction_fasting,
+            base_grams=300.0,
+            meal_food_ids=meal_food_ids,
+            source_slot=spec.source_slot,
+        )
+        if carb_opts:
+            exchange_options.append({
+                "for_food_id": "C003",
+                "for_food_name": "White rice (Cooked)",
+                "swap_type": "carb",
+                "options": carb_opts,
+            })
 
     def _swap_prio(ex: dict[str, Any]) -> int:
         ffid = ex.get("for_food_id", "")

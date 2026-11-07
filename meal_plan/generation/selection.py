@@ -93,7 +93,7 @@ class TemplateSelector:
                         continue
                     if source_slot in ("Lunch", "Dinner") and tid in ("MF-L01", "MF-L02", "MF-L03", "MF-L07", "MF-D01", "MF-D04", "MF-D07"):
                         allow_for_omnivore = True
-                    elif source_slot == "Breakfast" and tid in ("MF-B01", "MF-B02", "MF-B07"):
+                    elif source_slot == "Breakfast" and tid in ("MF-B01", "MF-B07"):
                         allow_for_omnivore = True
                     else:
                         continue

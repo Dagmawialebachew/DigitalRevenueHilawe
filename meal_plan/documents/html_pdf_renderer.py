@@ -1411,7 +1411,10 @@ def build_day_html(
             if not raw_grams or raw_grams <= 0:
                 raw_grams = float(item.get("prepared_grams") or item.get("standard_grams") or 100.0)
 
-            if fid == "A011":
+            if item.get("recipe_id") == "R026":
+                raw_grams = 450.0
+                grams = f"450 {g_lbl}"
+            elif fid == "A011":
                 egg_cnt = max(1, int(round(raw_grams / 50.0)))
                 grams_clean = egg_cnt * 50
                 grams = f"{grams_clean} {g_lbl}"

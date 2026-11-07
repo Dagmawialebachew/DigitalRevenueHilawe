@@ -57,10 +57,14 @@ def local_food_name(food_id: str, default_name: str, language: str) -> str:
         if "raw" in d_lower or "ጥሬ" in d_lower:
             return "የዶሮ ስጋ (ጥሬ)" if is_am else "Chicken breast (Raw)"
         return "የዶሮ ደረት ስጋ (የበሰለ)" if is_am else "Cooked chicken breast"
-    if food_id == "A003" and ("raw" in d_lower or "ጥሬ" in d_lower or "beef" in d_lower):
-        return "የበሬ ስጋ (ጥሬ)" if is_am else "Lean beef (Raw)"
-    if food_id == "A004" and ("raw" in d_lower or "ጥሬ" in d_lower or "mince" in d_lower or "ground" in d_lower or "beef" in d_lower):
-        return "የተፈጨ የበሬ ስጋ (ጥሬ)" if is_am else "Lean ground beef (Raw)"
+    if food_id == "A003":
+        if "raw" in d_lower or "ጥሬ" in d_lower:
+            return "የበሬ ስጋ (ጥሬ)" if is_am else "Lean beef (Raw)"
+        return "የተፈጨ የበሬ ስጋ (የበሰለ)" if is_am else "Lean beef (Cooked)"
+    if food_id == "A004":
+        if "raw" in d_lower or "ጥሬ" in d_lower:
+            return "የተፈጨ የበሬ ስጋ (ጥሬ)" if is_am else "Lean ground beef (Raw)"
+        return "የተፈጨ የበሬ ስጋ (የበሰለ)" if is_am else "Lean ground beef (Cooked)"
     if food_id in ("A005", "A006", "A019", "A020") and ("raw" in d_lower or "ጥሬ" in d_lower or "cut" in d_lower):
         return "የቱርክ ደረት ስጋ (ጥሬ)" if is_am else "Turkey breast (Raw)"
     if food_id == "A007" and ("raw" in d_lower or "ጥሬ" in d_lower):
@@ -326,6 +330,14 @@ def format_swap_text(meal: Any, swap_item: dict[str, Any], is_am: bool = True) -
     swap_qty = f"{round(float(grams_val))} {g_unit}"
 
     if familiar:
+        # Household measure overrides for clean client deliverables
+        if fid in ("A001", "A002", "A007") and not any(w in familiar for w in ("መዳፍ", "እጅ", "palm", "ፍሬ", "ጣሳ")):
+            familiar = "በግምት 1 የእጅ መዳፍ" if is_am else "about 1 palm portion"
+        elif fid == "T007" and not any(w in familiar for w in ("ማንኪያ", "spoon", "tbsp")):
+            familiar = "በግምት 2 የሾርባ ማንኪያ" if float(grams_val) >= 15 else "በግምት 1 የሾርባ ማንኪያ"
+            if not is_am:
+                familiar = "about 2 tbsp" if float(grams_val) >= 15 else "about 1 tbsp"
+
         if is_am and any('\u1200' <= ch <= '\u137f' for ch in familiar):
             fam_text = familiar
         else:

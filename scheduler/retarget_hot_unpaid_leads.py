@@ -226,7 +226,8 @@ def render_hot_lead_message(user: Dict[str, Any]) -> Tuple[str, InlineKeyboardMa
     return text, keyboard
 
 
-async def get_hot_leads(db: Database) -> List[Dict[str, Any]]:
+async def get_hot_leads(db: Database, days: int = 7) -> List[Dict[str, Any]]:
+    interval_str = f"{days} days"
     rows = await db.fetch("""
         SELECT u.telegram_id, u.full_name, u.username, u.language, u.gender, 
                u.level, u.frequency, u.goal, u.obstacle, u.created_at,
@@ -239,16 +240,21 @@ async def get_hot_leads(db: Database) -> List[Dict[str, Any]]:
             u.frequency = p.frequency
         WHERE u.onboarding_completed = TRUE 
           AND (u.has_paid = FALSE OR u.has_paid IS NULL)
-          AND u.created_at >= NOW() - INTERVAL '7 days'
+          AND NOT EXISTS (
+              SELECT 1 FROM payments p2 
+              WHERE p2.user_id = u.telegram_id 
+                AND p2.status = 'approved'
+          )
+          AND u.created_at >= NOW() - ($1::text)::interval
         ORDER BY u.created_at DESC;
-    """)
+    """, interval_str)
     return [dict(r) for r in rows]
 
 
-async def run_dry_run(db: Database):
-    leads = await get_hot_leads(db)
+async def run_dry_run(db: Database, days: int = 7):
+    leads = await get_hot_leads(db, days=days)
     print("=" * 65)
-    print(f"🔥 HOT LEADS DRY-RUN: Found {len(leads)} Unpaid Leads (Past 7 Days)")
+    print(f"🔥 HOT LEADS DRY-RUN: Found {len(leads)} Unpaid Leads (Past {days} Days)")
     print("=" * 65)
 
     male_count = sum(1 for u in leads if "FEMALE" not in (u.get("gender") or "MALE").upper())
@@ -333,18 +339,18 @@ async def run_test_admin(db: Database, bot: Bot):
     print("✅ Female Test Message Delivered to Telegram!")
 
 
-async def run_launch(db: Database, bot: Bot):
-    leads = await get_hot_leads(db)
+async def run_launch(db: Database, bot: Bot, days: int = 7):
+    leads = await get_hot_leads(db, days=days)
     total = len(leads)
-    print(f"🚀 LAUNCHING HOT LEADS RECOVERY BROADCAST to {total} users...")
+    print(f"🚀 LAUNCHING HOT LEADS RECOVERY BROADCAST to {total} users (Window: past {days} days)...")
 
     # Clear any old deal prices to lock in strictly 949 ETB full price
-    await db.execute("""
+    await db.execute(f"""
         UPDATE users
         SET deal_price = NULL, deal_expires_at = NULL
         WHERE onboarding_completed = TRUE 
           AND (has_paid = FALSE OR has_paid IS NULL)
-          AND created_at >= NOW() - INTERVAL '7 days';
+          AND created_at >= NOW() - INTERVAL '{days} days';
     """)
     logger.info("Cleared old deals for hot leads cohort. Enforcing full price 949 ETB.")
 
@@ -417,13 +423,13 @@ async def run_launch(db: Database, bot: Bot):
     report_text = (
         f"🔥 <b>HOT LEADS RECOVERY REPORT</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎯 <b>Audience:</b> Fresh Unpaid Onboarded Leads (Last 7 Days)\n"
+        f"🎯 <b>Audience:</b> Fresh Unpaid Onboarded Leads (Last {days} Days)\n"
         f"👥 <b>Total Targets:</b> {total}\n"
         f"✅ <b>Successfully Delivered:</b> {sent} ({delivery_rate:.1f}%)\n"
         f"🚫 <b>Blocked Bot:</b> {blocked}\n"
         f"❌ <b>Failed:</b> {failed}\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 <b>Personalization:</b> Name + Gender + Exact Days ({3}/{4}/{5}d) + Goal + Obstacle\n"
+        f"💡 <b>Personalization:</b> Name + Gender + Exact Days (3/4/5d) + Goal + Obstacle\n"
         f"💰 <b>Price Tier:</b> Full Price 949 ETB\n"
         f"🕒 <b>Delivered At:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
     )
@@ -440,7 +446,8 @@ async def main():
     parser = argparse.ArgumentParser(description="High-Converting Hot Leads Recovery Engine")
     parser.add_argument("--dry-run", action="store_true", help="Preview stats and personalized sample copy without sending")
     parser.add_argument("--test-admin", action="store_true", help="Send test messages (Male & Female) to Admin Telegram ID")
-    parser.add_argument("--launch", action="store_true", help="Launch live broadcast to all 744 hot leads")
+    parser.add_argument("--launch", action="store_true", help="Launch live broadcast to hot leads")
+    parser.add_argument("--days", type=int, default=7, help="Window of days to target (default: 7)")
     args = parser.parse_args()
 
     db = Database(settings.DATABASE_URL)
@@ -452,11 +459,11 @@ async def main():
             if args.test_admin:
                 await run_test_admin(db, bot)
             elif args.launch:
-                await run_launch(db, bot)
+                await run_launch(db, bot, days=args.days)
         finally:
             await bot.session.close()
     else:
-        await run_dry_run(db)
+        await run_dry_run(db, days=args.days)
 
 
 if __name__ == "__main__":

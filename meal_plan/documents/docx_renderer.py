@@ -226,7 +226,10 @@ def _meal_card(doc: Document, meal: dict[str, Any], language: str) -> None:
                 has_cooked = any(w in m_title_lower for w in ("wot", "tibs", "firfir", "stew", "alicha", "shiro", "misir", "ወጥ", "ጥብስ", "ፍርፍር", "አልጫ", "እንቁላል", "የበሬ", "የዶሮ", "ስጋ", "ዓሣ", "የተጠበሰ", "tilapia", "fish"))
                 if has_cooked:
                     food_name = ("የሱፍ ዘይት (ለማብሰያ)" if fid == "T002" else "የወይራ ዘይት (ለማብሰያ)") if is_am else ("Sunflower oil (for cooking)" if fid == "T002" else "Olive oil (for cooking)")
-        grams = rounded(item.get("grams"), 0)
+        if item.get("recipe_id") == "R026":
+            grams = "450"
+        else:
+            grams = rounded(item.get("grams"), 0)
         familiar_raw = str(item.get("familiar") or "").strip()
         line = cell.add_paragraph(style=None)
         line.paragraph_format.left_indent = Cm(0.15)

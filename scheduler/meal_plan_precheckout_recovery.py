@@ -387,7 +387,12 @@ async def execute_precheckout_recovery_broadcast(
         f"━━━━━━━━━━━━━━━━━━\n"
         f"ℹ️ <i>Users can tap any plan button to instantly receive CBE & BOA account details.</i>"
     )
-    await bot.send_message(admin_id, summary, parse_mode="HTML")
+    for aid in (settings.ADMIN_IDS or [admin_id]):
+        try:
+            await bot.send_message(aid, summary, parse_mode="HTML")
+            logger.info(f"Pre-checkout summary delivered to admin {aid}.")
+        except Exception as e:
+            logger.error(f"Failed to send summary to admin {aid}: {e}")
     return stats
 
 

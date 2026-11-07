@@ -286,18 +286,25 @@ async def execute_ascension_broadcast(bot: Bot, admin_id: int, dry_run: bool = F
 
     await asyncio.gather(*(send_to_user(t) for t in targets))
 
-    # Step 3 - Dispatch Admin Summary
+    # Step 3 - Dispatch Admin Summary to all admin IDs
     summary = (
-        f"🏁 <b>ASCENSION BROADCAST COMPLETE</b>\n"
+        f"🎓 <b>ASCENSION BROADCAST REPORT (2ND TIME BUYERS)</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"🎯 <b>Total Targets:</b> <code>{stats['total']}</code>\n"
+        f"🎯 <b>Total Targets:</b> <code>{stats['total']}</code> 8-Week Graduates\n"
         f"✅ <b>Delivered:</b> <code>{stats['delivered']}</code>\n"
         f"🚫 <b>Blocked Bot:</b> <code>{stats['blocked']}</code>\n"
         f"❌ <b>Failed:</b> <code>{stats['failed']}</code>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"ℹ️ <i>Users locked at {UPGRADE_PRICE} ETB for 24 hours. Tapping button triggers CBE & BOA invoice.</i>"
+        f"💎 <b>Offer:</b> Next Level Upgrade at {UPGRADE_PRICE} ETB (351 ETB Alumni Discount)\n"
+        f"⏱️ <b>Deal Lock:</b> Active for 24 hours in DB\n"
+        f"🕒 <b>Delivered At:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
     )
-    await bot.send_message(admin_id, summary, parse_mode="HTML")
+    for aid in (settings.ADMIN_IDS or [admin_id]):
+        try:
+            await bot.send_message(aid, summary, parse_mode="HTML")
+            logger.info(f"Ascension summary delivered to admin {aid}.")
+        except Exception as e:
+            logger.error(f"Failed to send summary to admin {aid}: {e}")
     return stats
 
 

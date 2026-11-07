@@ -147,7 +147,7 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
             loop = asyncio.get_running_loop()
             ai_res = await asyncio.wait_for(
                 loop.run_in_executor(None, coach.audit_plan_semantics, plan, answers, nutrition_profile),
-                timeout=15.0
+                timeout=30.0
             )
             if hasattr(ai_res, "__dataclass_fields__"):
                 plan["ai_audit"] = asdict(ai_res)
@@ -225,13 +225,24 @@ async def process_generation_job(bot: Bot, db: Database, review_repo: MealPlanRe
 
     # Attach both editable source and final PDF before exposing review actions.
     for artifact in (artifacts.docx, artifacts.pdf):
-        sent = await bot.send_document(
-            chat_id,
-            FSInputFile(artifact.path, filename=artifact.filename),
-            caption=f"{artifact.artifact_type} · V{version['version_number']} · {artifact.sha256[:12]}",
-            reply_to_message_id=card.message_id,
-        )
-        if sent.document and sent.document.file_id:
+        sent = None
+        for attempt in range(3):
+            try:
+                sent = await bot.send_document(
+                    chat_id,
+                    FSInputFile(artifact.path, filename=artifact.filename),
+                    caption=f"{artifact.artifact_type} · V{version['version_number']} · {artifact.sha256[:12]}",
+                    reply_to_message_id=card.message_id,
+                    request_timeout=120,
+                )
+                break
+            except Exception as e:
+                logger.warning("Telegram artifact upload attempt %d failed: %s", attempt + 1, e)
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(2.0)
+
+        if sent and sent.document and sent.document.file_id:
             await review_repo.set_artifact_telegram_file_id(version["id"], artifact.artifact_type, sent.document.file_id)
 
     await bot.edit_message_text(

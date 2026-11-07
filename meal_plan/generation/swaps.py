@@ -79,7 +79,10 @@ def build_exchange_options(
             elif cand_id in ("C008", "C009"):
                 sg = min(100.0, max(30.0, sg))
             elif cand_id in ("C010", "C011"):
-                sg = min(300.0, max(50.0, sg))
+                if cand_id == "C011" and food_id in ("C003", "C004"):
+                    sg = 200.0 if base_grams <= 240.0 else 250.0
+                else:
+                    sg = min(300.0, max(50.0, sg))
             else:
                 sg = max(30.0, sg)
         elif swap_type == "protein":
@@ -137,9 +140,11 @@ def build_exchange_options(
         elif cand_id == "C011":
             if sg >= 260:
                 fam_am, fam_en = "2 መካከለኛ ስኳር ድንች", "2 medium sweet potatoes"
-            elif sg >= 190:
+            elif sg >= 230:
                 fam_am, fam_en = "1 ከግማሽ መካከለኛ ስኳር ድንች", "1 ½ medium sweet potatoes"
-            elif sg >= 130:
+            elif sg >= 170:
+                fam_am, fam_en = "1 ከሩብ መካከለኛ ስኳር ድንች", "1 ¼ medium sweet potatoes"
+            elif sg >= 120:
                 fam_am, fam_en = "1 መካከለኛ ስኳር ድንች", "1 medium sweet potato"
             else:
                 fam_am, fam_en = "ግማሽ መካከለኛ ስኳር ድንች", "½ medium sweet potato"
@@ -153,6 +158,27 @@ def build_exchange_options(
             fam_am, fam_en = f"{cups:g} ሲኒ የበሰለ ፓስታ", f"{cups:g} cups cooked pasta"
         elif cand_id == "A008":
             fam_am, fam_en = "ግማሽ ጣሳ", "½ can"
+        elif cand_id in ("A001", "A002", "A007", "A003", "A004", "A005", "A006", "A019", "A020"):
+            fam_am, fam_en = "በግምት 1 የእጅ መዳፍ", "about 1 palm portion"
+        elif cand_id == "T007":  # Sesame seeds
+            if sg >= 15:
+                fam_am, fam_en = "በግምት 2 የሾርባ ማንኪያ", "about 2 tbsp"
+            else:
+                fam_am, fam_en = "በግምት 1 የሾርባ ማንኪያ", "about 1 tbsp"
+        elif cand_id in ("T001", "T002"):  # Olive / Sunflower Oil
+            if sg <= 7:
+                fam_am, fam_en = "በግምት 1 የሻይ ማንኪያ", "about 1 tsp"
+            elif sg <= 12:
+                fam_am, fam_en = "በግምት 2 የሻይ ማንኪያ", "about 2 tsp"
+            else:
+                fam_am, fam_en = "በግምት 1 የሾርባ ማንኪያ", "about 1 tbsp"
+        elif cand_id == "V020":  # Avocado
+            if sg >= 80:
+                fam_am, fam_en = "በግምት ግማሽ አቮካዶ", "about ½ avocado"
+            elif sg >= 40:
+                fam_am, fam_en = "በግምት ሩብ አቮካዶ", "about ¼ avocado"
+            else:
+                fam_am, fam_en = "1–2 ስስ ቁራጭ", "1–2 thin slices"
         elif cand_id == "A018":
             fam_am, fam_en = f"{round(sg)} ግ", f"{round(sg)} g"
         else:
@@ -401,6 +427,49 @@ def build_exchange_options(
                             "macros": cand_macros,
                         })
 
+    # 3b. Swapping Rice (C003 / C004) -> Sweet potato (C011), Cooked pasta (C005), Boiled potato (C010)
+    elif food_id in ("C003", "C004"):
+        fallbacks = ("C011", "C005", "C010")
+        for fallback_fid in fallbacks:
+            if fallback_fid not in forbidden and fallback_fid not in seen_fids:
+                cand = dataset.food_by_id.get(fallback_fid)
+                if cand:
+                    safe, _ = food_is_safe(cand, answers, fasting=fasting)
+                    if safe:
+                        sg, fam_am, fam_en = _calc_swap_grams_and_familiar(fallback_fid, cand)
+                        if fallback_fid == "C011":
+                            if base_grams <= 220.0:
+                                sg = 200.0
+                                fam_am, fam_en = "1 ከሩብ መካከለኛ ስኳር ድንች", "1 ¼ medium sweet potatoes"
+                            elif base_grams >= 280.0:
+                                sg = 250.0
+                                fam_am, fam_en = "1 ከግማሽ መካከለኛ ስኳር ድንች", "1 ½ medium sweet potatoes"
+                        cand_macros = {
+                            "kcal": float(cand.get("kcal / 100 g") or 0) * (sg / 100.0),
+                            "protein": float(cand.get("Protein / 100 g") or 0) * (sg / 100.0),
+                            "carbs": float(cand.get("Carbs / 100 g") or 0) * (sg / 100.0),
+                            "fat": float(cand.get("Fat / 100 g") or 0) * (sg / 100.0),
+                            "fibre": float(cand.get("Fibre / 100 g") or 0) * (sg / 100.0),
+                        }
+                        f_name_en = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="EN")
+                        f_name_am = get_food_name(fallback_fid, str(cand.get("Food Name") or ""), language="AM")
+                        seen_fids.add(fallback_fid)
+                        rows.append({
+                            "food_id": fallback_fid,
+                            "food_name": f_name_en,
+                            "food_name_am": f_name_am,
+                            "category": str(cand.get("Category") or "").lower(),
+                            "grams": sg,
+                            "exchange_weight_g": sg,
+                            "familiar": fam_en,
+                            "familiar_am": fam_am,
+                            "familiar_guidance": fam_am,
+                            "coach_note": "Iso-carb tuber/starch alternative",
+                            "exchange_group": group,
+                            "swap_type": "carb",
+                            "macros": cand_macros,
+                        })
+
     # 4. Swapping Boiled Potato (C010) -> Cooked pasta (C005), Cooked rice (C003), Whole-wheat bread (C008)
     elif food_id == "C010":
         fallbacks = ("C005", "C003", "C008") if is_international else ("C005", "C001", "C003")
@@ -511,6 +580,8 @@ def build_exchange_options(
     # Curated preferred swap order for staple foods:
     preferred_order = {
         "C001": ["C010", "C003", "C005", "C011"] if is_international else ["C011", "C003", "C005", "C013", "C018"],
+        "C003": ["C011", "C005", "C010"],
+        "C004": ["C011", "C005", "C010"],
         "C010": ["C005", "C003", "C008", "C011"] if is_international else ["C005", "C011", "C001", "C003"],
         "C005": ["C003", "C010", "C011"],
         "C006": ["C003", "C010", "C011"],

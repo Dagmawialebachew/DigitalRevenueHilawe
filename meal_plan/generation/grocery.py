@@ -293,15 +293,21 @@ def build_grocery(weekly_food_grams: dict[str, float], dataset: HilaweDataset) -
             continue
 
         if fid == "A008":
+            drained_per_can = 130.0
+            cans_min = max(1, math.floor(planned_rounded / drained_per_can))
+            cans_max = max(cans_min + 1, math.ceil(planned_rounded / drained_per_can))
+            buy_weight = float(cans_max * 185.0)
+            purchase_am = f"{cans_min}–{cans_max} ቆርቆሮ (185 ግ እያንዳንዱ)"
+            purchase_en = f"{cans_min}–{cans_max} cans (185g each)"
             rows.append({
                 "food_id": fid,
                 "buy_item": "Canned tuna in water",
                 "category": "Fish & seafood",
                 "planned_grams": float(planned_rounded),
-                "buy_weight_g": 555.0,
-                "purchase_quantity": "3–4 cans (185g each)",
-                "purchase_quantity_en": "3–4 cans (185g each)",
-                "purchase_quantity_am": "3–4 ቆርቆሮ (185ግ)",
+                "buy_weight_g": buy_weight,
+                "purchase_quantity": purchase_en,
+                "purchase_quantity_en": purchase_en,
+                "purchase_quantity_am": purchase_am,
                 "plan_yield_guide": f"Plan uses ~{planned_rounded:.0f} g drained weight",
                 "budget": food.get("Budget Level"),
                 "fasting_allowed": food.get("Fasting Allowed"),
