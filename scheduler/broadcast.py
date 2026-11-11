@@ -183,12 +183,13 @@ def get_rotating_content(lang: str):
         urgency_list[idx % len(urgency_list)],
     )
 
+import html
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def build_deal_message(
     lang: str,
     product_id: int,
-    price: int = 399,
+    price: int = 599,
     original_price: int = 1100,
     full_name: str = "Champion",
     gender: str = "MALE"
@@ -200,7 +201,9 @@ def build_deal_message(
     gender = gender.upper() if gender else "MALE"
 
     # Extract first name cleanly
-    first_name = full_name.strip().split()[0].capitalize() if full_name else ("ሻምፒዮን" if lang == "AM" else "Champion")
+    raw_first_name = full_name.strip().split()[0].capitalize() if full_name and full_name.strip() else ("ሻምፒዮን" if lang == "AM" else "Champion")
+    first_name = html.escape(raw_first_name)
+    first_name_upper = html.escape(raw_first_name.upper())
 
     program_days = 8 * 7
     daily_cost = price / program_days
@@ -211,34 +214,34 @@ def build_deal_message(
         # Gender-specific Amharic phrasing (Male vs Female conjugation)
         if gender == "FEMALE":
             intro_text = (
-                f"<b>🚨 የ{first_name}(የ399 ብር ልዩ ጥሪ) እድል 🚨</b>\n"
+                f"<b>🚨 የ{first_name}(የ{price:,} ብር ልዩ ጥሪ) እድል 🚨</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n\n"
                 f"{first_name} 👋 አሰልጣኝ ህላዌ ነኝ። ከተመዘገብሽ ቆየት ብለሻል። "
                 f"የሰጠሽኝን የሰውነት መረጃ ገምግሜ ለአንቺ የተበጀውን የ8 ሳምንት ፕሮግራም አዘጋጅቼ ነበር፤ "
                 f"ነገር ግን እስካሁን አለመጀመርሽን አየሁ።\n\n"
-                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንቺ ብቻ ዋጋውን ወደ 399 ብር ዝቅ አድርጌዋለሁ!</b>"
+                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንቺ ብቻ ዋጋውን ወደ {price:,} ብር ዝቅ አድርጌዋለሁ!</b>"
             )
             notice_text = f"ማሳሰቢያ፦ ይህ ዕድል ከመዘጋቱ በፊት ከታች ያለውን ቁልፍ ተጭነሽ አሁኑኑ ፕሮግራምሽን ክፈቺ፦ 👇"
         else:
             intro_text = (
-                f"<b>🚨 የ{first_name}(የ399 ብር ልዩ ጥሪ) እድል 🚨</b>\n"
+                f"<b>🚨 የ{first_name}(የ{price:,} ብር ልዩ ጥሪ) እድል 🚨</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n\n"
                 f"{first_name} 👋 አሰልጣኝ ህላዌ ነኝ። ከተመዘገብክ ቆየት ብለሃል። "
                 f"የሰጠኸኝን የሰውነት መረጃ ገምግሜ ለአንተ የተበጀውን የ8 ሳምንት ፕሮግራም አዘጋጅቼ ነበር፤ "
                 f"ነገር ግን እስካሁን አለመጀመርህን አየሁ።\n\n"
-                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንተ ብቻ ዋጋውን ወደ 399 ብር ዝቅ አድርጌዋለሁ!</b>"
+                f"ዋናው መሰናክል ክፍያው እንደሆነ ስለገባኝ፣ <b>ዛሬ ለአንተ ብቻ ዋጋውን ወደ {price:,} ብር ዝቅ አድርጌዋለሁ!</b>"
             )
             notice_text = f"ማሳሰቢያ፦ ይህ ዕድል ከመዘጋቱ በፊት ከታች ያለውን ቁልፍ ተጭነህ አሁኑኑ ፕሮግራምህን ክፈት፦ 👇"
 
         text = (
             f"{intro_text}\n\n"
-            f"<b>💰 የዛሬ የ64% ልዩ ቅናሽ ስሌት፦</b>\n"
+            f"<b>💰 የዛሬ የ{discount_pct}% ልዩ ቅናሽ ስሌት፦</b>\n"
             f"• መደበኛ ዋጋ፦ <s>{original_price:,} ብር</s>\n"
             f"🔥 <b>ለ{first_name} የተደረገ ልዩ ዋጋ፦ {price:,} ብር ብቻ! (የ{savings:,} ብር ቁጠባ)</b>\n"
             f"<b>(ለ8 ሳምንት ሙሉ ሲሰላ በቀን {daily_cost:.1f} ብር ብቻ!)</b>\n\n"
             f"<b>🎁 በውስጡ የሚያገኙት፦</b>\n"
             f"• <b>Fat Loss & Muscle Gain፦</b> ቦርጭ ማጥፊያና ጡንቻ መገንቢያ\n"
-            f"• <b>የሀበሻ ምግብ eqd፦</b> በቤትዎ ባለው ምግብ የሚሰራ\n"
+            f"• <b>የሀበሻ ምግብ እቅድ፦</b> በቤትዎ ባለው ምግብ የሚሰራ\n"
             f"• <b>HD ቪዲዮዎች፦</b> በስልክዎ እያዩ የሚሰሩት\n"
             f"• <b>ተደጋጋሚ ክፍያ የለም!</b> (አንድ ጊዜ ብቻ የሚከፈል)\n\n"
             f"🚨 <b>{notice_text}</b>"
@@ -248,11 +251,11 @@ def build_deal_message(
 
     else:
         text = (
-            f"<b>🚨 PRIORITY ACCESS UNLOCKED FOR {first_name.upper()} 🚨</b>\n"
+            f"<b>🚨 PRIORITY ACCESS UNLOCKED FOR {first_name_upper} 🚨</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n\n"
             f"{first_name} 👋 Coach Hilawe here. I reviewed your profile evaluation a while ago and built your custom 8-Week Transformation Blueprint, but noticed you haven't activated it yet.\n\n"
             f"I know price was the main hurdle holding you back. So today, I personally dropped the activation cost down to <b>{price:,} ETB</b> so you can finally begin.\n\n"
-            f"<b>💰 Today's 64% Off Flash Deal:</b>\n"
+            f"<b>💰 Today's {discount_pct}% Off Flash Deal:</b>\n"
             f"• Regular Price: <s>{original_price:,} ETB</s>\n"
             f"🔥 <b>Special Price for {first_name}: {price:,} ETB Only! (Save {savings:,} ETB)</b>\n"
             f"<b>(That's just {daily_cost:.1f} ETB/day for 8 full weeks!)</b>\n\n"
@@ -406,7 +409,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
     WITH user_prices AS (
         SELECT 
             u.telegram_id,
-            COALESCE(s.selected_price, 399) as effective_price
+            COALESCE(s.selected_price, 599) as effective_price
         FROM users u
         INNER JOIN products p ON 
             UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND 
@@ -424,6 +427,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         COUNT(*) FILTER (WHERE effective_price = 299) as p299,
         COUNT(*) FILTER (WHERE effective_price = 399) as p399,
         COUNT(*) FILTER (WHERE effective_price = 499) as p499,
+        COUNT(*) FILTER (WHERE effective_price = 599) as p599,
         COUNT(*) FILTER (WHERE effective_price = 700) as p700
     FROM user_prices
     """
@@ -445,6 +449,7 @@ async def confirm_broadcast_target(callback: types.CallbackQuery, state: FSMCont
         f"├ 299 ETB (Survey): <code>{stats['p299']}</code>\n"
         f"├ 399 ETB (Survey): <code>{stats['p399']}</code>\n"
         f"├ 499 ETB (Survey): <code>{stats['p499']}</code>\n"
+        f"├ 599 ETB (Default): <code>{stats['p599']}</code>\n"
         f"└ 700 ETB (Survey): <code>{stats['p700']}</code>\n"
         f"━━━━━━━━━━━━━━\n"
         f"⚠️ <b>Ready to push the button?</b>"
@@ -474,18 +479,18 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
     # Initialize high-granularity stats
     stats = {
         "sent": 0, "failed": 0, "deleted": 0, "skipped_cleanup": 0,
-        "100": 0, "199": 0, "299": 0, "399": 0, "499": 0, "700": 0
+        "100": 0, "199": 0, "299": 0, "399": 0, "499": 0, "599": 0, "700": 0
     }
 
     # 2. Optimized Data Fetching (Injecting survey price directly)
     base_query = """
         SELECT 
             u.telegram_id, u.language, u.full_name, u.gender, p.id as p_id, 
-            COALESCE(s.selected_price, 399) as final_price
+            COALESCE(s.selected_price, 599) as final_price
         FROM users u
         INNER JOIN products p ON 
-            u.language = p.language AND u.gender = p.gender AND 
-            u.level = p.level AND u.frequency = p.frequency
+            UPPER(TRIM(u.language)) = UPPER(TRIM(p.language)) AND UPPER(TRIM(u.gender)) = UPPER(TRIM(p.gender)) AND
+            UPPER(REPLACE(TRIM(u.level), ' ', '_')) = UPPER(REPLACE(TRIM(p.level), ' ', '_')) AND u.frequency = p.frequency
         LEFT JOIN price_survey_results s ON s.user_id = u.telegram_id
         WHERE p.is_active = TRUE
     """
@@ -675,6 +680,7 @@ async def execute_broadcast_run(bot: Bot, db, admin_id: int, target: str):
         f"├ 299 ETB: <code>{stats['299']}</code> users\n"
         f"├ 399 ETB: <code>{stats['399']}</code> users\n"
         f"├ 499 ETB: <code>{stats['499']}</code> users\n"
+        f"├ 599 ETB: <code>{stats['599']}</code> users\n"
         f"└ 700 ETB: <code>{stats['700']}</code> users\n"
         f"━━━━━━━━━━━━━━\n"
         f"ℹ️ <i>Real-time logs available in console.</i>"
