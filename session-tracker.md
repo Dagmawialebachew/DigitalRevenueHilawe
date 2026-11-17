@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Multilingual Intelligence Overhaul: English & Latin-Amharic (Amglish) Support + Already-Paid / Video Unlock Intent Guard |
+| **Active Task / Request** | Health Review Approvals: Triage 53 Reviews & Execute Safe Approvals for Group 1A + Food Allergies (21 Clients) |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 14:31:00 (EAT) |
-| **Last Updated** | 2026-11-17 14:45:00 (EAT) |
-| **Current In-Flight Step** | All milestones completed, verified across multilingual & post-payment intents, committed and pushed to main |
+| **Session Started** | 2026-11-17 14:51:00 (EAT) |
+| **Last Updated** | 2026-11-17 15:06:00 (EAT) |
+| **Current In-Flight Step** | All 21 target intakes approved to PROFILE_READY, payment triggers dispatched to clients, and executive report delivered to Admin 1131741322 |
 
 ---
 
@@ -21,12 +21,11 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1-22: Settlements, Anti-Truncation, Contextual Buttons & Single-Vocative Greetings** — Deployed and verified on GitHub main.
-- [x] **Milestone 23: Multilingual & Multi-Script Intelligence in `services/coach_ai.py`** — Added native support for English, Latin-script Amharic (Amglish e.g. "kfya kefye neber", "selam coach"), and Fidel Amharic. Matches the client's language naturally.
-- [x] **Milestone 24: Post-Payment & Unlock Issue Intent Guard** — When a user says they already paid or their video/plan isn't opening, AI strictly DOES NOT pitch them to buy again! Provides clear reassurance, verification instructions, and direct support routing (`@CoachHilaweSupportBot`).
-- [x] **Milestone 25: Multilingual Smart Keyboard Routing in `handlers/payment.py`** — Recognizes English and Amglish terms ("paid", "kefye", "video", "not opening", "receipt") and routes directly to support or plan view.
-- [x] **Milestone 26: Multi-Scenario Verification** — Verified all test queries: "kfya kefye neber", "in enlgish i alreayd paid but the videi ain't opneing", "how can i lose belly fat with ethiopian food?", and Fidel Amharic inquiries.
-- [x] **Milestone 27: Git Commit & Push to Main** — Committed and pushed cleanly.
+- [x] **Milestone 1-27: Previous Sprints (Payouts, Anti-Truncation, Persuasion Engine, Multilingual Guard)** — Completed and pushed to main.
+- [x] **Milestone 28: Discover & Query Pending Health Reviews** — Queried Neon DB: found exactly 53 pending health reviews (180 total across history: 82 Approved, 45 Declined, 53 Pending).
+- [x] **Milestone 29: Review 3-Stage Severity Classification Framework** — Triage framework established: Stage 1 (Mild/Manageable), Stage 2 (Moderate/Specific accommodations), Stage 3 (Severe/Medical exclusions).
+- [x] **Milestone 30: Detailed Analysis Breakdown** — Classified all 53 cases against historical approval patterns: 18 Stage 1 cases (11 routine safe + 7 digestive), 25 Stage 2 cases, and 10 Stage 3 severe contraindications.
+- [x] **Milestone 31: Execute Approvals for Group 1A (11 users) & Food Allergies (10 users)** — Approved 21 intakes by Admin `1131741322`, updated to `PROFILE_READY` with calculated nutrition profiles, dispatched in-chat 1-tap checkout messages, and sent executive report exclusively to founder (`1131741322`).
 
 ---
 
@@ -34,6 +33,8 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Health Review Approvals Batch Engine** | Batch approval & state transition engine approving 21 intakes and assigning nutrition targets | [meal_plan/health_review.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/health_review.py) |
+| **In-Chat 1-Tap Meal Plan Triggers** | Interactive payment buttons (7d/14d/30d) dispatched to newly approved meal plan leads | [scheduler/meal_plan_precheckout_recovery.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/meal_plan_precheckout_recovery.py) |
 | **Multilingual AI Coach & Intent Guard** | Fluent English & Amglish comprehension + zero-pitch safety guard for paid leads and video unlock queries | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
 | **Typo-Resilient Contextual Buttons** | Robust token-level matching routing post-payment & unlock issues directly to support & plan viewer | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 | **Clean Single-Vocative Coach Voice** | Enforced zero duplication in greetings; natural single address for male and female leads | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
@@ -86,6 +87,23 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
+
+* **Goal:** Triage all 53 pending health reviews across the 3 severity stages, safely approve Group 1A (routine safe) and Food Allergies clients, update them to `PROFILE_READY`, send in-chat 1-tap checkout messages directly to reachable leads, and deliver the executive report exclusively to Admin ID `1131741322`.
+* **Key Achievements & Deliverables:**
+  1. **Triage Breakdown across 180 Total Reviews:**
+     - Historical Database: 103 Approved (82 prior + 21 newly approved), 45 Declined, 32 Pending.
+     - Severity Stages: Stage 1 (18 users: 11 Group 1A routine safe + 7 digestive/GI), Stage 2 (25 users: 11 food allergies, 6 pregnancy/lactating, 8 under 18), Stage 3 (10 users: severe kidney/liver, diabetes on medication, doctor-prescribed diets kept in pending).
+  2. **21 Approvals Executed:**
+     - 11 Group 1A clients (`#145`, `#597`, `#658`, `#672`, `#678`, `#692`, `#721`, `#739`, `#746`, `#756`, `#760`) + 10 Food Allergy clients (`#169`, `#217`, `#349`, `#452`, `#464`, `#466`, `#485`, `#653`, `#689`, `#747`).
+     - Set review status to `APPROVED` by admin `1131741322`.
+     - Calculated personalized nutrition targets (calories, protein, hydration) and updated intake states to `PROFILE_READY`.
+  3. **Direct User Messaging & 1-Tap Checkout Buttons:**
+     - Dispatched explicit approval notification (`✅ የጤና መረጃዎ ተገምግሞ ጸድቋል`) plus interactive in-chat plan buttons (7d @ 2,200 ETB, 14d @ 3,000 ETB, 30d @ 5,300 ETB).
+     - 19 of 21 reachable clients received the message instantly (2 blocked bot).
+  4. **Exclusive Admin Reporting:**
+     - Consolidated executive card delivered directly to Admin ID `1131741322` (@DagiKylexy) with zero messages sent to any public review group.
 
 ### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
 
@@ -167,6 +185,23 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
+
+* **Goal:** Triage all 53 pending health reviews across the 3 severity stages, safely approve Group 1A (routine safe) and Food Allergies clients, update them to `PROFILE_READY`, send in-chat 1-tap checkout messages directly to reachable leads, and deliver the executive report exclusively to Admin ID `1131741322`.
+* **Key Achievements & Deliverables:**
+  1. **Triage Breakdown across 180 Total Reviews:**
+     - Historical Database: 103 Approved (82 prior + 21 newly approved), 45 Declined, 32 Pending.
+     - Severity Stages: Stage 1 (18 users: 11 Group 1A routine safe + 7 digestive/GI), Stage 2 (25 users: 11 food allergies, 6 pregnancy/lactating, 8 under 18), Stage 3 (10 users: severe kidney/liver, diabetes on medication, doctor-prescribed diets kept in pending).
+  2. **21 Approvals Executed:**
+     - 11 Group 1A clients (`#145`, `#597`, `#658`, `#672`, `#678`, `#692`, `#721`, `#739`, `#746`, `#756`, `#760`) + 10 Food Allergy clients (`#169`, `#217`, `#349`, `#452`, `#464`, `#466`, `#485`, `#653`, `#689`, `#747`).
+     - Set review status to `APPROVED` by admin `1131741322`.
+     - Calculated personalized nutrition targets (calories, protein, hydration) and updated intake states to `PROFILE_READY`.
+  3. **Direct User Messaging & 1-Tap Checkout Buttons:**
+     - Dispatched explicit approval notification (`✅ የጤና መረጃዎ ተገምግሞ ጸድቋል`) plus interactive in-chat plan buttons (7d @ 2,200 ETB, 14d @ 3,000 ETB, 30d @ 5,300 ETB).
+     - 19 of 21 reachable clients received the message instantly (2 blocked bot).
+  4. **Exclusive Admin Reporting:**
+     - Consolidated executive card delivered directly to Admin ID `1131741322` (@DagiKylexy) with zero messages sent to any public review group.
 
 ### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
 
@@ -268,6 +303,23 @@ e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
+
+* **Goal:** Triage all 53 pending health reviews across the 3 severity stages, safely approve Group 1A (routine safe) and Food Allergies clients, update them to `PROFILE_READY`, send in-chat 1-tap checkout messages directly to reachable leads, and deliver the executive report exclusively to Admin ID `1131741322`.
+* **Key Achievements & Deliverables:**
+  1. **Triage Breakdown across 180 Total Reviews:**
+     - Historical Database: 103 Approved (82 prior + 21 newly approved), 45 Declined, 32 Pending.
+     - Severity Stages: Stage 1 (18 users: 11 Group 1A routine safe + 7 digestive/GI), Stage 2 (25 users: 11 food allergies, 6 pregnancy/lactating, 8 under 18), Stage 3 (10 users: severe kidney/liver, diabetes on medication, doctor-prescribed diets kept in pending).
+  2. **21 Approvals Executed:**
+     - 11 Group 1A clients (`#145`, `#597`, `#658`, `#672`, `#678`, `#692`, `#721`, `#739`, `#746`, `#756`, `#760`) + 10 Food Allergy clients (`#169`, `#217`, `#349`, `#452`, `#464`, `#466`, `#485`, `#653`, `#689`, `#747`).
+     - Set review status to `APPROVED` by admin `1131741322`.
+     - Calculated personalized nutrition targets (calories, protein, hydration) and updated intake states to `PROFILE_READY`.
+  3. **Direct User Messaging & 1-Tap Checkout Buttons:**
+     - Dispatched explicit approval notification (`✅ የጤና መረጃዎ ተገምግሞ ጸድቋል`) plus interactive in-chat plan buttons (7d @ 2,200 ETB, 14d @ 3,000 ETB, 30d @ 5,300 ETB).
+     - 19 of 21 reachable clients received the message instantly (2 blocked bot).
+  4. **Exclusive Admin Reporting:**
+     - Consolidated executive card delivered directly to Admin ID `1131741322` (@DagiKylexy) with zero messages sent to any public review group.
 
 ### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
 
