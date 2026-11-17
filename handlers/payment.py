@@ -494,6 +494,24 @@ def build_contextual_query_keyboard(
 
     # 3. Hot Unpaid Leads (Context-Specific Routing)
     
+    # Reason 0: Already Paid / Payment Verification / Video or Plan Unlock Issue
+    paid_already_keywords = [
+        # Latin Amharic (Amglish)
+        "kefye", "kefyalehu", "kefiyalehu", "kefelk", "kfya", "kifya", "deresegn", "deresen", 
+        "altekeftem", "alkefetem", "aykefetim", "video", "videi",
+        # Fidel Amharic
+        "ከፍያለሁ", "ከፈልኩ", "ክፍያ ከፍዬ", "ደረሰኝ", "አልተከፈተም", "አልከፈተም", "ቪዲዮ", "አይከፈትም", "አልከፈተልኝም", "እቅዴ አልተከፈተም",
+        # English (resilient tokens + phrases)
+        "paid", "payed", "already paid", "i paid", "i have paid", "receipt", "proof", "screenshot", 
+        "transfer", "transferred", "not opening", "ain't opening", "opneing", "video not opening", 
+        "can't open", "cannot open", "video issue", "unlock plan", "haven't received"
+    ]
+    if any(k in q for k in paid_already_keywords):
+        kb.button(text="💬 የክፍያ ድጋፍ አግኝ (Support)", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.button(text="📦 እቅዴን ክፈት (Check Plan)", callback_data="view_current_plan")
+        kb.adjust(1)
+        return kb.as_markup()
+
     # Reason A: Settings / Profile Change Intent
     settings_keywords = ["ስህተት", "መቀየር", "ልቀይር", "መገለጫ", "ማስተካከያ", "ተሳስቻለሁ", "አስተካክል", "change", "profile", "settings"]
     if any(k in q for k in settings_keywords):
@@ -520,9 +538,13 @@ def build_contextual_query_keyboard(
 
     # Reason D: Fitness Advice, Goals, Problem Inquiries (Hip dips, belly, skinny, fatloss, program)
     fitness_keywords = [
+        # Fidel
         "ሂፕ ዲፕ", "ቦርጭ", "ክብደት", "ጡንቻ", "ዳሌ", "ቅጥነት", "ውፍረት", "ስብ", 
         "ምግብ", "ፆም", "ፕሮቲን", "ውጤት", "ሳምንት", "ጂም", "ቤት", "ልምምድ", 
-        "ምከር", "አማክረኝ", "ምን ላድርግ", "ምን ባደርግ", "ሆድ", "ወገብ"
+        "ምከር", "አማክረኝ", "ምን ላድርግ", "ምን ባደርግ", "ሆድ", "ወገብ",
+        # English & Latin Amharic
+        "hip dip", "hip dips", "belly", "belly fat", "fat loss", "fatloss", "weight", "weight loss",
+        "muscle", "gain weight", "skinny", "workout", "exercise", "diet", "tsom", "fasting", "protein"
     ]
     if any(k in q for k in fitness_keywords):
         kb.button(text=f"🔥 የ8-ሳምንት እቅዴን ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")

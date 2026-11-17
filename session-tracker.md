@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Fix Duplicate Vocative ("እህቴ ... የኔ እህት") in AI Coach Greeting & Naturalize Name Address |
+| **Active Task / Request** | Multilingual Intelligence Overhaul: English & Latin-Amharic (Amglish) Support + Already-Paid / Video Unlock Intent Guard |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 14:27:00 (EAT) |
-| **Last Updated** | 2026-11-17 14:30:00 (EAT) |
-| **Current In-Flight Step** | Enforced strict single-vocative greeting rule; live verification passed on male and female queries; committed & pushed |
+| **Session Started** | 2026-11-17 14:31:00 (EAT) |
+| **Last Updated** | 2026-11-17 14:45:00 (EAT) |
+| **Current In-Flight Step** | All milestones completed, verified across multilingual & post-payment intents, committed and pushed to main |
 
 ---
 
@@ -21,10 +21,12 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1-19: October Settlements, Anti-Truncation, Contextual Buttons & RAG Persuasion Engine** — Deployed and verified on GitHub main.
-- [x] **Milestone 20: Clean Vocative Generation in `services/coach_ai.py`** — Eliminated duplicate "እህቴ ... የኔ እህት" pattern. Enforced strict single vocative greeting (`ሰላም {vocative}!`).
-- [x] **Milestone 21: Verification Test on Male and Female Prompts** — Tested male (`ሰላም ወንድሜ Akalu!`) and female (`ሰላም እህቴ Dagmaros!`) ensuring zero duplicate repetition of "እህቴ" / "ወንድሜ".
-- [x] **Milestone 22: Git Commit & Push to Main** — Committed and pushed cleanly to remote.
+- [x] **Milestone 1-22: Settlements, Anti-Truncation, Contextual Buttons & Single-Vocative Greetings** — Deployed and verified on GitHub main.
+- [x] **Milestone 23: Multilingual & Multi-Script Intelligence in `services/coach_ai.py`** — Added native support for English, Latin-script Amharic (Amglish e.g. "kfya kefye neber", "selam coach"), and Fidel Amharic. Matches the client's language naturally.
+- [x] **Milestone 24: Post-Payment & Unlock Issue Intent Guard** — When a user says they already paid or their video/plan isn't opening, AI strictly DOES NOT pitch them to buy again! Provides clear reassurance, verification instructions, and direct support routing (`@CoachHilaweSupportBot`).
+- [x] **Milestone 25: Multilingual Smart Keyboard Routing in `handlers/payment.py`** — Recognizes English and Amglish terms ("paid", "kefye", "video", "not opening", "receipt") and routes directly to support or plan view.
+- [x] **Milestone 26: Multi-Scenario Verification** — Verified all test queries: "kfya kefye neber", "in enlgish i alreayd paid but the videi ain't opneing", "how can i lose belly fat with ethiopian food?", and Fidel Amharic inquiries.
+- [x] **Milestone 27: Git Commit & Push to Main** — Committed and pushed cleanly.
 
 ---
 
@@ -32,6 +34,8 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Multilingual AI Coach & Intent Guard** | Fluent English & Amglish comprehension + zero-pitch safety guard for paid leads and video unlock queries | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Typo-Resilient Contextual Buttons** | Robust token-level matching routing post-payment & unlock issues directly to support & plan viewer | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 | **Clean Single-Vocative Coach Voice** | Enforced zero duplication in greetings; natural single address for male and female leads | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
 | **Broadcast Persuasion RAG Engine** | Upgraded knowledge base with 3,500+ proof, daily cost contrast, and Habesha diet focus | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
 | **Contextual Query Action Buttons** | Smart inline button generator mapping query intent to targeted actions without UI clutter | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |

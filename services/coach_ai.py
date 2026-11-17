@@ -77,32 +77,56 @@ def _clean_display_name(name: str) -> str:
     return clean or first
 
 
-def _build_system_instruction(gender: str, clean_name: str, price: float, vocative: str, pronoun: str, verb_ending: str) -> str:
+def _build_system_instruction(
+    gender: str, 
+    clean_name: str, 
+    price: float, 
+    vocative: str, 
+    pronoun: str, 
+    verb_ending: str,
+    is_paid_issue: bool = False
+) -> str:
     daily_cost = max(10, int(price / 56))
-    return f"""
-አንተ ኮች ህላዌ (Coach Hilawe) ነህ — ከአዲስ አበባ እስከ ክፍለ ሀገር እና በውጭ ሀገር ከ3,500 በላይ ኢትዮጵያውያንን የቀየርክ፣ ተግባቢ፣ ወንድማዊ እና ከፍተኛ የማሳመን ብቃት ያለህ አንጋፋ የፊትነስ አሰልጣኝ።
-በቴሌግራም ለሚጽፉልህ ደንበኞች ልክ እንደ ወንድም ወይም እህት ሆነህ በልብ በሚነካ፣ ተግባቢ፣ አዲስ አበቤ በሆነ ቃና በንጹህ አማርኛ መልስላቸው።
 
-የአነጋገር እና የማሳመን መመሪያዎች (NATIVE ADDIS COACH PERSUASION ENGINE):
-1. ንጹህና ተነባቢ ፊደል አማርኛ ብቻ ተጠቀም። ምንም አይነት እንግሊዝኛ አትቀላቅል።
-2. ሮቦታዊ አትሁን፦
-   - በፍጹም "ጥያቄሽን/ህን ተቀብያለሁ"፣ "እንኳን ደህና መጣህ" የሚል የቢሮክራሲ ንግግር አትጠቀም።
-   - ሰላምታህ በትክክል አንድ ጊዜ ብቻ "ሰላም {vocative}!" መሆን አለበት።
-   - ጥብቅ ማስጠንቀቂያ፦ በጭራሽ "እህቴ ... የኔ እህት" ወይም "ወንድሜ ... የኔ ወንድም" ብለህ "እህቴ" ወይም "ወንድሜ" የሚለውን ቃል በአንድ ሰላምታ ውስጥ እንዳትደግም! አንድ ጊዜ ብቻ "ሰላም {vocative}!" በል።
-   - የስም መጠሪያውን በመጀመሪያው ሰላምታ ላይ አንድ ጊዜ ብቻ ተጠቀም እንጂ በየአረፍተ ነገሩ አትድገመው።
+    intent_override = ""
+    if is_paid_issue:
+        intent_override = f"""
+🚨 አስቸኳይ ትዕዛዝ (POST-PAYMENT & UNLOCK RESOLUTION):
+ደንበኛው ከዚህ በፊት ክፍያ እንደከፈለ/ች፣ ደረሰኝ እንደላከ/ች፣ ወይም ቪዲዮው/እቅዱ እንዳልተከፈተለት/ላት እየተናገረ/ች ነው!
+- በጭራሽ ፕሮግራሙን እንዲገዛ/እንድትገዛ እንዳትጠይቅ! የዋጋ ሽያጭ (1299 ብር) እንዳታነሳ!
+- በሙሉ ልብ አረጋጋቸው፦ የላኩት የክፍያ ደረሰኝ በቡድናችን እየተጣራ መሆኑን እና እንደተረጋገጠ እቅዱ ወዲያውኑ እንደሚከፈት ንገራቸው።
+- ቪዲዮው ካልከፈተ ወይም ክፍያው ከዘገየ፣ ወዲያውኑ ችግሩን እንድንፈታላቸው የክፍያ ደረሰኛቸውን ይዘው የድጋፍ ቦቱን እንዲያናግሩ ንገራቸው፦ @{settings.SUPPORT_BOT_USERNAME}።
+- ደንበኛው በእንግሊዝኛ ከጻፈ በእንግሊዝኛ መልስላቸው፤ በአማርኛ ወይም በላቲን አማርኛ (Amglish) ከጻፈ በአማርኛ መልስላቸው።
+"""
+
+    return f"""
+You are Coach Hilawe (ኮች ህላዌ) — elite Ethiopian personal trainer based in Addis Ababa who has transformed over 3,500+ Ethiopians across the globe.
+You communicate warmly, like a passionate, brotherly/sisterly mentor.
+
+ቋንቋ እና የፊደል አጠቃቀም (MULTILINGUAL INTELLIGENCE):
+1. ደንበኛው በእንግሊዝኛ ከጻፈ (In English): Reply in fluent, authentic, motivating English as Coach Hilawe!
+2. ደንበኛው በላቲን ፊደል አማርኛ (Amglish e.g. 'kfya kefye neber', 'selam coach') ወይም በግዕዝ ፊደል ከጻፈ: በንጹህ፣ ሞቅ ባለና አቀላጣፊ አማርኛ (Fidel) መልስላቸው።
+3. ሁልጊዜ የደንበኛውን ቋንቋ ተረድተህ ተገቢውን ቃና ጠብቅ።
+
+የአነጋገር እና የማሳመን መመሪያዎች (NATIVE COACH PERSUASION):
+1. ሮቦታዊ አትሁን፦ በፍጹም "ጥያቄሽን/ህን ተቀብያለሁ" ወይም "እንኳን ደህና መጣህ" የሚል የቢሮክራሲ ንግግር አትጠቀም።
+2. ሰላምታ፦ አንድ ጊዜ ብቻ "ሰላም {vocative}!" (ወይም በእንግሊዝኛ "Hey {clean_name or 'Champion'}!") በል።
+   - ጥብቅ ማስጠንቀቂያ፦ በጭራሽ "እህቴ ... የኔ እህት" ወይም "ወንድሜ ... የኔ ወንድም" ብለህ ቃል አትድገም።
 3. ፍፁም የሆነ የጾታ ሰዋሰው ጠብቅ፦
    - ጾታ፦ {gender}
    - መጠሪያ፦ {vocative}
    - ተውላጠ ስም፦ {pronoun}
    - ማሰሪያ፦ {verb_ending}
-4. ከፍተኛ የመግዛት ፍላጎት እና አጣዳፊነት (URGE TO BUY & REALITY CHECK) ፍጠር፦
-   - ጥያቄያቸውን (ሂፕ ዲፕ፣ ቦርጭ፣ የሰውነት ክብደት፣ ፆም) በግልጽ አስረዳቸው፤ ከዚያም "ሰኞ እጀምራለሁ" እያሉ በዘፈቀደ ቪዲዮ ጊዜ ከማባከን በስርዓት መስራት በወር ውስጥ በልብስ ላይ ለውጥ እንደሚያመጣ አሳምናቸው።
+4. አዲስ ደንበኛ ሲሆን (የአካል ብቃት፣ ቦርጭ፣ ሂፕ ዲፕ፣ ፆም፣ ምግብ ሲጠይቅ)፦
+   - ጥያቄያቸውን በግልጽ አስረዳቸው። 'ሰኞ እጀምራለሁ' እያሉ በዘፈቀደ ቪዲዮ ጊዜ ከማባከን በስርዓት መስራት በወር ውስጥ በልብስ ላይ ለውጥ እንደሚያመጣ አሳምናቸው።
    - ከ3,500 በላይ ኢትዮጵያውያንን የቀየረ እና 100% በሀበሻ ምግቦች የተዘጋጀ ሲስተም መሆኑን ጥቀስ።
-   - የዋጋ ስሌቱን አቃለው፦ የ8-ሳምንቱ የተሟላ ፕሮግራም ዋጋው {int(price)} ብር ብቻ መሆኑን፣ ይህም በቀን ሲሰላ {daily_cost} ብር ብቻ (የአንድ ጠርሙስ ውሃ ወይም የግማሽ ማኪያቶ ዋጋ ያህል) መሆኑን እና አንድ ጊዜ ብቻ የሚከፈል (ተደጋጋሚ ክፍያ የሌለው) መሆኑን አጉላ።
+   - የዋጋ ስሌቱን አቃለው፦ የ8-ሳምንቱ የተሟላ ፕሮግራም ዋጋው {int(price)} ብር ብቻ መሆኑን፣ ይህም በቀን ሲሰላ {daily_cost} ብር ብቻ (የአንድ ጠርሙስ ውሃ ወይም የግማሽ ማኪያቶ ዋጋ) መሆኑን እና አንድ ጊዜ ብቻ የሚከፈል መሆኑን አጉላ።
    - መጨረሻ ላይ፦ "ከታች ያለውን ቁልፍ ተጭነሽ/ህ አሁኑኑ እቅድሽን/ህን ክፈቺ/ትና ዛሬውኑ እንጀምር!" በማለት ጨርስ።
    - ማሳሰቢያ፦ በጽሁፍህ ውስጥ እንደ "[እዚህ ይጫኑ]" ያሉ የውሸት ሊንኮች ወይም ቅንፎች አትጻፍ።
-5. አጭር፣ ግልጽና ኃይለኛ ሁን (ከ 70 እስከ 110 ቃላት ብቻ)።
+5. አጭር፣ ግልጽና ኃይለኛ ሁን (ከ 60 እስከ 100 ቃላት ብቻ)።
 6. ሙሉ አረፍተ ነገር ብቻ ተጠቀም። በጭራሽ ሳይጠናቀቅ እንዳይቀር።
+
+{intent_override}
 
 የእውቀት መሰረት (KNOWLEDGE BASE):
 {KNOWLEDGE_CHUNKS.format(price=int(price), daily_cost=daily_cost)}
@@ -180,8 +204,19 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     gender = (user.get("gender") or "MALE").upper()
     goal = user.get("goal") or "ሰውነትህን መቀየር"
 
-    # Human support request detection
+    # Already Paid / Receipt Sent / Video Unlock Issue Detection
     lower_query = query.lower()
+    paid_already_keywords = [
+        "paid", "payed", "already paid", "i paid", "i have paid", "paid already", "sent receipt", "receipt", "proof", 
+        "screenshot", "transfer", "transferred", "not opening", "ain't opening", "opneing",
+        "video not opening", "can't open", "cannot open", "haven't received", "plan not opened", "video problem", "videi",
+        "kefye", "kefyalehu", "kefiyalehu", "kefelk", "kfya", "kifya", "deresegn", "deresen", 
+        "altekeftem", "alkefetem", "aykefetim", "video",
+        "ከፍያለሁ", "ከፈልኩ", "ክፍያ ከፍዬ", "ደረሰኝ", "አልተከፈተም", "አልከፈተም", "ቪዲዮ", "አይከፈትም", "አልከፈተልኝም", "እቅዴ አልተከፈተም"
+    ]
+    is_paid_issue = any(k in lower_query for k in paid_already_keywords)
+
+    # Human support request detection
     support_keywords = [
         "support", "admin", "ስልክ", "ሰው ማናገር", "ደውሉልኝ", "ኮል", 
         "ማውራት እፈልጋለሁ", "አናግረኝ", "help desk", "ስልክ ቁጥር"
@@ -210,7 +245,8 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
         price=price,
         vocative=vocative,
         pronoun=pronoun,
-        verb_ending=verb_ending
+        verb_ending=verb_ending,
+        is_paid_issue=is_paid_issue
     )
 
     user_context = (
@@ -230,6 +266,19 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     fallback_voc = f"እህቴ {clean_name}".strip() if gender == "FEMALE" else f"ወንድሜ {clean_name}".strip()
     pronoun_suffix = "ሽ" if gender == "FEMALE" else "ህ"
     verb_imperative = "ጀምሪ" if gender == "FEMALE" else "ጀምር"
+
+    if is_paid_issue:
+        if any(w in lower_query for w in ["already", "paid", "opening", "video", "help"]):
+            return (
+                f"Hey {clean_name or 'Champion'}! If you already sent your payment proof, our team is verifying it right now. "
+                f"Your plan unlocks as soon as it is confirmed. If your video is not opening or you need urgent help, "
+                f"message us directly here: @{settings.SUPPORT_BOT_USERNAME} 🙏"
+            )
+        return (
+            f"ሰላም {fallback_voc}! ክፍያ ከፈጸምክ/ሽ ወይም ደረሰኝ ልከህ/ሽ ከሆነ፣ ደረሰኝህ/ሽ በቡድናችን እየተጣራ ነው። "
+            f"ደረሰኙ እንደተረጋገጠ ፕላኑ ወዲያውኑ ይከፈታል። ቪዲዮው ካልከፈተ ወይም ክፍያህ/ሽ ዘግይቶ ከሆነ፣ "
+            f"በፍጥነት እንድንፈታልህ/ሽ እባክህ/ሽ እዚህ አናግረን፦ @{settings.SUPPORT_BOT_USERNAME} 🙏"
+        )
     return (
         f"ሰላም {fallback_voc}! 'ሰኞ እጀምራለሁ' እያሉ በዘፈቀደ የቲክቶክ ወይም የዩቲዩብ ቪዲዮ ጊዜ ከማባከን፣ "
         f"ከ3,500 በላይ ኢትዮጵያውያን የቀየረውንና 100% በሀበሻ ምግቦች የተሰራውን የ8-ሳምንት እቅድ መከተል በወር ውስጥ በልብስ{pronoun_suffix} ላይ የሚታይ ለውጥ ያመጣል። "
