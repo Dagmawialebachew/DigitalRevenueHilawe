@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | AI Coach Cut-Off Elimination, Urgency-Driven Authentic Addis Voice & Context-Aware Action Buttons |
+| **Active Task / Request** | AI Coach RAG & High-Converting Persuasive Copy Upgrade (Infusing broadcast.py Persuasion Patterns) |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 14:00:00 (EAT) |
-| **Last Updated** | 2026-11-17 14:15:00 (EAT) |
-| **Current In-Flight Step** | Multi-part parsing verified, authentic Sheger conversion voice tested, contextual buttons live, code committed & pushed |
+| **Session Started** | 2026-11-17 14:20:00 (EAT) |
+| **Last Updated** | 2026-11-17 14:26:00 (EAT) |
+| **Current In-Flight Step** | Broadcast-tested persuasion hooks, daily cost anchors, and 3,500+ social proof active in RAG engine; committed & pushed |
 
 ---
 
@@ -21,12 +21,12 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1-9: Previous Session Settlements & Dashboard Updates** — All October settlement, 4k carryover, and initial plan unlock handlers deployed.
-- [x] **Milestone 10: Fix Multi-Part AI Truncation Bug in `services/coach_ai.py`** — Resolved root cause where `parts[0]["text"]` only pulled the initial slice (~50 chars) of chunked model outputs. Replaced with clean concatenation of all non-thought text parts.
-- [x] **Milestone 11: Authentic Addis Coach Voice & Urgency-Driven Persona** — Injected brotherly/sisterly Sheger tone (`ዳጊዬ የኔ እህት`, `እህቴ [ስም]`), added Hip Dips / Glute knowledge chunk, and built genuine urgency/FOMO to commit to the 8-week system today.
-- [x] **Milestone 12: Context-Aware Smart Action Buttons in `handlers/payment.py`** — Replaced generic static buttons with intelligent context routing (focused checkout button for fitness advice, settings button for profile mistakes, support button for banking issues, clean view button for paid members).
-- [x] **Milestone 13: Comprehensive End-to-End Testing** — Verified with live scenarios ("የእኔ ችግር ሂፕ ዲፕ ነው", "ባንክ የለኝም", "ክብደቴ ተሳስቷል", "ማነህ አንተ") ensuring 100% complete sentences and precise buttons.
-- [x] **Milestone 14: Git Commit & Push to Origin Main** — Landed verified code on GitHub `origin/main`.
+- [x] **Milestone 1-14: October Payout Settlements, AI Anti-Truncation & Contextual Buttons** — Completed and live on GitHub main.
+- [x] **Milestone 15: Review `scheduler/broadcast.py` High-Converting Copy Patterns** — Extracted core persuasive hooks: 3,500+ Ethiopian social proof, daily micro-cost framing (price / 56 days), 100% Habesha diet reality (Shiro/Injera vs Western broccoli), and call-out of the "waiting for Monday" habit.
+- [x] **Milestone 16: Upgrade Coach Hilawe RAG Knowledge Base in `services/coach_ai.py`** — Infused knowledge chunks with high-converting broadcast angles, covering glute shaping, spot reduction reality, fasting macro protection, and one-time payment reassurance.
+- [x] **Milestone 17: Fine-Tune Natural Price Anchoring & Urge-Building** — Framed {price} ETB as {daily_cost} ETB/day (less than a bottle of water or half a macchiato in Addis) with zero recurring subscriptions.
+- [x] **Milestone 18: Test High-Converting Scenarios End-to-End** — Verified across Hip Dips, Belly Fat, Fasting, and Price Objection queries (100% complete sentences, ~75 words, high urgency).
+- [x] **Milestone 19: Git Commit & Push to Remote** — Landed verified copy enhancements on GitHub main.
 
 ---
 
@@ -34,7 +34,7 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
-| **Anti-Truncation & Addis Coach Sales Voice** | Multi-part response parser, Hip Dips fitness knowledge, and high-conversion Sheger prompt | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Broadcast Persuasion RAG Engine** | Upgraded knowledge base with 3,500+ proof, daily cost contrast, and Habesha diet focus | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
 | **Contextual Query Action Buttons** | Smart inline button generator mapping query intent to targeted actions without UI clutter | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 | **Live Dashboard 4k Carry-Over Engine** | Injected 4k product gap into pending gross (49,948 ETB) and itemized in pending transactions | [api/api.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/api/api.py) |
 | **October Settlement Payout Record (#56)** | Official entry for 43,080.60 ETB gross, 18,936 ETB expenses, 4k gap hold, and 7,124.70 ETB payout | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
