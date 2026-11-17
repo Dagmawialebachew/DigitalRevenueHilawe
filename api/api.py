@@ -533,8 +533,14 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
                 ), 0) as meal_count
         """, last_payout_ts)
         
-        pending_products = Decimal(str(pending_row['products_total']))
-        pending_products_count = int(pending_row['products_count'])
+        # Check for open product carryover (e.g. 4k October product gap on hold)
+        carryover_val = await db.fetchval(
+            "SELECT value_numeric FROM system_metadata WHERE key = 'pending_product_carryover'"
+        )
+        product_carryover = Decimal(str(carryover_val)) if carryover_val is not None else Decimal('0')
+
+        pending_products = Decimal(str(pending_row['products_total'])) + product_carryover
+        pending_products_count = int(pending_row['products_count']) + (1 if product_carryover > 0 else 0)
         pending_club = Decimal(str(pending_row['club_total']))
         pending_club_count = int(pending_row['club_count'])
         pending_meal = Decimal(str(pending_row.get('meal_total', 0)))
@@ -646,6 +652,7 @@ async def get_pending_payout_stats(request: web.Request) -> web.Response:
             "net_distributable": float(net_distributable_total),
             "coach_total_payout": float(total_coach_payout),
             "dagmawi_total_payout": float(total_dag_payout),
+            "product_carryover": float(product_carryover),
             "last_payout_at": last_payout_ts.isoformat() if isinstance(last_payout_ts, datetime) else str(last_payout_ts),
 
             # Stream A: Digital Products (Fixed 70/30)
@@ -980,6 +987,26 @@ async def get_pending_payout_transactions(request: web.Request) -> web.Response:
         """, last_payout_ts)
 
         txns = records_to_list(sales) + records_to_list(club) + records_to_list(meals)
+
+        # Include open carryover from previous period if present
+        carryover_val = await db.fetchval(
+            "SELECT value_numeric FROM system_metadata WHERE key = 'pending_product_carryover'"
+        )
+        product_carryover = Decimal(str(carryover_val)) if carryover_val is not None else Decimal('0')
+        if product_carryover > 0:
+            txns.insert(0, {
+                "id": "OCT-4K-CARRYOVER",
+                "stream": "Stream A (Products)",
+                "amount": float(product_carryover),
+                "transaction_date": "2026-10-31T23:59:59+00:00",
+                "user_id": 0,
+                "customer_name": "October Carryover",
+                "username": "unsettled_product_gap",
+                "item_title": "October 4,000 ETB Product Gap (Unsettled / On Air)",
+                "bank_reference": "OCT-4K-HOLD",
+                "status": "Pending Bank Statement"
+            })
+
         txns.sort(key=lambda x: str(x.get("transaction_date") or ""), reverse=True)
 
         return web.json_response({

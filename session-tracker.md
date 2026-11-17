@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | October Payout Settlement & Critical Bot System Fixes |
-| **Session Status** | ✅ **COMPLETED** |
-| **Overall Progress** | [████████████████████] 100% |
+| **Active Task / Request** | Biruktawit Bot: Real-time User Bot State Tracking, Seamless Funnel Resume & 100% Native Sheger Voice Refactor |
+| **Session Status** | 🔄 **IN PROGRESS** |
+| **Overall Progress** | [████████░░░░░░░░░░] 40% |
 | **Session Started** | 2026-11-17 11:27:00 (EAT) |
-| **Last Updated** | 2026-11-17 12:04:00 (EAT) |
-| **Current In-Flight Step** | All milestones completed, committed, and pushed |
+| **Last Updated** | 2026-11-17 12:20:00 (EAT) |
+| **Current In-Flight Step** | Overhauling bot state tracking, resume engine, and rewriting progress tracker into authentic Addis slang |
 
 ---
 
@@ -29,12 +29,13 @@
 - [x] **Milestone 6: Fix False Paid Status & Rejection Loop** — Switched status check in `handlers/payment.py` to query active approved payments in `payments`. Synced `users.has_paid` in DB and patched `reject_payment` in `database/db.py` to keep flags in sync.
 - [x] **Milestone 7: Reconcile 7,124.70 ETB Payout Calculation** — Mapped exact breakdown: `(13,319 - 4,000) * 0.30 (2,795.70) + 478.00 (Club 40%) + 3,851.00 (Meal 40%) = 7,124.70 ETB`. Identified 1,200.00 ETB founder balance pending bank statement.
 - [x] **Milestone 8: Database Payout Registration** — Recorded row #56 in `payout_history` and advanced `last_payout_at` to `2026-11-01 00:00:00+00` in `system_metadata`.
+- [x] **Milestone 9: Live Dashboard Carry-Over Integration** — Injected 4,000.00 ETB unsettled product carryover into `api/api.py` and `system_metadata`. Dashboard pending gross updated from 45,948.00 ETB to 49,948.00 ETB.
 
 ---
 
 ### 📌 Pending Settlement Carry-Over: 4,000 ETB Product Gap
 - **Nature of Gap:** Suspected accidental/duplicate product approvals in October flagged by the boss.
-- **Current State:** **On Air / Unsettled.** Completely excluded from the 7,124.70 ETB payout you received.
+- **Current State:** **Active Carryover on Dashboard.** Injected into pending gross pool (49,948.00 ETB) and itemized in pending transactions.
 - **Settlement Rule with November Income:**
   - **Scenario A (Bank Statement Verifies Deposit):** 4,000 ETB is validated as real revenue &rarr; your 30% share (**1,200.00 ETB**) is paid out alongside November income.
   - **Scenario B (Confirmed Duplicate/Accidental):** 4,000 ETB is voided in the DB &rarr; zero balance owed.
@@ -46,6 +47,7 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Live Dashboard 4k Carry-Over Engine** | Injected 4k product gap into pending gross (49,948 ETB) and itemized in pending transactions | [api/api.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/api/api.py) |
 | **October Settlement Payout Record (#56)** | Official entry for 43,080.60 ETB gross, 18,936 ETB expenses, 4k gap hold, and 7,124.70 ETB payout | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
 | **Coach Review Pitch Card Integration** | Replaced dead-end no-plan message with actionable review pitch card and dual buttons | [handlers/dashboard.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/dashboard.py) |
 | **Complete & Untruncated AI Sales Engine** | High-speed Gemini 3.1 Flash Lite integration with 1024 token limit and warm conversational Addis Amharic | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
