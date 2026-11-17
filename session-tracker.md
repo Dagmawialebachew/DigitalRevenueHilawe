@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | AI Coach RAG & High-Converting Persuasive Copy Upgrade (Infusing broadcast.py Persuasion Patterns) |
+| **Active Task / Request** | Fix Duplicate Vocative ("እህቴ ... የኔ እህት") in AI Coach Greeting & Naturalize Name Address |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 14:20:00 (EAT) |
-| **Last Updated** | 2026-11-17 14:26:00 (EAT) |
-| **Current In-Flight Step** | Broadcast-tested persuasion hooks, daily cost anchors, and 3,500+ social proof active in RAG engine; committed & pushed |
+| **Session Started** | 2026-11-17 14:27:00 (EAT) |
+| **Last Updated** | 2026-11-17 14:30:00 (EAT) |
+| **Current In-Flight Step** | Enforced strict single-vocative greeting rule; live verification passed on male and female queries; committed & pushed |
 
 ---
 
@@ -21,12 +21,22 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1-14: October Payout Settlements, AI Anti-Truncation & Contextual Buttons** — Completed and live on GitHub main.
-- [x] **Milestone 15: Review `scheduler/broadcast.py` High-Converting Copy Patterns** — Extracted core persuasive hooks: 3,500+ Ethiopian social proof, daily micro-cost framing (price / 56 days), 100% Habesha diet reality (Shiro/Injera vs Western broccoli), and call-out of the "waiting for Monday" habit.
-- [x] **Milestone 16: Upgrade Coach Hilawe RAG Knowledge Base in `services/coach_ai.py`** — Infused knowledge chunks with high-converting broadcast angles, covering glute shaping, spot reduction reality, fasting macro protection, and one-time payment reassurance.
-- [x] **Milestone 17: Fine-Tune Natural Price Anchoring & Urge-Building** — Framed {price} ETB as {daily_cost} ETB/day (less than a bottle of water or half a macchiato in Addis) with zero recurring subscriptions.
-- [x] **Milestone 18: Test High-Converting Scenarios End-to-End** — Verified across Hip Dips, Belly Fat, Fasting, and Price Objection queries (100% complete sentences, ~75 words, high urgency).
-- [x] **Milestone 19: Git Commit & Push to Remote** — Landed verified copy enhancements on GitHub main.
+- [x] **Milestone 1-19: October Settlements, Anti-Truncation, Contextual Buttons & RAG Persuasion Engine** — Deployed and verified on GitHub main.
+- [x] **Milestone 20: Clean Vocative Generation in `services/coach_ai.py`** — Eliminated duplicate "እህቴ ... የኔ እህት" pattern. Enforced strict single vocative greeting (`ሰላም {vocative}!`).
+- [x] **Milestone 21: Verification Test on Male and Female Prompts** — Tested male (`ሰላም ወንድሜ Akalu!`) and female (`ሰላም እህቴ Dagmaros!`) ensuring zero duplicate repetition of "እህቴ" / "ወንድሜ".
+- [x] **Milestone 22: Git Commit & Push to Main** — Committed and pushed cleanly to remote.
+
+---
+
+## 📦 Recent Session Deliverables & File Links
+
+| Deliverable | Description | File Path |
+| --- | --- | --- |
+| **Clean Single-Vocative Coach Voice** | Enforced zero duplication in greetings; natural single address for male and female leads | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Broadcast Persuasion RAG Engine** | Upgraded knowledge base with 3,500+ proof, daily cost contrast, and Habesha diet focus | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Contextual Query Action Buttons** | Smart inline button generator mapping query intent to targeted actions without UI clutter | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Live Dashboard 4k Carry-Over Engine** | Injected 4k product gap into pending gross (49,948 ETB) and itemized in pending transactions | [api/api.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/api/api.py) |
+| **October Settlement Payout Record (#56)** | Official entry for 43,080.60 ETB gross, 18,936 ETB expenses, 4k gap hold, and 7,124.70 ETB payout | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
 
 ---
 
