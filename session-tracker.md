@@ -32,6 +32,16 @@
 
 ---
 
+### 📌 Pending Settlement Carry-Over: 4,000 ETB Product Gap
+- **Nature of Gap:** Suspected accidental/duplicate product approvals in October flagged by the boss.
+- **Current State:** **On Air / Unsettled.** Completely excluded from the 7,124.70 ETB payout you received.
+- **Settlement Rule with November Income:**
+  - **Scenario A (Bank Statement Verifies Deposit):** 4,000 ETB is validated as real revenue &rarr; your 30% share (**1,200.00 ETB**) is paid out alongside November income.
+  - **Scenario B (Confirmed Duplicate/Accidental):** 4,000 ETB is voided in the DB &rarr; zero balance owed.
+- **Action:** Retained as an open audit item carried over into the November settlement pool.
+
+---
+
 ## 📦 Recent Session Deliverables & File Links
 
 | Deliverable | Description | File Path |
