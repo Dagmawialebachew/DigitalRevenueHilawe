@@ -661,13 +661,24 @@ class Database:
 
     async def reject_payment(self, payment_id: int) -> bool:
         """
-        Mark a payment as rejected. Returns True if updated, False if not found.
+        Mark a payment as rejected and safely sync user has_paid status.
         """
-        result = await self._pool.execute(
-            "UPDATE payments SET status = 'rejected' WHERE id = $1",
-            payment_id
-        )
-        return result != "UPDATE 0"
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    "UPDATE payments SET status = 'rejected' WHERE id = $1 RETURNING user_id",
+                    payment_id
+                )
+                if not row:
+                    return False
+                user_id = row['user_id']
+                has_approved = await conn.fetchval(
+                    "SELECT 1 FROM payments WHERE user_id = $1 AND status = 'approved' LIMIT 1",
+                    user_id
+                )
+                if not has_approved:
+                    await conn.execute("UPDATE users SET has_paid = FALSE WHERE telegram_id = $1", user_id)
+                return True
 
     async def get_products(self, limit: int = 100, offset: int = 0) -> List[Dict]:
         """

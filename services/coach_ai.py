@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any, Dict, Optional, Tuple
 
 import aiohttp
@@ -16,11 +17,11 @@ from config import settings
 
 logger = logging.getLogger("COACH_AI")
 
-# Fast, high-uptime models with fallback
+# Verified, active ultra-fast models with sub-2s latency
 PRIMARY_MODELS = [
+    "gemini-3.1-flash-lite",
     "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash",
+    "gemini-3.7-flash",
 ]
 
 # Knowledge base grounded in actual Ethiopian client chats (from Chat_Export)
@@ -34,7 +35,7 @@ KNOWLEDGE_CHUNKS = """
 
 3. ክብደት መጨመር አልቻልኩም ለሚሉ (HARDGAINERS / SKINNY):
 - "ምነው እኛ እያለን!" ክብደት መጨመር የሚቻለው በቀን ውስጥ ሰውነት የሚፈልገውን ካሎሪና ኒውትሪየንት በስርዓት ሲያገኝ ነው።
-- በፕሮግራሙ ውስጥ በቀላሉ በአዲስ አበባ ገበያ በሚገኙ ምግቦች የሚዘጋጅ ከፍተኛ ካሎሪ ያለው የአመጋገብ እቅድ አለ። ከ600 በላይ ሰዎች ተጠቅመውበታል።
+- በፕሮግራሙ ውስጥ በቀላሉ በአዲስ አበባ ገበያ በሚገኙ ምግቦች የሚዘጋጅ ከፍተኛ ካሎሪ ያለው የአመጋገብ እቅድ አለ።
 
 4. ቦርጭ ብቻ ማጥፋት (BELLY FAT / SPOT REDUCTION):
 - ቦርጭን ብቻውን ነጥሎ ማጥፋት (spot reduction) በሳይንስም በተግባርም ውሸት ነው። ሆድ ላይ ክራንች በመስራት ብቻ ቦርጭ አይጠፋም።
@@ -48,10 +49,10 @@ KNOWLEDGE_CHUNKS = """
 6. ጂም ወይስ ቤት ውስጥ (GYM VS HOME WORKOUT):
 - ጂም መሄድ ላልቻለ ሰው ምንም ችግር የለውም፤ ቤት ውስጥ ያለ ምንም እቃ ወይም ቀላል እቃዎችን (የውሃ ፕላስቲክ፣ ቦርሳ) በመጠቀም የሚሰራ የቤት ውስጥ (Home workout) አማራጭ አለው።
 
-7. ተዓማኒነት እና ማጭበርበር ስጋት (TRUST & SECURITY):
+7. ተዓማኒነት፣ የባንክ አካውንት እና ክፍያ (TRUST & PAYMENT CONCERNS):
 - እኔ ኮች ህላዌ ነኝ፤ በሺዎች የሚቆጠሩ ሰዎችን በአዲስ አበባና በመላው ዓለም ቀይሬያለሁ።
-- ክፍያ የሚፈጸመው በይፋዊ የባንክ አካውንት (CBE, BOA, Telebirr) ነው።
-- ደረሰኝ በተላከ በደቂቃዎች ውስጥ የተዘጋጀው እቅድ በቴሌግራም ይላካል።
+- የባንክ አካውንት የሌለው ሰው በቴሌብር (Telebirr) ወይም በቤተሰብ/ጓደኛ የባንክ አካውንት በቀላሉ መክፈል ይችላል።
+- ክፍያ የሚፈጸመው በይፋዊ አካውንት (CBE, BOA, Telebirr) ነው። ደረሰኝ እንደተላከ በደቂቃዎች ውስጥ እቅዱ በቴሌግራም ይላካል።
 
 8. ዋጋ እና ጠቀሜታ (PRICING ANCHOR):
 - የ8-ሳምንት የተሟላ ስልጠናና የአመጋገብ እቅድ ዋጋው {price} ብር ብቻ ነው።
@@ -59,26 +60,37 @@ KNOWLEDGE_CHUNKS = """
 """
 
 
-def _build_system_instruction(gender: str, first_name: str, price: float, vocative: str, pronoun: str, verb_ending: str) -> str:
+def _clean_display_name(name: str) -> str:
+    """Extract clean first name stripping emojis and special characters for natural conversational address."""
+    if not name:
+        return ""
+    first = name.split()[0].strip()
+    clean = re.sub(r"[^\w\u1200-\u137F]", "", first)
+    return clean or first
+
+
+def _build_system_instruction(gender: str, clean_name: str, price: float, vocative: str, pronoun: str, verb_ending: str) -> str:
     return f"""
-አንተ ኮች ህላዌ (Coach Hilawe) ነህ — በአዲስ አበባ ታዋቂና ተወዳጅ የግል አሰልጣኝ።
-የምትመልሰው በቴሌግራም ለሚጽፉልህ ደንበኞች ነው።
+አንተ ኮች ህላዌ (Coach Hilawe) ነህ — በአዲስ አበባ የምትገኝ ተግባቢ፣ ቅን፣ እውነተኛ እና ልምድ ያለው የግል አሰልጣኝ (Fitness & Nutrition Coach)።
+በቴሌግራም ለሚጽፉልህ ደንበኞች ልክ እንደ ወንድም ወይም እህት ሆነህ በግልጽ፣ በቅንነት እና በቀጥታ መልስ።
 
-ቋንቋ እና ቃና (STRICT VOICE RULES):
-1. 100% ንጹህና ተነባቢ ፊደል አማርኛ ብቻ ተጠቀም። ምንም አይነት እንግሊዝኛ ወይም ሌላ ቋንቋ አትቀላቅል።
-2. የአዲስ አበባ ወንድማዊ/እህታዊ፣ የቀረበ፣ ቅን፣ ጉልበት ያለው እና የሚያበረታታ ቃና ይኑርህ።
+የአነጋገር እና የቃና መመሪያዎች (NATURAL ADDIS COACH TONE):
+1. ንጹህና ተነባቢ ፊደል አማርኛ ብቻ ተጠቀም። ምንም አይነት እንግሊዝኛ ወይም ሌላ ቋንቋ አትቀላቅል።
+2. ሮቦታዊ አትሁን፦
+   - በፍጹም "ጥያቄሽን/ህን ተቀብያለሁ"፣ "እንኳን ደህና መጣህ" ወይም የቢሮክራሲ/የማስታወቂያ ቃላትን አትድገም።
+   - የደንበኛውን ስም በየአረፍተ ነገሩ አትድገም። ሰላምታ ላይ አንድ ጊዜ ብቻ ተጠቀም (ለምሳሌ፦ "ሰላም {vocative}!")።
+   - ደንበኛው የጠየቀውን ጥያቄ በቀጥታ፣ በቅንነት እና በተግባቢ ቃና መልስ።
 3. ፍፁም የሆነ የጾታ ሰዋሰው ጠብቅ፦
-   - የደንበኛው ጾታ፦ {gender}
-   - የምትጠራበት መጠሪያ፦ "{vocative}"
-   - ተውላጠ ስም፦ "{pronoun}"
-   - የግስ ማሰሪያ፦ "{verb_ending}" (ለምሳሌ፦ {vocative} ብትጀምር/ብትጀምሪ፣ እንድትሰራ/እንድትሰሪ)
-4. ምንም አይነት ሰው ሰራሽ (robotic) ወይም የቢሮክራሲ ቋንቋ አትጠቀም። ልክ ጂም ውስጥ ፊት ለፊት እንደምታወራው ሰው ሁን።
-
-የሽያጭ ቀመር (CONVERSION BLUEPRINT):
-- አንቀጽ 1፦ የጠየቁትን ጥያቄ በቀጥታ በአጭሩና በሙያዊ ብቃት መልስላቸው (1-2 አረፍተ ነገር)።
-- አንቀጽ 2፦ ያለ እቅድ በዘፈቀደ መስራት ለውጥ እንደማያመጣ እና የ8-ሳምንት የተዋቀረ እቅድ ለምን እንደሚያስፈልጋቸው አስረዳ።
-- አንቀጽ 3፦ አሁኑኑ እንዲጀምሩ አነሳሳቸው (ዋጋው {int(price)} ብር መሆኑንና ከታች ያለውን ቁልፍ ተጭነው መክፈት እንደሚችሉ ንገራቸው)።
-- ርዝመት፦ በጣም አጭር ይሁን (ከ 80 እስከ 110 ቃላት ብቻ)።
+   - ጾታ፦ {gender}
+   - መጠሪያ፦ {vocative}
+   - ተውላጠ ስም፦ {pronoun}
+   - ማሰሪያ፦ {verb_ending}
+4. የሽያጭ እና የማበረታቻ አቀራረብ፦
+   - ደንበኛው ችግር ሲያነሳ (ለምሳሌ፦ የባንክ አካውንት የለኝም፣ ገንዘብ እጥረት፣ ጊዜ ማጣት፣ ፆም) ችግራቸውን ተረድተህ አፋጣኝ መፍትሄ ስጣቸው (ለምሳሌ፦ ቴሌብር፣ በራስህ ሰዓት መስራት፣ የፆም ፕሮቲን)።
+   - ሰውነታቸውን ለመቀየር የወሰኑትን ውሳኔ አበረታታ።
+   - ዋጋው {int(price)} ብር መሆኑን እና ከታች ባለው ቁልፍ መጀመር እንደሚችሉ በአጭሩ ግለጽላቸው።
+5. አረፍተ ነገሮችን ሁልጊዜ አጠናቀህ ቋጭ። በጭራሽ አረፍተ ነገር ሳይጠናቀቅ በግማሽ እንዳይቀር!
+6. አጭርና ግልጽ ሁን (ከ 50 እስከ 90 ቃላት ብቻ)።
 
 የእውቀት መሰረት (KNOWLEDGE BASE):
 {KNOWLEDGE_CHUNKS}
@@ -104,11 +116,11 @@ async def call_gemini_api(prompt: str, system_instruction: str) -> Optional[str]
         ],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 300,
+            "maxOutputTokens": 1024,
         }
     }
 
-    timeout = aiohttp.ClientTimeout(total=4.5)
+    timeout = aiohttp.ClientTimeout(total=9.0)
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for model in PRIMARY_MODELS:
@@ -145,7 +157,8 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     Falls back gracefully to Support Bot on errors.
     """
     user = user or {}
-    first_name = user.get("full_name") or user.get("first_name") or ""
+    raw_name = user.get("full_name") or user.get("first_name") or ""
+    clean_name = _clean_display_name(raw_name)
     gender = (user.get("gender") or "MALE").upper()
     goal = user.get("goal") or "ሰውነትህን መቀየር"
 
@@ -156,7 +169,7 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
         "ማውራት እፈልጋለሁ", "አናግረኝ", "help desk", "ስልክ ቁጥር"
     ]
     if any(k in lower_query for k in support_keywords):
-        vocative = "እህቴ" if gender == "FEMALE" else "ወንድሜ"
+        vocative = f"እህቴ {clean_name}".strip() if gender == "FEMALE" else f"ወንድሜ {clean_name}".strip()
         return (
             f"ሠላም {vocative}! እኔን ወይም የድጋፍ ቡድናችንን በቀጥታ ማናገር ከፈለግክ/ሽ "
             f"እዚህ አናግረን፦ @{settings.SUPPORT_BOT_USERNAME} 🙏\n\n"
@@ -165,17 +178,17 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
 
     # Conjugation helpers
     if gender == "FEMALE":
-        vocative = f"እህቴ {first_name}".strip() if first_name else "እህቴ"
+        vocative = f"እህቴ {clean_name}".strip() if clean_name else "እህቴ"
         pronoun = "አንቺ"
         verb_ending = "እንድትሰሪ / ብትጀምሪ / ልታሳኪ"
     else:
-        vocative = f"ወንድሜ {first_name}".strip() if first_name else "ወንድሜ"
+        vocative = f"ወንድሜ {clean_name}".strip() if clean_name else "ወንድሜ"
         pronoun = "አንተ"
         verb_ending = "እንድትሰራ / ብትጀምር / ልታሳካ"
 
     system_instruction = _build_system_instruction(
         gender=gender,
-        first_name=first_name,
+        clean_name=clean_name,
         price=price,
         vocative=vocative,
         pronoun=pronoun,
@@ -183,7 +196,7 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     )
 
     user_context = (
-        f"የደንበኛው ስም፦ {first_name or 'አልተገለጸም'}\n"
+        f"የደንበኛው ስም፦ {clean_name or 'አልተገለጸም'}\n"
         f"ዋና አላማው፦ {goal}\n"
         f"ወቅታዊ ዋጋ፦ {int(price)} ብር\n"
         f"የደንበኛው ጥያቄ፦ \"{query}\""

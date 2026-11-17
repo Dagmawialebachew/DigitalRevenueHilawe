@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | November 2026 MTD Revenue Analysis & 15% VAT Liability Calculation |
-| **Session Status** | 🟡 **IN PROGRESS** |
-| **Overall Progress** | [██░░░░░░░░░░░░░░░░░░] 10% |
-| **Session Started** | 2026-11-17 11:04:00 (EAT) |
-| **Last Updated** | 2026-11-17 11:05:00 (EAT) |
-| **Current In-Flight Step** | Querying Neon PostgreSQL for all approved transactions from Nov 1, 2026 to date |
+| **Active Task / Request** | October Payout Settlement & Critical Bot System Fixes |
+| **Session Status** | ✅ **COMPLETED** |
+| **Overall Progress** | [████████████████████] 100% |
+| **Session Started** | 2026-11-17 11:27:00 (EAT) |
+| **Last Updated** | 2026-11-17 12:04:00 (EAT) |
+| **Current In-Flight Step** | All milestones completed, committed, and pushed |
 
 ---
 
@@ -21,10 +21,14 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1: Session Kickoff & Dashboard Setup** — Initialized active session tracking for November 2026 revenue & VAT analysis.
-- [/] **Milestone 2: Database Extraction (Nov 1 to Nov 17, 2026)** — Query approved transactions across Stream A (Digital Products), Stream B (Transformation Club), and Stream C (Meal Plans).
-- [ ] **Milestone 3: Stream Breakdown & Total Revenue Summary** — Aggregate itemized counts, gross revenue, and stream distribution.
-- [ ] **Milestone 4: 15% VAT Modeling & Practical Founder Guidance** — Compute VAT under both inclusive (15/115) and exclusive (15%) models, and explain what to tell Coach Hilawe.
+- [x] **Milestone 1: Session Kickoff & Dashboard Setup** — Initialized active session tracking for payout review and system fixes.
+- [x] **Milestone 2: Fix "No Plan Found" Dead-End in `handlers/dashboard.py`** — Replaced dead-end message with Coach Review pitch card (`👤 የአሰልጣኝ ህላዌ ግምገማ`) and dual inline buttons (`[💳 ክፍያ ጀምር]` and `[⚙️ ማስተካከያ]`).
+- [x] **Milestone 3: Fix Unlock Command Fall-Through** — Extended handler filter to capture both `"💳 እቅዴን ክፈት"` and plain `"እቅዴን ክፈት"` to prevent routing into the AI fallback.
+- [x] **Milestone 4: Add Missing Settings Callback Handler** — Registered `@router.callback_query(F.data == "open_settings")` to open interactive profile settings directly.
+- [x] **Milestone 5: Fix AI Truncation & Phrasing in `services/coach_ai.py`** — Upgraded model pool to sub-2s latency models (`gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`), raised token limit to 1024, increased timeout to 9.0s, removed emoji vocatives, and crafted natural conversational Addis Amharic prompt.
+- [x] **Milestone 6: Fix False Paid Status & Rejection Loop** — Switched status check in `handlers/payment.py` to query active approved payments in `payments`. Synced `users.has_paid` in DB and patched `reject_payment` in `database/db.py` to keep flags in sync.
+- [x] **Milestone 7: Reconcile 7,124.70 ETB Payout Calculation** — Mapped exact breakdown: `(13,319 - 4,000) * 0.30 (2,795.70) + 478.00 (Club 40%) + 3,851.00 (Meal 40%) = 7,124.70 ETB`. Identified 1,200.00 ETB founder balance pending bank statement.
+- [x] **Milestone 8: Database Payout Registration** — Recorded row #56 in `payout_history` and advanced `last_payout_at` to `2026-11-01 00:00:00+00` in `system_metadata`.
 
 ---
 
@@ -32,6 +36,31 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **October Settlement Payout Record (#56)** | Official entry for 43,080.60 ETB gross, 18,936 ETB expenses, 4k gap hold, and 7,124.70 ETB payout | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
+| **Coach Review Pitch Card Integration** | Replaced dead-end no-plan message with actionable review pitch card and dual buttons | [handlers/dashboard.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/dashboard.py) |
+| **Complete & Untruncated AI Sales Engine** | High-speed Gemini 3.1 Flash Lite integration with 1024 token limit and warm conversational Addis Amharic | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Verified Payment Status Engine** | Replaced fragile `has_paid` flag checks with strict approved queries in payments table | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Payment Rejection State Guard** | Auto-resets `has_paid` on payment rejection when no other approved records exist | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
+
+
+---
+
+## 📦 Recent Session Deliverables & File Links
+
+| Deliverable | Description | File Path |
+| --- | --- | --- |
+| **1,299 ETB Live Pricing Test Deployment** | Live update across Neon DB (24 products), `handlers/payment.py`, `services/coach_ai.py`, and retargeting engines | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **1-Week Pricing Test Framework** | A/B test playbook comparing 949 ETB baseline vs 1,299 ETB with conversion metrics | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
+| **VAT vs. Income Tax Primer & Estimates** | Real-world taxable net profit calculation and clear conceptual comparison | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
+| **November 2026 MTD Revenue & VAT Ledger** | Complete itemized ledger and 15% inclusive vs exclusive VAT calculation | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
+
+---
+
+## 📦 Recent Session Deliverables & File Links
+
+| Deliverable | Description | File Path |
+| --- | --- | --- |
+| **November 2026 MTD Revenue & VAT Ledger** | Complete itemized ledger and 15% inclusive vs exclusive VAT calculation | [session-tracker.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/session-tracker.md) |
 | **Coach Hilawe AI Sales Engine** | High-uptime, ultra-localized Addis Amharic AI engine with gender conjugation and support fallback | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
 | **Payment & Photo Interceptor** | Direct receipt capture for hot leads, dynamic payment triggers, and founder notification card | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 | **Bot Configuration Update** | Added `GEMINI_API_KEY`, `FOUNDER_ID`, and `SUPPORT_BOT_USERNAME` configuration fields | [config.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/config.py) |
@@ -44,6 +73,20 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
+
+* **Goal:** Pull all approved transactions from November 1, 2026 to date across all 3 revenue streams, calculate total gross sales, and model the exact 15% VAT liability under inclusive and exclusive frameworks.
+* **Key Findings & Calculations:**
+  1. **Total Gross Revenue (Nov 1 – Nov 17, 2026):** **45,948.00 ETB** across 53 approved transactions.
+     - Stream A (Digital Products): 47 transactions, **41,453.00 ETB** (38 @ 949 ETB, 9 @ 599 ETB).
+     - Stream B (Transformation Club): 5 transactions, **1,495.00 ETB** (5 @ 299 ETB).
+     - Stream C (Meal Plans): 1 transaction, **3,000.00 ETB**.
+  2. **15% VAT Liability (VAT-Inclusive Model):** **5,993.22 ETB** (Taxable Base: 39,954.78 ETB).
+     - Per 949 ETB product: Net 825.22 ETB + VAT 123.78 ETB.
+     - Per 599 ETB product: Net 520.87 ETB + VAT 78.13 ETB.
+  3. **15% VAT Liability (VAT-Exclusive Model):** **6,892.20 ETB** (if 15% was added on top of 45,948 ETB).
+  4. **Threshold Context:** Annualized pace is ~1.0M ETB, which remains comfortably below the statutory 2,000,000 ETB mandatory registration threshold in Proclamation No. 1341/2024.
 
 ### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
 
@@ -111,6 +154,20 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
+
+* **Goal:** Pull all approved transactions from November 1, 2026 to date across all 3 revenue streams, calculate total gross sales, and model the exact 15% VAT liability under inclusive and exclusive frameworks.
+* **Key Findings & Calculations:**
+  1. **Total Gross Revenue (Nov 1 – Nov 17, 2026):** **45,948.00 ETB** across 53 approved transactions.
+     - Stream A (Digital Products): 47 transactions, **41,453.00 ETB** (38 @ 949 ETB, 9 @ 599 ETB).
+     - Stream B (Transformation Club): 5 transactions, **1,495.00 ETB** (5 @ 299 ETB).
+     - Stream C (Meal Plans): 1 transaction, **3,000.00 ETB**.
+  2. **15% VAT Liability (VAT-Inclusive Model):** **5,993.22 ETB** (Taxable Base: 39,954.78 ETB).
+     - Per 949 ETB product: Net 825.22 ETB + VAT 123.78 ETB.
+     - Per 599 ETB product: Net 520.87 ETB + VAT 78.13 ETB.
+  3. **15% VAT Liability (VAT-Exclusive Model):** **6,892.20 ETB** (if 15% was added on top of 45,948 ETB).
+  4. **Threshold Context:** Annualized pace is ~1.0M ETB, which remains comfortably below the statutory 2,000,000 ETB mandatory registration threshold in Proclamation No. 1341/2024.
 
 ### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
 
@@ -198,6 +255,20 @@ e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-17 — November 2026 MTD Revenue Analysis & 15% VAT Modeling
+
+* **Goal:** Pull all approved transactions from November 1, 2026 to date across all 3 revenue streams, calculate total gross sales, and model the exact 15% VAT liability under inclusive and exclusive frameworks.
+* **Key Findings & Calculations:**
+  1. **Total Gross Revenue (Nov 1 – Nov 17, 2026):** **45,948.00 ETB** across 53 approved transactions.
+     - Stream A (Digital Products): 47 transactions, **41,453.00 ETB** (38 @ 949 ETB, 9 @ 599 ETB).
+     - Stream B (Transformation Club): 5 transactions, **1,495.00 ETB** (5 @ 299 ETB).
+     - Stream C (Meal Plans): 1 transaction, **3,000.00 ETB**.
+  2. **15% VAT Liability (VAT-Inclusive Model):** **5,993.22 ETB** (Taxable Base: 39,954.78 ETB).
+     - Per 949 ETB product: Net 825.22 ETB + VAT 123.78 ETB.
+     - Per 599 ETB product: Net 520.87 ETB + VAT 78.13 ETB.
+  3. **15% VAT Liability (VAT-Exclusive Model):** **6,892.20 ETB** (if 15% was added on top of 45,948 ETB).
+  4. **Threshold Context:** Annualized pace is ~1.0M ETB, which remains comfortably below the statutory 2,000,000 ETB mandatory registration threshold in Proclamation No. 1341/2024.
 
 ### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
 

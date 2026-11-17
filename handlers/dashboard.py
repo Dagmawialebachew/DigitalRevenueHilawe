@@ -56,18 +56,9 @@ async def send_user_plan(event: types.Message | types.CallbackQuery, db: Databas
         )
         return await message.answer(pending_text, parse_mode="Markdown")
 
-    # Case 3: No Payment or Rejected
+    # Case 3: No Payment or Rejected — Trigger Coach Review Pitch Card with Action Buttons
     else:
-        no_plan_text = (
-            "❌ *NO ACTIVE PLAN FOUND*\n\n"
-            "You haven't unlocked your transformation program yet. "
-            "Go to the main menu and tap 'Unlock Plan' to start."
-        ) if lang == "EN" else (
-            "❌ *ምንም አይነት እቅድ አልተገኘም*\n\n"
-            "እስካሁን ምንም አይነት የልምምድ እቅድ አልከፈቱም። "
-            "ለመጀመር 'እቅዴን ክፈት' የሚለውን ይጫኑ።"
-        )
-        return await message.answer(no_plan_text, parse_mode="Markdown")
+        return await initiate_unlock_flow(event, db)
 
 # 1. Reply Keyboard Handler (📦 My Plan)
 @router.message(F.text.in_({"📦 My Plan", "📦 የእኔ እቅድ"}))
@@ -117,11 +108,16 @@ async def settings_view(message: types.Message, db: Database):
     await message.answer(bio_card, reply_markup=builder.as_markup())
 
 
-    
-    
-@router.message(F.text.in_({"💳 Unlock Plan", "💳 እቅዴን ክፈት"}))
-async def initiate_unlock_flow(message: types.Message, db: Database):
-    user_id = message.from_user.id if message.from_user else message.chat.id
+@router.callback_query(F.data == "open_settings")
+async def open_settings_callback(callback: types.CallbackQuery, db: Database):
+    await callback.answer()
+    await refresh_settings_view(callback, db, force_new=True)
+
+
+@router.message(F.text.in_({"💳 Unlock Plan", "Unlock Plan", "💳 እቅዴን ክፈት", "እቅዴን ክፈት"}))
+async def initiate_unlock_flow(event: types.Message | types.CallbackQuery, db: Database):
+    user_id = event.from_user.id if event.from_user else (event.message.chat.id if hasattr(event, "message") else event.chat.id)
+    message = event if isinstance(event, types.Message) else event.message
     user = await db.get_user(user_id)
     if not user:
         # If the user isn't in the DB, they must start the bot properly
@@ -194,17 +190,18 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
         )
         return await message.answer(no_prod_text, parse_mode="Markdown")
 
-    # --- 3. COACH REVIEW (The Sales Closer) ---
+    # --- 3. COACH REVIEW (The Closer Pitch Card) ---
+    first_name = event.from_user.first_name if event.from_user else (message.from_user.first_name if message and message.from_user else "Champion")
     coach_review = (
         f"👤 *COACH HILAWE'S REVIEW*\n\n"
-        f"I have reviewed your profile, `{message.from_user.first_name}`. "
+        f"Hello `{first_name}`; I have reviewed your profile. "
         f"Based on your *{user['level']}* experience and *{user['goal']}* goal, "
         f"I have prepared a high-intensity *{user['frequency']}-day* program for you.\n\n"
         f"⚠️ *Wait!* If these details are incorrect, go to *Settings* to update them now. "
         f"If you are ready to transform, proceed to the secure invoice below."
     ) if lang == "EN" else (
         f"👤 *የአሰልጣኝ ህላዌ ግምገማ*\n\n"
-        f"ሰላም `{message.from_user.first_name}`; መገለጫዎን ተመልክቻለሁ። "
+        f"ሰላም `{first_name}`; መገለጫዎን ተመልክቻለሁ። "
         f"ባለዎት የ*{user['level']}* ብቃት እና የ*{user['goal']}* ግብ መሰረት፣ "
         f"በሳምንት የ*{user['frequency']} ቀን* ልዩ ስልጠና አዘጋጅቼልዎታለሁ።\n\n"
         f"⚠️ *ቆይ!* እነዚህ መረጃዎች ስህተት ከሆኑ *ማስተካከያ* ውስጥ በመግባት ይቀይሩ። "
@@ -213,11 +210,10 @@ async def initiate_unlock_flow(message: types.Message, db: Database):
 
     builder = InlineKeyboardBuilder()
     builder.button(text="💳 Complete Payment" if lang == "EN" else "💳 ክፍያ ጀምር", callback_data=f"pay_{product['id']}")
-    builder.button(text="⚙️ Edit Information" if lang == "EN" else "⚙️ መገለጫ ቀይር", callback_data="open_settings")
+    builder.button(text="⚙️ Settings" if lang == "EN" else "⚙️ ማስተካከያ", callback_data="open_settings")
     builder.adjust(1)
 
-    await message.answer(coach_review, reply_markup=builder.as_markup(), parse_mode="Markdown")
-    from aiogram.filters import Command
+    return await message.answer(coach_review, reply_markup=builder.as_markup(), parse_mode="Markdown")
 
 # Handles both /help command and Help button text
 from aiogram.filters import Command

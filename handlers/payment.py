@@ -42,7 +42,7 @@ def resolve_user_product_id(user: dict | None) -> int:
         freq=user.get("frequency") or 3
     )
 
-def resolve_user_price(user: dict | None, default_price: float = 949.0) -> float:
+def resolve_user_price(user: dict | None, default_price: float = 1299.0) -> float:
     if not user:
         return default_price
     now = datetime.now(timezone.utc)
@@ -354,8 +354,14 @@ async def handle_unprompted_photo(message: types.Message, state: FSMContext, bot
     user = await db.get_user(user_id)
     lang = ((user.get('language') if user else 'AM') or 'AM').upper()
 
-    # User is in "state of buying" if they finished onboarding and have not paid yet
-    is_buying_state = bool(user and user.get("onboarding_completed") and not user.get("has_paid"))
+    # Real-time check: user has an active approved workout plan
+    has_active_plan = await db.fetchval(
+        "SELECT 1 FROM payments WHERE user_id = $1 AND status = 'approved' LIMIT 1",
+        user_id
+    )
+
+    # User is in "state of buying" if they finished onboarding and have no approved plan
+    is_buying_state = bool(user and user.get("onboarding_completed") and not has_active_plan)
 
     if is_buying_state:
         proof_file_id = message.photo[-1].file_id
@@ -430,7 +436,7 @@ async def handle_unprompted_photo(message: types.Message, state: FSMContext, bot
         f"👤 <b>User:</b> {html.escape(message.from_user.full_name)} (`{user_id}`)\n"
         f"🔗 <b>Username:</b> @{message.from_user.username or 'No Username'}\n"
         f"📊 <b>Onboarding:</b> {'Completed' if user and user.get('onboarding_completed') else 'Not Started'}\n"
-        f"💳 <b>Paid:</b> {'Yes' if user and user.get('has_paid') else 'No'}"
+        f"💳 <b>Paid:</b> {'Yes' if has_active_plan else 'No'}"
     )
     try:
         await bot.send_photo(
@@ -484,27 +490,34 @@ async def handle_user_query_message(message: types.Message, bot: Bot, db: Databa
         price=price
     )
 
-    # 4. Build dynamic action button
+    # 4. Check active approved workout plan status
+    has_active_plan = await db.fetchval(
+        "SELECT 1 FROM payments WHERE user_id = $1 AND status = 'approved' LIMIT 1",
+        user_id
+    )
+
+    # 5. Build dynamic action buttons
     kb_builder = InlineKeyboardBuilder()
-    if user and user.get("has_paid"):
-        kb_builder.button(text="📦 የእኔን እቅድ ክፈት", callback_data="view_current_plan")
+    if has_active_plan:
+        kb_builder.button(text="📦 የእኔን እቅድ ተመልከት", callback_data="view_current_plan")
     elif user and user.get("onboarding_completed"):
-        kb_builder.button(text=f"⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb_builder.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb_builder.button(text="⚙️ ማስተካከያ", callback_data="open_settings")
     else:
         bot_user = await bot.get_me()
         bot_username = bot_user.username or "CoachHilaweBot"
         kb_builder.button(text="🚀 የ2-ደቂቃ ምዘናውን ጀምር", url=f"https://t.me/{bot_username}?start=assess")
     kb_builder.adjust(1)
 
-    # 5. Send reply to user
+    # 6. Send reply to user
     try:
         await message.answer(ai_reply, reply_markup=kb_builder.as_markup(), parse_mode="HTML")
     except Exception:
         await message.answer(ai_reply, reply_markup=kb_builder.as_markup())
 
-    # 6. Forward summary card strictly to Founder ID (1131741322)
+    # 7. Forward summary card strictly to Founder ID (1131741322)
     user_status = (
-        "✅ Paid Member" if (user and user.get("has_paid")) else
+        "✅ Paid Member" if has_active_plan else
         "🔥 Hot Unpaid Lead" if (user and user.get("onboarding_completed")) else
         "🆕 New Prospect"
     )
