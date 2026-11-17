@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Health Review Approvals: Triage 53 Reviews & Execute Safe Approvals with Standard Pricing (21 Clients) |
+| **Active Task / Request** | Dual Broadcast Engine Execution: 8-Week Ascension (749 Br) & 7-Day Hot Leads (949 Br) |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 14:51:00 (EAT) |
-| **Last Updated** | 2026-11-17 15:15:00 (EAT) |
-| **Current In-Flight Step** | Option B executed: all 19 previous discount messages permanently deleted from user chats and replaced with official standard non-discounted pricing (3k/4k/6.5k ETB) |
+| **Session Started** | 2026-11-17 15:21:00 (EAT) |
+| **Last Updated** | 2026-11-17 15:30:00 (EAT) |
+| **Current In-Flight Step** | Both live broadcasts completed: 714 active users delivered (338 hot leads @ 949 Br + 376 ascension graduates @ 749 Br); completion reports delivered exclusively to Admin 1131741322 |
 
 ---
 
@@ -21,12 +21,12 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1-27: Previous Sprints (Payouts, Anti-Truncation, Persuasion Engine, Multilingual Guard)** — Completed and pushed to main.
-- [x] **Milestone 28: Discover & Query Pending Health Reviews** — Queried Neon DB: found exactly 53 pending health reviews (180 total across history: 82 Approved, 45 Declined, 53 Pending).
-- [x] **Milestone 29: Review 3-Stage Severity Classification Framework** — Triage framework established: Stage 1 (Mild/Manageable), Stage 2 (Moderate/Specific accommodations), Stage 3 (Severe/Medical exclusions).
-- [x] **Milestone 30: Detailed Analysis Breakdown** — Classified all 53 cases against historical approval patterns: 18 Stage 1 cases (11 routine safe + 7 digestive), 25 Stage 2 cases, and 10 Stage 3 severe contraindications.
-- [x] **Milestone 31: Execute Approvals for Group 1A (11 users) & Food Allergies (10 users)** — Approved 21 intakes by Admin `1131741322`, updated to `PROFILE_READY` with calculated nutrition profiles, and delivered exclusive executive report to founder (`1131741322`).
-- [x] **Milestone 32: Option B Message Wipe & Standard Pricing Replacement** — Swept and permanently deleted all 19 old discounted messages (`474511`–`474529`) from client chats via Telegram `deleteMessage`. Replaced with official standard full prices (7d @ 3,000 ETB, 14d @ 4,000 ETB, 30d @ 6,500 ETB) with zero discount vouchers or discount text.
+- [x] **Milestone 1-32: Previous Sprints (Payouts, Anti-Truncation, Persuasion, Multilingual, Health Reviews Batch)** — Completed and pushed to main.
+- [x] **Milestone 33: Inspect `scheduler/ascension_broadcast.py` Architecture** — Verified graduation filter (`pay.created_at <= NOW() - INTERVAL '56 days'`), 749 ETB pricing, 24h atomic deal price lock, and 1-tap `pay_{target_pid}` button.
+- [x] **Milestone 34: Inspect `scheduler/retarget_hot_unpaid_leads.py` Architecture** — Verified 7-day recency window, unpaid safety exclusion against `payments`, 949 ETB pricing, and deep assessment data injection (name, gender, days, goal, obstacle).
+- [x] **Milestone 35: Live Database Audience Count Query** — Queried live Neon DB: exactly **457 Ascension graduates** (269 Beg->Inter, 188 Inter->Adv) and **386 Hot Leads** (291 male, 95 female). Total addressable audience: **843 users**.
+- [x] **Milestone 36: Comprehensive Brainstorming Briefing to Founder** — Formatted clear breakdown covering audience rules, exact message copy, buttons, safety guards, and execution options.
+- [x] **Milestone 37: Broadcast Execution** — Launched live Hot Leads (338 delivered) & Ascension (376 delivered) broadcasts with 0.06s concurrency pacing and routed completion cards exclusively to founder (`1131741322`).
 
 ---
 
@@ -34,6 +34,8 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Hot Leads Recovery Engine** | 1-on-1 personalized recovery blast delivered to 338 unpaid leads from past 7 days at 949 ETB | [retarget_hot_unpaid_leads.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_hot_unpaid_leads.py) |
+| **Ascension Broadcast Engine** | Phase 1 graduate recovery blast delivered to 376 8-week alumni at 749 ETB with 24h lock | [ascension_broadcast.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/ascension_broadcast.py) |
 | **Health Review Approvals Batch Engine** | Batch approval & state transition engine approving 21 intakes and assigning nutrition targets | [meal_plan/health_review.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/health_review.py) |
 | **In-Chat 1-Tap Meal Plan Triggers** | Interactive payment buttons (7d/14d/30d) dispatched to newly approved meal plan leads | [scheduler/meal_plan_precheckout_recovery.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/meal_plan_precheckout_recovery.py) |
 | **Multilingual AI Coach & Intent Guard** | Fluent English & Amglish comprehension + zero-pitch safety guard for paid leads and video unlock queries | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
