@@ -456,6 +456,92 @@ async def handle_unprompted_photo(message: types.Message, state: FSMContext, bot
         )
 
 
+def build_contextual_query_keyboard(
+    query: str,
+    user: dict | None,
+    has_active_plan: bool,
+    product_id: int,
+    price: float,
+    bot_username: str
+) -> types.InlineKeyboardMarkup | None:
+    """
+    Builds smart, context-aware inline action buttons based on user query intent.
+    Eliminates repetitive generic buttons and attaches only relevant actions.
+    """
+    kb = InlineKeyboardBuilder()
+    q = (query or "").lower()
+
+    # 1. Unregistered / Incomplete Onboarding
+    if not user or not user.get("onboarding_completed"):
+        kb.button(text="🚀 የ2-ደቂቃ ምዘናውን ጀምር", url=f"https://t.me/{bot_username}?start=assess")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # 2. Paid Members
+    if has_active_plan:
+        plan_keywords = ["እቅድ", "ፕላን", "ልምምድ", "ምግብ", "ስፖርት", "ወርክአውት", "ፕሮግራም", "plan", "workout", "meal"]
+        help_keywords = ["ስልክ", "ሰው", "ድጋፍ", "ጥያቄ", "help", "support", "call"]
+        
+        if any(k in q for k in plan_keywords):
+            kb.button(text="📦 የእኔን እቅድ ተመልከት", callback_data="view_current_plan")
+        elif any(k in q for k in help_keywords):
+            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        
+        if kb.buttons:
+            kb.adjust(1)
+            return kb.as_markup()
+        return None
+
+    # 3. Hot Unpaid Leads (Context-Specific Routing)
+    
+    # Reason A: Settings / Profile Change Intent
+    settings_keywords = ["ስህተት", "መቀየር", "ልቀይር", "መገለጫ", "ማስተካከያ", "ተሳስቻለሁ", "አስተካክል", "change", "profile", "settings"]
+    if any(k in q for k in settings_keywords):
+        kb.button(text="⚙️ መገለጫዬን አስተካክል", callback_data="open_settings")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # Reason B: Direct Human Contact / Support Request
+    contact_keywords = ["ስልክ", "ማናገር", "ደውል", "ደውሉልኝ", "ኮል", "ሰው ማናገር", "አድራሻ", "call", "support", "phone"]
+    if any(k in q for k in contact_keywords):
+        kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # Reason C: Payment / Banking / Transfer / Account Inquiries
+    payment_keywords = ["ባንክ", "ቴሌብር", "አካውንት", "መክፈል", "የት ልክፈል", "አከፋፈል", "cbe", "boa", "telebirr", "bank"]
+    if any(k in q for k in payment_keywords):
+        kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        if any(w in q for w in ["የለኝም", "ችግር", "አልችልም", "እንዴት"]):
+            kb.button(text="💬 የክፍያ ድጋፍ አግኝ", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # Reason D: Fitness Advice, Goals, Problem Inquiries (Hip dips, belly, skinny, fatloss, program)
+    fitness_keywords = [
+        "ሂፕ ዲፕ", "ቦርጭ", "ክብደት", "ጡንቻ", "ዳሌ", "ቅጥነት", "ውፍረት", "ስብ", 
+        "ምግብ", "ፆም", "ፕሮቲን", "ውጤት", "ሳምንት", "ጂም", "ቤት", "ልምምድ", 
+        "ምከር", "አማክረኝ", "ምን ላድርግ", "ምን ባደርግ", "ሆድ", "ወገብ"
+    ]
+    if any(k in q for k in fitness_keywords):
+        kb.button(text=f"🔥 የ8-ሳምንት እቅዴን ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # Reason E: Greetings / Introduction ("ማነህ", "ማን ነህ", etc.)
+    intro_keywords = ["ማነህ", "ማን ነህ", "who are you", "ስለ አንተ"]
+    if any(k in q for k in intro_keywords):
+        kb.button(text=f"🎯 ለእኔ የተዘጋጀውን እቅድ እይ ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # Default fallback for unclassified sales questions: provide direct checkout
+    kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 @router.message(
     F.chat.type == "private",
     ~Command("start"),
@@ -496,24 +582,23 @@ async def handle_user_query_message(message: types.Message, bot: Bot, db: Databa
         user_id
     )
 
-    # 5. Build dynamic action buttons
-    kb_builder = InlineKeyboardBuilder()
-    if has_active_plan:
-        kb_builder.button(text="📦 የእኔን እቅድ ተመልከት", callback_data="view_current_plan")
-    elif user and user.get("onboarding_completed"):
-        kb_builder.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
-        kb_builder.button(text="⚙️ ማስተካከያ", callback_data="open_settings")
-    else:
-        bot_user = await bot.get_me()
-        bot_username = bot_user.username or "CoachHilaweBot"
-        kb_builder.button(text="🚀 የ2-ደቂቃ ምዘናውን ጀምር", url=f"https://t.me/{bot_username}?start=assess")
-    kb_builder.adjust(1)
+    # 5. Build context-aware dynamic action buttons
+    bot_user = await bot.get_me()
+    bot_username = bot_user.username or "CoachHilaweBot"
+    reply_markup = build_contextual_query_keyboard(
+        query=message.text,
+        user=user,
+        has_active_plan=bool(has_active_plan),
+        product_id=product_id,
+        price=price,
+        bot_username=bot_username
+    )
 
     # 6. Send reply to user
     try:
-        await message.answer(ai_reply, reply_markup=kb_builder.as_markup(), parse_mode="HTML")
+        await message.answer(ai_reply, reply_markup=reply_markup, parse_mode="HTML")
     except Exception:
-        await message.answer(ai_reply, reply_markup=kb_builder.as_markup())
+        await message.answer(ai_reply, reply_markup=reply_markup)
 
     # 7. Forward summary card strictly to Founder ID (1131741322)
     user_status = (

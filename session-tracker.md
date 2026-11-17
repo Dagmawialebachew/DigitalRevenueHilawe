@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | October Payout Reconciliation (4k Product Gap Carryover), Plan Unlock Flow & Fast AI Coach Voice Upgrades |
+| **Active Task / Request** | AI Coach Cut-Off Elimination, Urgency-Driven Authentic Addis Voice & Context-Aware Action Buttons |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 11:27:00 (EAT) |
-| **Last Updated** | 2026-11-17 12:25:00 (EAT) |
-| **Current In-Flight Step** | All fixes verified, settlement recorded in DB, carryover live on dashboard, code committed and pushed to GitHub |
+| **Session Started** | 2026-11-17 14:00:00 (EAT) |
+| **Last Updated** | 2026-11-17 14:15:00 (EAT) |
+| **Current In-Flight Step** | Multi-part parsing verified, authentic Sheger conversion voice tested, contextual buttons live, code committed & pushed |
 
 ---
 
@@ -21,25 +21,12 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1: Session Kickoff & Dashboard Setup** — Initialized active session tracking for payout review and system fixes.
-- [x] **Milestone 2: Fix "No Plan Found" Dead-End in `handlers/dashboard.py`** — Replaced dead-end message with Coach Review pitch card (`👤 የአሰልጣኝ ህላዌ ግምገማ`) and dual inline buttons (`[💳 ክፍያ ጀምር]` and `[⚙️ ማስተካከያ]`).
-- [x] **Milestone 3: Fix Unlock Command Fall-Through** — Extended handler filter to capture both `"💳 እቅዴን ክፈት"` and plain `"እቅዴን ክፈት"` to prevent routing into the AI fallback.
-- [x] **Milestone 4: Add Missing Settings Callback Handler** — Registered `@router.callback_query(F.data == "open_settings")` to open interactive profile settings directly.
-- [x] **Milestone 5: Fix AI Truncation & Phrasing in `services/coach_ai.py`** — Upgraded model pool to sub-2s latency models (`gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`), raised token limit to 1024, increased timeout to 9.0s, removed emoji vocatives, and crafted natural conversational Addis Amharic prompt.
-- [x] **Milestone 6: Fix False Paid Status & Rejection Loop** — Switched status check in `handlers/payment.py` to query active approved payments in `payments`. Synced `users.has_paid` in DB and patched `reject_payment` in `database/db.py` to keep flags in sync.
-- [x] **Milestone 7: Reconcile 7,124.70 ETB Payout Calculation** — Mapped exact breakdown: `(13,319 - 4,000) * 0.30 (2,795.70) + 478.00 (Club 40%) + 3,851.00 (Meal 40%) = 7,124.70 ETB`. Identified 1,200.00 ETB founder balance pending bank statement.
-- [x] **Milestone 8: Database Payout Registration** — Recorded row #56 in `payout_history` and advanced `last_payout_at` to `2026-11-01 00:00:00+00` in `system_metadata`.
-- [x] **Milestone 9: Live Dashboard Carry-Over Integration** — Injected 4,000.00 ETB unsettled product carryover into `api/api.py` and `system_metadata`. Dashboard pending gross updated from 45,948.00 ETB to 49,948.00 ETB.
-
----
-
-### 📌 Pending Settlement Carry-Over: 4,000 ETB Product Gap
-- **Nature of Gap:** Suspected accidental/duplicate product approvals in October flagged by the boss.
-- **Current State:** **Active Carryover on Dashboard.** Injected into pending gross pool (49,948.00 ETB) and itemized in pending transactions.
-- **Settlement Rule with November Income:**
-  - **Scenario A (Bank Statement Verifies Deposit):** 4,000 ETB is validated as real revenue &rarr; your 30% share (**1,200.00 ETB**) is paid out alongside November income.
-  - **Scenario B (Confirmed Duplicate/Accidental):** 4,000 ETB is voided in the DB &rarr; zero balance owed.
-- **Action:** Retained as an open item pending bank statement carried over into the November pool.
+- [x] **Milestone 1-9: Previous Session Settlements & Dashboard Updates** — All October settlement, 4k carryover, and initial plan unlock handlers deployed.
+- [x] **Milestone 10: Fix Multi-Part AI Truncation Bug in `services/coach_ai.py`** — Resolved root cause where `parts[0]["text"]` only pulled the initial slice (~50 chars) of chunked model outputs. Replaced with clean concatenation of all non-thought text parts.
+- [x] **Milestone 11: Authentic Addis Coach Voice & Urgency-Driven Persona** — Injected brotherly/sisterly Sheger tone (`ዳጊዬ የኔ እህት`, `እህቴ [ስም]`), added Hip Dips / Glute knowledge chunk, and built genuine urgency/FOMO to commit to the 8-week system today.
+- [x] **Milestone 12: Context-Aware Smart Action Buttons in `handlers/payment.py`** — Replaced generic static buttons with intelligent context routing (focused checkout button for fitness advice, settings button for profile mistakes, support button for banking issues, clean view button for paid members).
+- [x] **Milestone 13: Comprehensive End-to-End Testing** — Verified with live scenarios ("የእኔ ችግር ሂፕ ዲፕ ነው", "ባንክ የለኝም", "ክብደቴ ተሳስቷል", "ማነህ አንተ") ensuring 100% complete sentences and precise buttons.
+- [x] **Milestone 14: Git Commit & Push to Origin Main** — Landed verified code on GitHub `origin/main`.
 
 ---
 
@@ -47,12 +34,12 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Anti-Truncation & Addis Coach Sales Voice** | Multi-part response parser, Hip Dips fitness knowledge, and high-conversion Sheger prompt | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Contextual Query Action Buttons** | Smart inline button generator mapping query intent to targeted actions without UI clutter | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 | **Live Dashboard 4k Carry-Over Engine** | Injected 4k product gap into pending gross (49,948 ETB) and itemized in pending transactions | [api/api.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/api/api.py) |
 | **October Settlement Payout Record (#56)** | Official entry for 43,080.60 ETB gross, 18,936 ETB expenses, 4k gap hold, and 7,124.70 ETB payout | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
 | **Coach Review Pitch Card Integration** | Replaced dead-end no-plan message with actionable review pitch card and dual buttons | [handlers/dashboard.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/dashboard.py) |
-| **Complete & Untruncated AI Sales Engine** | High-speed Gemini 3.1 Flash Lite integration with 1024 token limit and warm conversational Addis Amharic | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
-| **Verified Payment Status Engine** | Replaced fragile `has_paid` flag checks with strict approved queries in payments table | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
-| **Payment Rejection State Guard** | Auto-resets `has_paid` on payment rejection when no other approved records exist | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
+| **Verified Payment Status Engine** | Replaced fragile boolean checks with live verified queries against approved payments | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
 
 
 ---
