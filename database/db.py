@@ -354,8 +354,11 @@ class Database:
         return await self._pool.fetchrow("SELECT * FROM users WHERE telegram_id = $1", telegram_id)
 
     async def create_or_update_user(self, telegram_id, **kwargs):
-    # This logic creates the user if they don't exist, or updates them if they do
-        keys = kwargs.keys()
+        # Defensive bounds check: ensure VARCHAR(2) language column is never exceeded
+        if "language" in kwargs and kwargs["language"]:
+            kwargs["language"] = str(kwargs["language"])[:2].upper()
+
+        keys = list(kwargs.keys())
         values = list(kwargs.values())
         
         update_stmt = ", ".join([f"{k} = EXCLUDED.{k}" for k in keys])

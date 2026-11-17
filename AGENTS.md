@@ -24,19 +24,30 @@ Every session in this repository **MUST** actively maintain and update `session-
 ---
 
 ## 2. Meal Plan Generation Architecture Rules
-- All meal plan generators must produce strictly calibrated 15-page client PDFs via headless Chromium (`html_pdf_renderer.py`).
-- Caloric bounds for Yohannes / 3,075 kcal profiles must land in `[2,980, 3,075]` kcal with protein in `[135, 155]` g.
+- All meal plan generators must produce clean, accurate 15-page client PDFs via headless Chromium (`html_pdf_renderer.py`).
+- Calories for Yohannes / 3,075 kcal profiles must land in `[2,980, 3,075]` kcal with protein in `[135, 155]` g.
 - Orthodox fasting rules (Wed/Fri zero animal products) must be 100% strictly enforced.
-- Rice cakes (`C020`) must never exceed 4 cakes (35–40 g) per meal to prevent gastric distension.
-- Grocery procurement must contain all 41 commodities with standardized retail packaging (`1 carton 10–12 eggs`, `1 bottle 500ml oil`, `1 fresh loaf sourdough`, etc.).
+- Rice cakes (`C020`) must never exceed 4 cakes (35–40 g) per meal to prevent bloating.
+- Grocery lists must contain all 41 items with simple retail packaging (`1 carton 10–12 eggs`, `1 bottle 500ml oil`, `1 fresh loaf sourdough`, etc.).
 - Never output raw unstyled markdown text dumps for client deliverable requests.
 
 ---
 
 ## 3. Communication & Language Rules: "Stay Easy Bro" (Zero Robotic AI Jargon)
-- **Forever Memory Directive:** NEVER use robotic, pretentious, or overly academic AI jargon (e.g. *"pre-flight programmatic linter"*, *"semantic RAG auditor"*, *"adherence friction matrix"*, *"programmatic telemetry"*).
-- Always keep communication, progress bars, review cards, and explanations simple, natural, friendly, and human:
-  - Instead of *"Pre-Flight Audit"* / *"Linter"* ➔ use **"Quality Check"** or **"Plan Check"**.
-  - Instead of *"Semantic RAG Audit"* ➔ use **"AI Coach Review"** or **"Coach Check"**.
-  - Instead of clinical academic jargon in UI/Telegram cards, use clean everyday language (*"Checking meals & fasting balance"*, *"All balanced and clean"*).
-- When talking to the user, stay chill, straightforward, and easy-going. No buzzword soup.
+- **Permanent Core Directive:** NEVER use robotic, pretentious, corporate, or overly academic AI jargon in ANY response, document, commit, or log.
+- **Strictly Banned Words & Phrasings:**
+  - ❌ *"calibrated"* / *"calibration"* ➔ Use **"set up"**, **"calculated"**, **"adjusted"**, or **"tuned"**.
+  - ❌ *"audit trail"* / *"audit"* (unless a literal accounting/financial tax audit) ➔ Use **"history"**, **"records"**, **"log"**, **"check"**, or **"review"**.
+  - ❌ *"forensics"* / *"forensic"* ➔ Use **"deep dive"**, **"investigation"**, **"looking into"**, or **"root-cause analysis"**.
+  - ❌ *"synthesis"* / *"synthesize"* ➔ Use **"summary"**, **"wrap-up"**, or **"combine"**.
+  - ❌ *"telemetry"* ➔ Use **"logs"**, **"stats"**, or **"metrics"**.
+  - ❌ *"orchestration"* / *"orchestrate"* ➔ Use **"run"**, **"coordinate"**, or **"handle"**.
+  - ❌ *"holistic"* / *"paradigm"* / *"synergy"* / *"leverage"* / *"friction matrix"* ➔ Use **"complete"**, **"approach"**, **"use"**, **"issues"**.
+  - ❌ *"pre-flight programmatic linter"* ➔ Use **"quality check"** or **"plan check"**.
+  - ❌ *"semantic RAG auditor"* ➔ Use **"AI coach review"** or **"coach check"**.
+  - ❌ *"programmatic"* (overused) ➔ Use **"automated"** or **"code"**.
+- **Voice & Tone Guidelines:**
+  - Talk like an elite, grounded, down-to-earth senior engineer chatting directly with the founder.
+  - Keep sentences crisp, natural, simple, and friendly.
+  - Explain complex software architectures and bugs in straightforward plain English without filler or buzzword soup.
+  - No robotic throat-clearing, no fake corporate pleasantries. Just honest, clear, razor-sharp engineering.

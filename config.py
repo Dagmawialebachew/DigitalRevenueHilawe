@@ -48,6 +48,9 @@ class Settings:
     VERIFY_API_KEY: str = os.getenv("VERIFY_API", "sk_live_703d1fcdb5ed42916cd619be3c251062e4656eb7ddfcb268")
     CLUB_GROUP_ID: int = int(os.getenv("CLUB_GROUP_ID", "-1004486063628"))
     GCP_API_KEY: str = os.getenv("GCP_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("gemini_api_key") or os.getenv("GEMINI_API_KEY") or os.getenv("GCP_API_KEY", "")
+    FOUNDER_ID: int = 1131741322
+    SUPPORT_BOT_USERNAME: str = os.getenv("SUPPORT_BOT_USERNAME", "CoachHilaweSupportBot")
     TESTIMONIAL_ADMIN_CHAT_IDS: list[int] = field(
         default_factory=lambda: env_list("TESTIMONIAL_ADMIN_CHAT_IDS")
     )

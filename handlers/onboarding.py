@@ -1,16 +1,29 @@
 import asyncio
+import html
+import logging
 from aiogram import Router, F, types, Bot
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.enums import ChatAction
-import logging
+from aiogram.exceptions import TelegramBadRequest
 from database.db import Database
 from keyboards import inline as kb
 from keyboards import reply as rkb
 from utils.localization import get_level_prompt, get_text
 from config import settings
+
+logger = logging.getLogger(__name__)
 router = Router(name="onboarding")
+
+async def _safe_edit_text(message: types.Message, text: str, reply_markup=None, parse_mode=None):
+    """Safely edit message text, suppressing 'message is not modified' errors."""
+    try:
+        return await message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e).lower():
+            return message
+        raise
 
 class OnboardingStepping(StatesGroup):
     language = State()
@@ -77,7 +90,10 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     await state.clear()
     
     # Precise delay to mimic Hilawe sizing up the client
-    await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    try:
+        await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    except Exception as e:
+        logger.debug(f"Typing chat action non-fatal error: {e}")
     await asyncio.sleep(1.5)
     
     welcome_text = (
@@ -104,14 +120,17 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot, db: Dat
     await state.set_state(OnboardingStepping.language)
 
 
-@router.callback_query(OnboardingStepping.language)
+@router.callback_query(OnboardingStepping.language, F.data.in_({"lang_EN", "lang_AM"}))
 async def process_language(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
-    lang = callback.data.replace("lang_", "")
+    lang = "EN" if callback.data == "lang_EN" else "AM"
     await state.update_data(language=lang)
     await db.create_or_update_user(callback.from_user.id, language=lang)
     
     # 1. Delete the welcome photo to clear the screen for the text animation
-    await callback.message.delete()
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.debug(f"Could not delete welcome photo: {e}")
     
     # 2. Start the loading sequence in a new text message
     # We create the message first so we can edit it in the loop
@@ -127,7 +146,7 @@ async def process_language(callback: types.CallbackQuery, state: FSMContext, db:
     for stage in stages:
         await asyncio.sleep(0.5)
         # Use the handle of the new message we just sent
-        await loading_msg.edit_text(f"✨ *{stage}*", parse_mode="Markdown")
+        await _safe_edit_text(loading_msg, f"✨ *{stage}*", parse_mode="Markdown")
 
     # Brief pause for dramatic effect
     await asyncio.sleep(0.3)
@@ -158,7 +177,7 @@ async def process_language(callback: types.CallbackQuery, state: FSMContext, db:
         builder.button(text="👩 Female", callback_data="gender_FEMALE")
 
     builder.adjust(1, 2)
-    await loading_msg.edit_text(welcome_text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await _safe_edit_text(loading_msg, welcome_text, reply_markup=builder.as_markup(), parse_mode="HTML")
     await state.set_state(OnboardingStepping.gender)
 
 
@@ -193,7 +212,7 @@ async def process_retarget_resume(callback: types.CallbackQuery, state: FSMConte
     await state.set_state(OnboardingStepping.gender)
 
 
-@router.callback_query(OnboardingStepping.gender)
+@router.callback_query(OnboardingStepping.gender, F.data.startswith("gender_"))
 @router.callback_query(F.data.startswith("gender_"))
 async def process_gender(callback: types.CallbackQuery, state: FSMContext, db: Database):
     data = await state.get_data()
@@ -204,10 +223,10 @@ async def process_gender(callback: types.CallbackQuery, state: FSMContext, db: D
         await state.update_data(language=lang)
     await state.update_data(gender=callback.data.replace("gender_", ""))
     
-    await callback.message.edit_text(get_text(lang, "ask_goal"), reply_markup=kb.goal_markup(lang))
+    await _safe_edit_text(callback.message, get_text(lang, "ask_goal"), reply_markup=kb.goal_markup(lang))
     await state.set_state(OnboardingStepping.goal)
 
-@router.callback_query(OnboardingStepping.goal)
+@router.callback_query(OnboardingStepping.goal, F.data.startswith("goal_"))
 async def process_goal(callback: types.CallbackQuery, state: FSMContext, db: Database):
     # Extract the goal from callback data (e.g., "goal_FATLOSS" -> "FATLOSS")
     selected_goal = callback.data.replace("goal_", "")
@@ -216,46 +235,52 @@ async def process_goal(callback: types.CallbackQuery, state: FSMContext, db: Dat
     await state.update_data(goal=selected_goal)
     
     data = await state.get_data()
-    lang = data['language']
+    lang = data.get('language') or 'AM'
     gender = data.get('gender')
 
     # Build gender-aware prompt text
     prompt_text = get_level_prompt(lang, gender)
 
-    await callback.message.edit_text(
+    await _safe_edit_text(
+        callback.message,
         prompt_text,
         reply_markup=kb.level_markup(lang, gender),
         parse_mode="HTML"
     )
     await state.set_state(OnboardingStepping.level)
 
-@router.callback_query(OnboardingStepping.level)
+@router.callback_query(OnboardingStepping.level, F.data.startswith("level_"))
 async def process_level(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    lang = data['language']
+    lang = data.get('language') or 'AM'
     await state.update_data(level=callback.data.replace("level_", ""))
     
-    await callback.message.edit_text(get_text(lang, "ask_obstacle"), reply_markup=kb.obstacle_markup(lang))
+    await _safe_edit_text(callback.message, get_text(lang, "ask_obstacle"), reply_markup=kb.obstacle_markup(lang))
     await state.set_state(OnboardingStepping.obstacle)
 
-@router.callback_query(OnboardingStepping.obstacle)
+@router.callback_query(OnboardingStepping.obstacle, F.data.startswith("obs_"))
 async def process_obstacle(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    lang = data['language']
+    lang = data.get('language') or 'AM'
     await state.update_data(obstacle=callback.data.replace("obs_", ""))
     
-    await callback.message.edit_text(get_text(lang, "ask_freq"), reply_markup=kb.freq_markup(lang))
+    await _safe_edit_text(callback.message, get_text(lang, "ask_freq"), reply_markup=kb.freq_markup(lang))
     await state.set_state(OnboardingStepping.frequency)
     
-@router.callback_query(OnboardingStepping.frequency)
+@router.callback_query(OnboardingStepping.frequency, F.data.startswith("freq_"))
 async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db: Database, bot: Bot):
-    freq = int(callback.data.replace("freq_", ""))
+    raw_freq = callback.data.replace("freq_", "")
+    try:
+        freq = int(raw_freq)
+    except (ValueError, TypeError):
+        freq = 3
     await state.update_data(frequency=freq)
 
     data = await state.get_data()
-    lang = data['language']
+    lang = data.get('language') or 'AM'
     user_id = callback.from_user.id
-    full_name = callback.from_user.full_name
+    full_name = callback.from_user.full_name or "Champion"
+    safe_name = html.escape(full_name.upper())
     
     # 1. DATABASE REGISTRATION
     await db.create_or_update_user(
@@ -290,16 +315,19 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         step_text = en if lang == "EN" else am
         await asyncio.sleep(0.9)
         try:
-            await callback.message.edit_text(step_text, parse_mode="HTML")
+            await _safe_edit_text(callback.message, step_text, parse_mode="HTML")
         except Exception:
             import re
             clean_text = re.sub('<[^<]+?>', '', step_text)
-            await callback.message.edit_text(clean_text, parse_mode=None)
+            try:
+                await _safe_edit_text(callback.message, clean_text, parse_mode=None)
+            except Exception as e:
+                logger.debug(f"Step text edit error: {e}")
 
     # 3. MATCH THE PRODUCT
     product = await db.match_product(lang, data['level'], freq)
     if not product:
-        await callback.message.edit_text(get_text(lang, "no_product_found"))
+        await _safe_edit_text(callback.message, get_text(lang, "no_product_found"))
         return
 
     # 4. SEND THE PROFILE CARD (Edit existing message)
@@ -310,7 +338,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         profile_card = (
             f"💳 <b>PROFILE CARD</b>\n"
             "————————————————————\n"
-            f"👤 <b>NAME:</b> {full_name.upper()}\n"
+            f"👤 <b>NAME:</b> {safe_name}\n"
             f"📊 <b>LEVEL:</b> {data['level'].upper()}\n"
             f"🆔 <b>ID:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
@@ -326,7 +354,7 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         profile_card = (
             f"💳 <b>የአባልነት መገለጫ</b>\n"
             "————————————————————\n"
-            f"👤 <b>ስም:</b> {full_name.upper()}\n"
+            f"👤 <b>ስም:</b> {safe_name}\n"
             f"📊 <b>ደረጃ:</b> {data['level'].upper()}\n"
             f"🆔 <b>መለያ:</b> HE-{user_id % 10000:04d}\n"
             "————————————————————\n"
@@ -339,12 +367,39 @@ async def process_frequency(callback: types.CallbackQuery, state: FSMContext, db
         )
         commitment_text = f"የ94.7% ውጤታማነት ለማግኘት በሳምንት {freq} ቀናት ሙሉ ትኩረትዎን ይፈልጋል። በከባድ ቀናት እንኳን እንደማይተዉ ቃል ይገቡልኛል?"
 
-    await callback.message.edit_text(profile_card, parse_mode="HTML")
+    try:
+        await _safe_edit_text(callback.message, profile_card, parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Profile card HTML edit failed: {e}, falling back to plain text")
+        import re
+        plain_card = re.sub('<[^<]+?>', '', profile_card)
+        await _safe_edit_text(callback.message, plain_card, parse_mode=None)
+
     await asyncio.sleep(2.0)
     
     # 5. TRIGGER COMMITMENT BRIDGE (Micro-Yes)
     await callback.message.answer(commitment_text, reply_markup=kb.commitment_markup(lang))
     await state.set_state(OnboardingStepping.commitment)
+
+
+@router.callback_query(OnboardingStepping.language)
+@router.callback_query(OnboardingStepping.gender)
+@router.callback_query(OnboardingStepping.goal)
+@router.callback_query(OnboardingStepping.level)
+@router.callback_query(OnboardingStepping.obstacle)
+@router.callback_query(OnboardingStepping.frequency)
+async def handle_stale_onboarding_callbacks(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("language") or "AM"
+    alert = (
+        "እባክዎ በማያ ገጹ ላይ የሚታየውን አማራጭ ይምረጡ።"
+        if lang == "AM"
+        else "Please select from the options currently on screen."
+    )
+    try:
+        await callback.answer(alert, show_alert=False)
+    except Exception:
+        pass
     
 
 FREE_PDF_FILE_ID = "BQACAgQAAxkBAAEBDhpqDDbKTKH6YIxnxBPQjpoGxIlS_gACxB8AArrsYFBoIU3RMXPYuTsE"  # drop it when ready
@@ -362,7 +417,10 @@ async def process_commitment(callback: types.CallbackQuery, state: FSMContext, d
     full_name = callback.from_user.full_name
     freq      = data["frequency"]
 
-    await callback.message.delete()
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.debug(f"Could not delete message on commitment: {e}")
 
     # ── GIVEAWAY DROP ──────────────────────────────────────────────
     # Why here: they just made a micro-commitment. Dopamine is up.
@@ -482,6 +540,21 @@ async def process_commitment(callback: types.CallbackQuery, state: FSMContext, d
         datetime.datetime.now(), user_id
     )
     await state.clear()
+
+
+@router.callback_query(OnboardingStepping.commitment)
+async def handle_stale_commitment_callbacks(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("language") or "AM"
+    alert = (
+        "እባክዎ ከላይ ያለውን አረንጓዴ ቁልፍ በመጫን ያረጋግጡ።"
+        if lang == "AM"
+        else "Please confirm by tapping the confirmation button above."
+    )
+    try:
+        await callback.answer(alert, show_alert=False)
+    except Exception:
+        pass
     
     
     

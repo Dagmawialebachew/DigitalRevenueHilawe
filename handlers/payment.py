@@ -20,12 +20,39 @@ import io
 import time
 from handlers.verify import extract_local_data, verify_external, is_hilawe_receiver
 from handlers.forensic_stamp import process_and_stamp_incoming_proof
+from services.coach_ai import generate_coach_reply
+from scheduler.retarget_hot_unpaid_leads import get_fallback_product_id
 REPORT_CACHE = {}
 
 router = Router(name="payment")
 logger = logging.getLogger(__name__)
 
 admin_id = 1131741322
+
+def resolve_user_product_id(user: dict | None) -> int:
+    if not user:
+        return 4
+    prod_id = user.get("matched_product_id")
+    if prod_id:
+        return int(prod_id)
+    return get_fallback_product_id(
+        lang=user.get("language") or "AM",
+        gender=user.get("gender") or "MALE",
+        level=user.get("level") or "BEGINNER",
+        freq=user.get("frequency") or 3
+    )
+
+def resolve_user_price(user: dict | None, default_price: float = 949.0) -> float:
+    if not user:
+        return default_price
+    now = datetime.now(timezone.utc)
+    deal_price = user.get("deal_price")
+    deal_expiry = user.get("deal_expires_at")
+    if deal_expiry and deal_expiry.tzinfo is None:
+        deal_expiry = deal_expiry.replace(tzinfo=timezone.utc)
+    if deal_price and deal_expiry and now < deal_expiry:
+        return float(deal_price)
+    return default_price
 
 class PaymentStates(StatesGroup):
     awaiting_proof = State()
@@ -106,8 +133,14 @@ async def cancel_payment(message: types.Message, state: FSMContext, db: Database
 
     await state.clear()
     text = "❌ Payment cancelled. Returning to Dashboard..." if lang == "EN" else "❌ ክፍያ ተሰርዟል። ወደ ዋናው ገጽ በመመለስ ላይ..."
-    await message.answer(text, reply_markup=types.ReplyKeyboardRemove())
-    await message.answer("🏠 <b>DASHBOARD</b>", reply_markup=rb.main_menu(lang), parse_mode="HTML")
+    try:
+        await message.answer(text, reply_markup=types.ReplyKeyboardRemove())
+    except Exception as e:
+        logger.warning(f"Failed to send cancel notice: {e}")
+    try:
+        await message.answer("🏠 <b>DASHBOARD</b>", reply_markup=rb.main_menu(lang), parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Failed to send dashboard menu: {e}")
 
 
 @router.message(PaymentStates.awaiting_proof, F.photo)
@@ -310,36 +343,197 @@ async def show_full_audit_report(callback: types.CallbackQuery):
     await callback.message.reply(report, parse_mode="HTML")
     await callback.answer("✅ Full report displayed.")
 
+@router.message(F.chat.type == "private", F.photo)
+async def handle_unprompted_photo(message: types.Message, state: FSMContext, bot: Bot, db: Database):
+    """
+    Catches photos sent outside awaiting_proof.
+    If the user is in the state of buying (completed onboarding & unpaid),
+    it is treated as an active payment proof and forwarded to the payment group.
+    """
+    user_id = message.from_user.id
+    user = await db.get_user(user_id)
+    lang = ((user.get('language') if user else 'AM') or 'AM').upper()
+
+    # User is in "state of buying" if they finished onboarding and have not paid yet
+    is_buying_state = bool(user and user.get("onboarding_completed") and not user.get("has_paid"))
+
+    if is_buying_state:
+        proof_file_id = message.photo[-1].file_id
+
+        # Anti-replay / duplicate shield
+        duplicate = await db.check_duplicate_proof(proof_file_id)
+        if duplicate:
+            dup_msg = (
+                "⚠️ <b>ይህ ደረሰኝ ከዚህ ቀደም ተመዝግቧል!</b>\n\n"
+                "ይህ የክፍያ ማረጋገጫ ፎቶ ቀደም ሲል በሲስተሙ ውስጥ ጥቅም ላይ ውሏል፤ ደግመው መጠቀም አይችሉም።\n\n"
+                "እባክዎ ለአዲሱ ትዕዛዝ የተከፈለበትን ትክክለኛ እና አዲስ ደረሰኝ ይላኩ።"
+            ) if lang == "AM" else (
+                "⚠️ <b>DUPLICATE RECEIPT DETECTED</b>\n\n"
+                "This transfer screenshot has already been submitted in our system and cannot be reused.\n\n"
+                "If you made a new payment, please upload the distinct official transfer receipt for this order."
+            )
+            await message.answer(dup_msg, reply_markup=rb.main_menu(lang), parse_mode="HTML")
+            return
+
+        product_id = resolve_user_product_id(user)
+        amount = resolve_user_price(user)
+
+        payment_id = await db.create_payment(
+            user_id=user_id,
+            product_id=product_id,
+            proof_id=proof_file_id,
+            amount=amount
+        )
+
+        reassurance = (
+            "✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>\n\n"
+            "ወንድሜ/እህቴ የላኩት ደረሰኝ በቀጥታ ወደ ማረጋገጫ ሲስተም ገብቷል። "
+            "ኮች ህላዌ እንዳረጋገጠው ወዲያውኑ የ8-ሳምንት እቅድዎ እዚህ ይላክልዎታል! 🔥"
+        ) if lang == "AM" else (
+            "✅ <b>RECEIPT RECEIVED</b>\n\n"
+            "Your transfer receipt has been forwarded directly to Coach Hilawe for verification. "
+            "Your plan will be unlocked right here the moment it is confirmed! 🔥"
+        )
+        await message.answer(reassurance, reply_markup=rb.main_menu(lang), parse_mode="HTML")
+
+        # Forward stamped receipt to Payment Review Group
+        asyncio.create_task(
+            notify_admin_payment(
+                bot=bot,
+                message=message,
+                data={"selected_product_id": product_id, "amount": amount, "language": lang},
+                payment_id=payment_id,
+                proof_id=proof_file_id,
+                db=db
+            )
+        )
+
+        # Alert Founder ID (1131741322) directly
+        founder_alert = (
+            f"📸 <b>ቀጥታ የተላከ ደረሰኝ (Direct Payment Proof)</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>User:</b> {html.escape(message.from_user.full_name)} (`{user_id}`)\n"
+            f"🔗 <b>Username:</b> @{message.from_user.username or 'No Username'}\n"
+            f"💰 <b>Expected:</b> <code>{amount} ETB</code> | PID: <code>#{payment_id}</code>\n"
+            f"📡 ወደ ክፍያ ቻናል ተልኳል (Sent to Payment Channel)"
+        )
+        try:
+            await bot.send_message(admin_id, founder_alert, parse_mode="HTML")
+        except Exception as e:
+            logger.warning(f"Failed to alert founder of direct payment photo: {e}")
+        return
+
+    # Not in buying state (unregistered or already paid member)
+    caption = (
+        f"📸 <b>ፎቶ ከደንበኛ (User Photo)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>User:</b> {html.escape(message.from_user.full_name)} (`{user_id}`)\n"
+        f"🔗 <b>Username:</b> @{message.from_user.username or 'No Username'}\n"
+        f"📊 <b>Onboarding:</b> {'Completed' if user and user.get('onboarding_completed') else 'Not Started'}\n"
+        f"💳 <b>Paid:</b> {'Yes' if user and user.get('has_paid') else 'No'}"
+    )
+    try:
+        await bot.send_photo(
+            chat_id=admin_id,
+            photo=message.photo[-1].file_id,
+            caption=caption,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to forward user photo to founder: {e}")
+
+    if not user or not user.get("onboarding_completed"):
+        await message.answer(
+            "ሠላም! ፎቶህ/ሽ ደርሶኛል። ለአንተ/አንቺ የሚስማማውን የሰውነት መቀየሪያ እቅድ ለማግኘት "
+            "እባክዎ /start ብለው የ2-ደቂቃ ፈጣን ምዘናውን ይጀምሩ። 💪",
+            parse_mode="HTML"
+        )
+
+
 @router.message(
     F.chat.type == "private",
     ~Command("start"),
     ~Command("admin"),
+    ~Command("help"),
+    ~Command("reset"),
     F.text
 )
-async def forward_random_signals(message: types.Message, bot: Bot, db: Database):
-    user = await db.get_user(message.from_user.id)
-    lang = (user.get('language') or 'EN').upper()
-    
-    user_info = (
-        f"👤User: {message.from_user.full_name}\n"
-        f"🆔ID:{message.from_user.id}\n"
-        f"🔗Username: @{message.from_user.username or 'No Username'}"
+async def handle_user_query_message(message: types.Message, bot: Bot, db: Database):
+    """
+    Ultra-localized Coach Hilawe AI response for all unhandled client text.
+    Provides instant answers in clean Fidel Amharic, dynamic sales button,
+    and forwards executive summary to Founder ID (1131741322).
+    """
+    user_id = message.from_user.id
+    user = await db.get_user(user_id)
+
+    # 1. Typing action for realistic feedback
+    try:
+        await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
+    except Exception:
+        pass
+
+    # 2. Resolve checkout details (product ID and dynamic price)
+    product_id = resolve_user_product_id(user)
+    price = resolve_user_price(user)
+
+    # 3. Generate Coach Hilawe reply via AI service
+    ai_reply = await generate_coach_reply(
+        query=message.text,
+        user=user,
+        price=price
     )
-    
-    await bot.send_message(admin_id, f"*📩 Random Signal:*\n\n{user_info}\n\n*Content:*")
-    await message.forward(admin_id)
 
-    if lang == "AM":
-        reply_text = (
-            "መልዕክትዎ ደርሶኛል! 🙏\n\n"
-            "ተጨማሪ ጥያቄ ወይም እርዳታ ካስፈለገዎት "
-            "ፈጣን ምላሽ ለማግኘት እዚ ላይ ያዋሩኝ፦ @CoachHilaweSupportBot 😊"
-        )
+    # 4. Build dynamic action button
+    kb_builder = InlineKeyboardBuilder()
+    if user and user.get("has_paid"):
+        kb_builder.button(text="📦 የእኔን እቅድ ክፈት", callback_data="view_current_plan")
+    elif user and user.get("onboarding_completed"):
+        kb_builder.button(text=f"⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት ({int(price)} ብር)", callback_data=f"pay_{product_id}")
     else:
-        reply_text = (
-            "I’ve received your message! 🙏\n\n"
-            "If you have any specific questions or issues, "
-            "please contact our support team here: @CoachHilaweSupportBot 😊"
-        )
+        bot_user = await bot.get_me()
+        bot_username = bot_user.username or "CoachHilaweBot"
+        kb_builder.button(text="🚀 የ2-ደቂቃ ምዘናውን ጀምር", url=f"https://t.me/{bot_username}?start=assess")
+    kb_builder.adjust(1)
 
-    await message.answer(reply_text)
+    # 5. Send reply to user
+    try:
+        await message.answer(ai_reply, reply_markup=kb_builder.as_markup(), parse_mode="HTML")
+    except Exception:
+        await message.answer(ai_reply, reply_markup=kb_builder.as_markup())
+
+    # 6. Forward summary card strictly to Founder ID (1131741322)
+    user_status = (
+        "✅ Paid Member" if (user and user.get("has_paid")) else
+        "🔥 Hot Unpaid Lead" if (user and user.get("onboarding_completed")) else
+        "🆕 New Prospect"
+    )
+    user_goal = user.get("goal", "Not Specified") if user else "Not Specified"
+
+    founder_card = (
+        f"💬 <b>የደንበኛ ጥያቄ እና የኮች ምላሽ (Customer Query)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>User:</b> {html.escape(message.from_user.full_name)} (`{user_id}`)\n"
+        f"🔗 <b>Username:</b> @{message.from_user.username or 'No Username'}\n"
+        f"📊 <b>Status:</b> {user_status} | 💰 <b>Price:</b> {int(price)} ETB\n"
+        f"🎯 <b>Goal:</b> {html.escape(str(user_goal))}\n\n"
+        f"❓ <b>ጥያቄ (Query):</b>\n<i>\"{html.escape(message.text)}\"</i>\n\n"
+        f"🤖 <b>የኮች ምላሽ (Coach Reply):</b>\n<i>\"{html.escape(ai_reply)}\"</i>"
+    )
+
+    admin_kb = InlineKeyboardBuilder()
+    if message.from_user.username:
+        admin_kb.button(text="💬 Open User Chat", url=f"https://t.me/{message.from_user.username}")
+    else:
+        admin_kb.button(text="💬 Open User Chat", url=f"tg://user?id={user_id}")
+    admin_kb.adjust(1)
+
+    try:
+        await bot.send_message(
+            chat_id=admin_id,
+            text=founder_card,
+            reply_markup=admin_kb.as_markup(),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to forward query summary to founder {admin_id}: {e}")

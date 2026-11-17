@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 
 from aiogram import F, Router, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database.db import Database
 from meal_plan.countries import country_label, normalize_region, validate_other_country_name
 from meal_plan.keyboards import country_gate_markup, launch_markup
+from meal_plan.repository import ConcurrentUpdate
 from meal_plan.repository_factory import get_meal_plan_repository
 from meal_plan.runtime import (
     admin_ids,
@@ -163,7 +165,11 @@ async def change_country(callback: types.CallbackQuery, state: FSMContext, db: D
     repo = get_meal_plan_repository(db)
     if await repo.get_current_order_for_user(callback.from_user.id):
         return await callback.answer("Country is locked while a Meal Plan order is active.", show_alert=True)
-    await callback.message.edit_text(_country_prompt(lang), reply_markup=country_gate_markup(lang), parse_mode="HTML")
+    try:
+        await callback.message.edit_text(_country_prompt(lang), reply_markup=country_gate_markup(lang), parse_mode="HTML")
+    except TelegramBadRequest as e:
+        if "message is not modified" not in str(e).lower():
+            raise
     await callback.answer()
 
 
@@ -188,16 +194,33 @@ async def select_country(callback: types.CallbackQuery, state: FSMContext, db: D
     if region == "OTHER":
         await state.set_state(MealPlanEntryState.waiting_other_country)
         await state.update_data(meal_intake_id=intake["id"], meal_language=lang)
-        await callback.message.edit_text(_other_prompt(lang), parse_mode="HTML")
+        try:
+            await callback.message.edit_text(_other_prompt(lang), parse_mode="HTML")
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e).lower():
+                raise
         return await callback.answer()
 
-    intake = await repo.set_intake_country(
-        intake["id"],
-        callback.from_user.id,
-        region,
-        country_name=None,
-    )
-    await callback.message.delete()
+    try:
+        intake = await repo.set_intake_country(
+            intake["id"],
+            callback.from_user.id,
+            region,
+            country_name=None,
+        )
+    except ConcurrentUpdate:
+        alert_text = (
+            "Your meal plan is already active or moved forward."
+            if lang == "EN"
+            else "የምግብ ፕላንዎ ቀድሞውኑ ወደ ቀጣዩ ምዕራፍ አልፏል።"
+        )
+        return await callback.answer(alert_text, show_alert=True)
+
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.debug(f"Could not delete country selection message: {e}")
+
     await _send_launch(callback.message, lang, intake)
     await callback.answer()
 
@@ -221,11 +244,21 @@ async def receive_other_country(message: types.Message, state: FSMContext, db: D
         )
 
     repo = get_meal_plan_repository(db)
-    intake = await repo.set_intake_country(
-        int(intake_id),
-        message.from_user.id,
-        "OTHER",
-        country_name=country_name,
-    )
+    try:
+        intake = await repo.set_intake_country(
+            int(intake_id),
+            message.from_user.id,
+            "OTHER",
+            country_name=country_name,
+        )
+    except ConcurrentUpdate:
+        await state.clear()
+        locked_msg = (
+            "Your meal plan intake is already in progress or completed. Country cannot be changed."
+            if lang == "EN"
+            else "የምግብ ፕላንዎ ቀድሞውኑ ወደ ቀጣዩ ምዕራፍ አልፏል። አገር መቀየር አይቻልም።"
+        )
+        return await message.answer(locked_msg)
+
     await state.clear()
     await _send_launch(message, lang, intake)

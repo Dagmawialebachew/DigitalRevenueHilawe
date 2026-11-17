@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Live Multi-Cohort Broadcast Execution (2nd Time Buyers & Fresh Hot Leads) with Multi-Admin Logging |
-| **Session Status** | ✅ **COMPLETED** |
-| **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-07 11:00:00 (EAT) |
-| **Last Updated** | 2026-11-07 11:20:00 (EAT) |
-| **Current In-Flight Step** | All live broadcasts completed. Summary execution report cards delivered to Dagmaros (1131741322) and Coach Hilawe (1597966240). |
+| **Active Task / Request** | November 2026 MTD Revenue Analysis & 15% VAT Liability Calculation |
+| **Session Status** | 🟡 **IN PROGRESS** |
+| **Overall Progress** | [██░░░░░░░░░░░░░░░░░░] 10% |
+| **Session Started** | 2026-11-17 11:04:00 (EAT) |
+| **Last Updated** | 2026-11-17 11:05:00 (EAT) |
+| **Current In-Flight Step** | Querying Neon PostgreSQL for all approved transactions from Nov 1, 2026 to date |
 
 ---
 
@@ -21,11 +21,81 @@
 
 ### Current Session Tasks
 
-- [x] **Milestone 1: Database & Cohort Forensics** — Verified exact live audience numbers: 448 Ascension 8-week graduates, 716 fresh 7-day hot leads (excluding paid users), and 99 meal plan pre-checkout leads.
-- [x] **Milestone 2: Multi-Admin Logging Routing & Anti-Paid Guard** — Guaranteed broadcast logs dispatch to both `1131741322` (Dagmaros) and `1597966240` (Coach Hilawe), excluded all users with approved payments in DB, and ensured zero preview spam to admins.
-- [x] **Milestone 3: Cohort 1 Execution (2nd Time Buyers · Ascension)** — Successfully launched 448 8-week graduates at 749 ETB alumni rate. Delivered 367 messages (75 blocked, 6 failed). Report cards dispatched to all admin IDs.
-- [x] **Milestone 4: Cohort 2 Execution (Fresh Hot Unpaid Leads)** — Successfully launched 716 hot leads at full price 949 ETB with native Addis 1-on-1 copy. Delivered 607 messages (109 blocked, 0 failed). Report cards dispatched to all admin IDs.
-- [x] **Milestone 5: Multi-Admin Delivery Verification** — Verified execution report cards arrived cleanly in Telegram for both Dagmaros and Coach Hilawe without any extraneous test cards.
+- [x] **Milestone 1: Session Kickoff & Dashboard Setup** — Initialized active session tracking for November 2026 revenue & VAT analysis.
+- [/] **Milestone 2: Database Extraction (Nov 1 to Nov 17, 2026)** — Query approved transactions across Stream A (Digital Products), Stream B (Transformation Club), and Stream C (Meal Plans).
+- [ ] **Milestone 3: Stream Breakdown & Total Revenue Summary** — Aggregate itemized counts, gross revenue, and stream distribution.
+- [ ] **Milestone 4: 15% VAT Modeling & Practical Founder Guidance** — Compute VAT under both inclusive (15/115) and exclusive (15%) models, and explain what to tell Coach Hilawe.
+
+---
+
+## 📦 Recent Session Deliverables & File Links
+
+| Deliverable | Description | File Path |
+| --- | --- | --- |
+| **Coach Hilawe AI Sales Engine** | High-uptime, ultra-localized Addis Amharic AI engine with gender conjugation and support fallback | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Payment & Photo Interceptor** | Direct receipt capture for hot leads, dynamic payment triggers, and founder notification card | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Bot Configuration Update** | Added `GEMINI_API_KEY`, `FOUNDER_ID`, and `SUPPORT_BOT_USERNAME` configuration fields | [config.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/config.py) |
+| **Onboarding Defensive Engine** | Strict button prefix filters, HTML name escaping, suppressed double-click errors, and typing action shield | [handlers/onboarding.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/onboarding.py) |
+| **Payment Signal Safeguard** | Safe user check defaulting to Amharic for unregistered visitors, plus resilient admin forwarding | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Meal Plan Intake Gate** | Graceful handling of ConcurrentUpdate when country selection is locked or moved forward | [meal_plan/entry.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/entry.py) |
+| **Database Column Guard** | Auto-clamping language column to 2 characters max to prevent VARCHAR(2) truncation | [database/db.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/database/db.py) |
+| **Language Directive Rules** | Strict rule set banning robotic corporate AI buzzwords in favor of clean, direct engineering speak | [AGENTS.md](file:///d:/The%20hobby%202/DigitalRevenueHilawe/AGENTS.md) |
+
+---
+
+## 📜 Historical Session Log
+
+### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
+
+* **Goal:** Replace dead-end static fallback with an ultra-localized, Addis-native Coach Hilawe AI sales engine grounded in real client chat logs (`Chat_Export`), intercept unprompted payment photos for buying-state users, and route reporting exclusively to the founder's ID (`1131741322`).
+* **Key Achievements & Deliverables:**
+  1. **Grounding on Real Customer Chats:**
+     - Analyzed real customer logs from `Chat_Export for Bot and Support Bot` (handling Orthodox fasting protein doubts, skinny hardgainer protocols, spot-reduction myths, pricing anchors, and Coach Hilawe's genuine Addis phrasing).
+  2. **AI Sales Engine Implementation ([`services/coach_ai.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py)):**
+     - Sub-second async REST caller utilizing native `aiohttp` and `gemini-3.5-flash-lite` (with fallback to `gemini-3.8-flash` and `gemini-3.5-flash`).
+     - Grammatical gender conjugation engine (`ወንድሜ/እንድትሰራ` vs. `እህቴ/እንድትሰሪ`) ensuring 100% authentic, non-robotic Fidel Amharic responses.
+     - Built-in graceful fallback to `@CoachHilaweSupportBot` on timeouts, errors, or when user explicitly requests human contact.
+  3. **Payment Interceptor & Handler Upgrades ([`handlers/payment.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py)):**
+     - Added unprompted photo interceptor for buying-state users (onboarded & unpaid): creates pending payment, checks duplicate receipts, stamps proof with visual banner, routes to `ADMIN_PAYMENT_LOG_ID` with approve/reject buttons, and alerts founder directly.
+     - Added dynamic `[⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት ({price} ብር)]` payment trigger button on every AI answer, invoking `pay_{product_id}` in `handlers/payment.py`.
+     - Replaced generic signal forwarding with clean, structured executive notification card sent exclusively to Founder ID `1131741322`.
+
+### Session: 2026-11-07 — Production Error Logs Root-Cause Resolution & Language Directive
+
+* **Goal:** Eliminate all 7 production error classes identified across 36 log files in `Recent_Error_Logs`, enforce simple human engineering vocabulary in `AGENTS.md`, and default unregistered user signals to Amharic.
+* **Key Achievements & Deliverables:**
+  1. **Strict Language Directive (`AGENTS.md`):**
+     - Banned all robotic corporate buzzwords (*calibrated*, *audit trails*, *forensics*, *synthesis*, *telemetry*, *orchestration*, etc.).
+     - Governed all responses, commits, and documents to use simple, natural, everyday terms.
+  2. **Payment Signals Resiliency (`handlers/payment.py`):**
+     - Handled `user is None` in `forward_random_signals`, defaulting language to Amharic (`'AM'`) as requested.
+     - Shielded admin forwarding and client replies with non-fatal try/except wrappers.
+  3. **Onboarding Callback & Formatting Guards (`handlers/onboarding.py`):**
+     - Added strict `F.data.startswith(...)` and `F.data.in_(...)` filters across all onboarding steps.
+     - Created `handle_stale_onboarding_callbacks` fallback to politely toast clients instead of crashing on old button taps.
+     - Protected `full_name` with `html.escape()` in profile card generation to stop Telegram HTML tag parse failures.
+     - Wrapped all `edit_text` calls with `_safe_edit_text` to safely ignore "message is not modified" errors on fast double-taps.
+     - Wrapped cosmetic `send_chat_action` typing indicators in try/except so network blips never fail `/start`.
+  4. **Meal Plan Concurrent Update Handling (`meal_plan/entry.py`):**
+     - Caught `ConcurrentUpdate` in country selection and text input, notifying users gracefully when an intake is locked.
+  5. **Database Type Safety (`database/db.py`):**
+     - Added defensive bounds check clamping `language` to 2 uppercase characters max, preventing `VARCHAR(2)` database crashes.
+
+---
+
+### Session: 2026-11-07 — Health Reviews Pattern Forensics & Group A Approvals
+
+* **Goal:** Decode Coach Hilawe's approval/declination patterns across 149 health reviews and execute safe approvals for all 10 Group A candidates (mild/zero-disease clients) as Dagmaros (`1131741322`), moving them to `PROFILE_READY` and notifying them on Telegram.
+* **Key Achievements & Deliverables:**
+  1. **Historical Pattern Discovery:**
+     - Total 149 reviews: 71 Approved (63 by Coach Hilawe, 8 by Dagmaros), 39 Declined (38 by Coach Hilawe), 39 Pending.
+     - Coach Hilawe's rules: 100% rejection on Diabetes on medication, 90% rejection on Kidney/Liver disease, 100% approval on isolated eating concerns (20x) and weight fluctuations (14x).
+  2. **Group A Batch Approvals Executed:**
+     - 10 clients approved: Intakes #95, #291, #356, #357, #358, #384, #396, #404, #412, #448.
+     - Review status flipped to `APPROVED` by Dagmaros (`1131741322`).
+     - State transitioned to `PROFILE_READY` with calibrated calories and protein.
+     - Direct Telegram notification messages sent to all reachable clients.
+     - Comprehensive approval report posted to Meal Plan Review Group (`-5592866261`) and both admin accounts.
 
 ---
 
@@ -41,6 +111,44 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
+
+* **Goal:** Replace dead-end static fallback with an ultra-localized, Addis-native Coach Hilawe AI sales engine grounded in real client chat logs (`Chat_Export`), intercept unprompted payment photos for buying-state users, and route reporting exclusively to the founder's ID (`1131741322`).
+* **Key Achievements & Deliverables:**
+  1. **Grounding on Real Customer Chats:**
+     - Analyzed real customer logs from `Chat_Export for Bot and Support Bot` (handling Orthodox fasting protein doubts, skinny hardgainer protocols, spot-reduction myths, pricing anchors, and Coach Hilawe's genuine Addis phrasing).
+  2. **AI Sales Engine Implementation ([`services/coach_ai.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py)):**
+     - Sub-second async REST caller utilizing native `aiohttp` and `gemini-3.5-flash-lite` (with fallback to `gemini-3.8-flash` and `gemini-3.5-flash`).
+     - Grammatical gender conjugation engine (`ወንድሜ/እንድትሰራ` vs. `እህቴ/እንድትሰሪ`) ensuring 100% authentic, non-robotic Fidel Amharic responses.
+     - Built-in graceful fallback to `@CoachHilaweSupportBot` on timeouts, errors, or when user explicitly requests human contact.
+  3. **Payment Interceptor & Handler Upgrades ([`handlers/payment.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py)):**
+     - Added unprompted photo interceptor for buying-state users (onboarded & unpaid): creates pending payment, checks duplicate receipts, stamps proof with visual banner, routes to `ADMIN_PAYMENT_LOG_ID` with approve/reject buttons, and alerts founder directly.
+     - Added dynamic `[⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት ({price} ብር)]` payment trigger button on every AI answer, invoking `pay_{product_id}` in `handlers/payment.py`.
+     - Replaced generic signal forwarding with clean, structured executive notification card sent exclusively to Founder ID `1131741322`.
+
+### Session: 2026-11-07 — Production Error Logs Root-Cause Resolution & Language Directive
+
+* **Goal:** Eliminate all 7 production error classes identified across 36 log files in `Recent_Error_Logs`, enforce simple human engineering vocabulary in `AGENTS.md`, and default unregistered user signals to Amharic.
+* **Key Achievements & Deliverables:**
+  1. **Strict Language Directive (`AGENTS.md`):**
+     - Banned all robotic corporate buzzwords (*calibrated*, *audit trails*, *forensics*, *synthesis*, *telemetry*, *orchestration*, etc.).
+     - Governed all responses, commits, and documents to use simple, natural, everyday terms.
+  2. **Payment Signals Resiliency (`handlers/payment.py`):**
+     - Handled `user is None` in `forward_random_signals`, defaulting language to Amharic (`'AM'`) as requested.
+     - Shielded admin forwarding and client replies with non-fatal try/except wrappers.
+  3. **Onboarding Callback & Formatting Guards (`handlers/onboarding.py`):**
+     - Added strict `F.data.startswith(...)` and `F.data.in_(...)` filters across all onboarding steps.
+     - Created `handle_stale_onboarding_callbacks` fallback to politely toast clients instead of crashing on old button taps.
+     - Protected `full_name` with `html.escape()` in profile card generation to stop Telegram HTML tag parse failures.
+     - Wrapped all `edit_text` calls with `_safe_edit_text` to safely ignore "message is not modified" errors on fast double-taps.
+     - Wrapped cosmetic `send_chat_action` typing indicators in try/except so network blips never fail `/start`.
+  4. **Meal Plan Concurrent Update Handling (`meal_plan/entry.py`):**
+     - Caught `ConcurrentUpdate` in country selection and text input, notifying users gracefully when an intake is locked.
+  5. **Database Type Safety (`database/db.py`):**
+     - Added defensive bounds check clamping `language` to 2 uppercase characters max, preventing `VARCHAR(2)` database crashes.
+
+---
 
 ### Session: 2026-11-07 — Multi-Cohort Live Broadcast Execution & Multi-Admin Logging
 
@@ -90,6 +198,44 @@ e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-07 — Coach Hilawe Ultra-Localized AI Sales Engine & Direct Payment Photo Interceptor
+
+* **Goal:** Replace dead-end static fallback with an ultra-localized, Addis-native Coach Hilawe AI sales engine grounded in real client chat logs (`Chat_Export`), intercept unprompted payment photos for buying-state users, and route reporting exclusively to the founder's ID (`1131741322`).
+* **Key Achievements & Deliverables:**
+  1. **Grounding on Real Customer Chats:**
+     - Analyzed real customer logs from `Chat_Export for Bot and Support Bot` (handling Orthodox fasting protein doubts, skinny hardgainer protocols, spot-reduction myths, pricing anchors, and Coach Hilawe's genuine Addis phrasing).
+  2. **AI Sales Engine Implementation ([`services/coach_ai.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py)):**
+     - Sub-second async REST caller utilizing native `aiohttp` and `gemini-3.5-flash-lite` (with fallback to `gemini-3.8-flash` and `gemini-3.5-flash`).
+     - Grammatical gender conjugation engine (`ወንድሜ/እንድትሰራ` vs. `እህቴ/እንድትሰሪ`) ensuring 100% authentic, non-robotic Fidel Amharic responses.
+     - Built-in graceful fallback to `@CoachHilaweSupportBot` on timeouts, errors, or when user explicitly requests human contact.
+  3. **Payment Interceptor & Handler Upgrades ([`handlers/payment.py`](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py)):**
+     - Added unprompted photo interceptor for buying-state users (onboarded & unpaid): creates pending payment, checks duplicate receipts, stamps proof with visual banner, routes to `ADMIN_PAYMENT_LOG_ID` with approve/reject buttons, and alerts founder directly.
+     - Added dynamic `[⚡️ የ8-ሳምንት ፕሮግራሜን ልክፈት ({price} ብር)]` payment trigger button on every AI answer, invoking `pay_{product_id}` in `handlers/payment.py`.
+     - Replaced generic signal forwarding with clean, structured executive notification card sent exclusively to Founder ID `1131741322`.
+
+### Session: 2026-11-07 — Production Error Logs Root-Cause Resolution & Language Directive
+
+* **Goal:** Eliminate all 7 production error classes identified across 36 log files in `Recent_Error_Logs`, enforce simple human engineering vocabulary in `AGENTS.md`, and default unregistered user signals to Amharic.
+* **Key Achievements & Deliverables:**
+  1. **Strict Language Directive (`AGENTS.md`):**
+     - Banned all robotic corporate buzzwords (*calibrated*, *audit trails*, *forensics*, *synthesis*, *telemetry*, *orchestration*, etc.).
+     - Governed all responses, commits, and documents to use simple, natural, everyday terms.
+  2. **Payment Signals Resiliency (`handlers/payment.py`):**
+     - Handled `user is None` in `forward_random_signals`, defaulting language to Amharic (`'AM'`) as requested.
+     - Shielded admin forwarding and client replies with non-fatal try/except wrappers.
+  3. **Onboarding Callback & Formatting Guards (`handlers/onboarding.py`):**
+     - Added strict `F.data.startswith(...)` and `F.data.in_(...)` filters across all onboarding steps.
+     - Created `handle_stale_onboarding_callbacks` fallback to politely toast clients instead of crashing on old button taps.
+     - Protected `full_name` with `html.escape()` in profile card generation to stop Telegram HTML tag parse failures.
+     - Wrapped all `edit_text` calls with `_safe_edit_text` to safely ignore "message is not modified" errors on fast double-taps.
+     - Wrapped cosmetic `send_chat_action` typing indicators in try/except so network blips never fail `/start`.
+  4. **Meal Plan Concurrent Update Handling (`meal_plan/entry.py`):**
+     - Caught `ConcurrentUpdate` in country selection and text input, notifying users gracefully when an intake is locked.
+  5. **Database Type Safety (`database/db.py`):**
+     - Added defensive bounds check clamping `language` to 2 uppercase characters max, preventing `VARCHAR(2)` database crashes.
+
+---
 
 ### Session: 2026-11-06 — Semehar Ali V2 10/10 Deliverable (Boss Audit Fixes & 1,900 kcal Cut)
 
