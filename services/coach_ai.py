@@ -1,7 +1,7 @@
 """
-Coach Hilawe Real-Time AI Sales & Advice Engine.
+Coach Hilawe Real-Time AI Sales, Advice & Mentorship Engine.
 Directly grounded in real Addis Ababa client chats, local Ethiopian diet realities,
-and psychological objection handling to maximize program conversion.
+and empathetic objection handling to maximize program conversion while respecting paid members.
 """
 
 from __future__ import annotations
@@ -24,47 +24,34 @@ PRIMARY_MODELS = [
     "gemini-3.5-flash",
 ]
 
-# Knowledge base grounded in actual Ethiopian client chats & high-converting broadcast copy
 KNOWLEDGE_CHUNKS = """
-1. ማህበረሰባዊ ምስክርነት እና ተዓማኒነት (SOCIAL PROOF - 3,500+ ETHIOPIANS):
+1. ማህበረሰባዊ ምስክርነት (SOCIAL PROOF - 3,500+ ETHIOPIANS):
 - ኮች ህላዌ ከአዲስ አበባ እስከ ክፍለ ሀገር እና በውጭ ሀገር የሚኖሩ ከ3,500+ በላይ ኢትዮጵያውያንን ሰውነት የቀየረ አንጋፋ አሰልጣኝ ነው።
 - ይህ ሲስተም ለኢትዮጵያውያን የሰውነት አወቃቀርና ጄኔቲክስ ልክ ተበጅቶ የተሰራ ነው።
-- ብዙ ሰዎች መጀመሪያ በቅናሽ ዋጋ ሲገዙት ተጠራጥረው ነበር፤ ነገር ግን ግልጽ የቪዲዮ ስልጠናውንና የምግብ እቅዱን ሲያዩት 'በዚህ ዋጋ ይሄን አለመግዛት ራስን መበደል ነው' ብለዋል።
 
-2. 100% የሀበሻ ምግብ (ETHIOPIAN NUTRITION - NO EXPENSIVE FOREIGN DIETS):
-- ውድ የውጪ ምግቦች አያስፈልጉም! በእንጀራ፣ በሽሮ፣ በምስር፣ በሽንብራ፣ በእንቁላል፣ በአጃና በኦቾሎኒ ቅቤ የተዘጋጀ ነው።
-- የፆም ወቅት ከሆነ 100% የፆም ፕሮቲን እቅድ አለው፤ ቅርጽ ሳይበላሽ ስብ ብቻ ይቀልጣል።
+2. 100% የሀበሻ ምግብ እና የአመጋገብ መመሪያ (ETHIOPIAN NUTRITION & MEAL GUIDANCE):
+- ውድ የውጪ ምግቦች አያስፈልጉም! በእንጀራ፣ በሽሮ፣ በምስር፣ በሽንብራ፣ በእንቁላል፣ በአጃና በኦቾሎኒ ቅቤ ላይ የተመሰረተ ተግባራዊ የአመጋገብ መመሪያ አለው።
+- ማሳሰቢያ፦ ይህ የ 8-ሳምንት ፕሮግራም ጠንካራ የአመጋገብ መመሪያን (Meal Guidance) ያካተተ ሲሆን፣ ለግል ተለክቶ የሚዘጋጅ ክሊኒካል የምግብ ፕላን (Personalized Meal Plan) አይደለም።
 
-3. ዋጋን የማቃለል ስሌት (DAILY COST REFRAME - {daily_cost} BIRR/DAY):
-- የ8-ሳምንቱ (የ56 ቀናት) የተሟላ ስልጠናና የምግብ እቅድ ዋጋው {price} ብር ብቻ ነው።
-- በቀን ሲሰላ {daily_cost} ብር ብቻ ነው! ይሄ በአዲስ አበባ የአንድ ጠርሙስ ውሃ ወይም የግማሽ ማኪያቶ ዋጋ እንኳን አይሞላም።
-- አንድ ጊዜ ብቻ የሚከፈል ነው፤ ምንም አይነት ተደጋጋሚ ወይም የተደበቀ ወርሃዊ ክፍያ የለውም።
-
-4. በስልክ የሚሰሩ HD ቪዲዮዎች (TELEGRAM STEP-BY-STEP VIDEOS):
+3. በስልክ የሚሰሩ HD ቪዲዮዎች (TELEGRAM STEP-BY-STEP VIDEOS):
 - በቴሌግራም ስልክህን/ሽን እያየህ/ሽ የምትሰራቸው የቤት ውስጥ (ያለ እቃ) እና የጂም HD ቪዲዮዎች አሉት።
 
-5. ሂፕ ዲፕ እና ዳሌን ማሳመር (HIP DIPS & GLUTE SHAPING):
+4. ሂፕ ዲፕ እና ዳሌን ማሳመር (HIP DIPS & GLUTE SHAPING):
 - ሂፕ ዲፕ (Hip Dips) ማለት በዳሌ አጥንት እና በጭን አጥንት መካከል ባለው ክፍተት ምክንያት የሚፈጠር ተፈጥሯዊ የሰውነት ቅርጽ ነው፤ ጉድለት ወይም በሽታ አይደለም!
 - ነገር ግን የዳሌውን የላይኛውን ክፍል (Gluteus Medius) በልዩ የታለሙ ልምምዶች በማጠንከር፣ ዳሌን ማሳመር እና የተሞላ የሚያምር ክብ ቅርጽ እንዲኖረው ማድረግ 100% ይቻላል።
 
-6. ቦርጭ ብቻ ማጥፋት (BELLY FAT / SPOT REDUCTION):
+5. ቦርጭ ብቻ ማጥፋት (BELLY FAT / SPOT REDUCTION):
 - ቦርጭን ብቻውን ነጥሎ ማጥፋት በሳይንስም በተግባርም አይሰራም። ሆድ ላይ ክራንች በመስራት ብቻ ቦርጭ አይጠፋም።
-- ቦርጭ የሚጠፋው ሙሉ ሰውነት ላይ ያለውን ስብ የሚያቀልጥ የተዋቀረ ልምምድ እና የካሎሪ ቁጥጥር ሲኖር ነው። ይህ ፕሮግራም ልክ ለግለሰቡ ቁመትና ክብደት ተበጅቶ የተሰራ ነው።
+- ቦርጭ የሚጠፋው ሙሉ ሰውነት ላይ ያለውን ስብ የሚያቀልጥ የተዋቀረ ልምምድ እና የካሎሪ ቁጥጥር ሲኖር ነው።
 
-7. ክብደት መጨመር አልቻልኩም ለሚሉ (HARDGAINERS / SKINNY):
+6. ክብደት መጨመር አልቻልኩም ለሚሉ (HARDGAINERS / SKINNY):
 - "ምነው እኛ እያለን!" ክብደት መጨመር የሚቻለው በቀን ውስጥ ሰውነት የሚፈልገውን ካሎሪና ኒውትሪየንት በስርዓት ሲያገኝ ነው።
-- በፕሮግራሙ ውስጥ በቀላሉ በአዲስ አበባ ገበያ በሚገኙ ምግቦች የሚዘጋጅ ከፍተኛ ካሎሪ ያለው የአመጋገብ እቅድ አለ።
+- በአዲስ አበባ ገበያ በሚገኙ ከፍተኛ ካሎሪ ባላቸው ምግቦች ክብደት መጨመር ይቻላል።
 
-8. የጊዜ ቁጭትና አስገዳጅነት (URGENCY - NO MORE WAITING FOR MONDAY):
-- 'ሰኞ እጀምራለሁ' እያሉ በዘፈቀደ የቲክቶክና የዩቲዩብ ቪዲዮዎች ጊዜ ማባከን ውጤት አያመጣም።
-- በ8-ሳምንት የተዋቀረ እቅድ በ4 ሳምንት ውስጥ በልብስ ላይ ግልጽ ለውጥ ያመጣል፤ በ8ኛው ሳምንት ሙሉ ሰውነት ይቀየራል።
-
-9. አሁን ተመዝግቦ በኋላ መጀመር (REGISTER NOW, START LATER):
-- አዎ ይቻላል! አሁን በቅናሽ ዋጋ ተመዝግቦ ፕላኑን መያዝ ይቻላል። ልምምዱን ደግሞ ደንበኛው በተመቸው ቀን (ከበዓል ወይም ከፈተና በኋላ) መጀመር ይችላል።
-
-10. ተዓማኒነት፣ የባንክ አካውንት እና ክፍያ (TRUST & PAYMENT):
-- የባንክ አካውንት የሌለው ሰው በቴሌብር (Telebirr) ወይም በቤተሰብ/ጓደኛ የባንክ አካውንት ወይም በአቅራቢያው ባለ የባንክ ቅርንጫፍ በቀላሉ መክፈል ይችላል።
-- ክፍያ የሚፈጸመው በይፋዊ አካውንት (CBE, BOA, Telebirr) ነው። ደረሰኝ እንደተላከ በደቂቃዎች ውስጥ እቅዱ ይከፈታል።
+7. ይፋዊ የክፍያ አካውንቶች (OFFICIAL PAYMENT ACCOUNTS):
+- ቴሌብር (Telebirr)፦ 0953462846 (Hilawe Semma)
+- ንግድ ባንክ (CBE)፦ 1000599533641 (Hilawe Semma)
+- አቢሲንያ (BOA)፦ 53299555 (Hilawe Semma)
 """
 
 
@@ -84,52 +71,116 @@ def _build_system_instruction(
     vocative: str, 
     pronoun: str, 
     verb_ending: str,
+    is_paid_member: bool = False,
+    active_product: Optional[Dict[str, Any]] = None,
+    is_hardship_discount: bool = False,
+    is_payment_details_request: bool = False,
+    is_meal_plan_request: bool = False,
     is_paid_issue: bool = False
 ) -> str:
     daily_cost = max(10, int(price / 56))
 
-    intent_override = ""
-    if is_paid_issue:
-        intent_override = f"""
+    # Determine dynamic operating mode block
+    if is_paid_member:
+        active_title = active_product.get("title", "የ 8-ሳምንት ስልጠና") if active_product else "የ 8-ሳምንት ስልጠና"
+        active_freq = active_product.get("frequency", 4) if active_product else 4
+        active_level = active_product.get("level", "INTERMEDIATE") if active_product else "INTERMEDIATE"
+        mode_instruction = f"""
+🚨 ደንበኛው የከፈለ ንቁ አባል ነው (ACTIVE PAID MEMBER):
+ይህ ደንበኛ ቀድሞውኑ የ"{active_title}" (በሳምንት {active_freq} ቀናት፣ {active_level}) እቅድን በይፋ ገዝቷል!
+- ጥብቅ ትዕዛዝ፦ በጭራሽ ምንም አይነት የሽያጭ ንግግር እንዳታነሳ! የዋጋ ክፍያ፣ ብር፣ ወይም "እቅድህን ክፈት" የሚል ቃል በጭራሽ እንዳትናገር!
+- እንደ እውነተኛ የግል አሰልጣኛቸው ሆነህ የጠየቁትን የስፖርት፣ የአመጋገብ ወይም የሰውነት ጥያቄ በመተማመንና በቅንነት መልስላቸው።
+- የገዙትን ቪዲዮ ወይም እቅድ የት እንደሚያገኙ ከጠየቁ፦
+  "ወንድሜ/እህቴ {clean_name}፣ የገዛኸው/ሽው የ8-ሳምንት የተሟላ ስልጠና በቦቱ ውስጥ ዝግጁ ነው። /start ብለህ/ሽ በመጫን የመገለጫ ካርድህን/ሽን ማየትና ቪዲዮዎችህን/ሽን መክፈት ትችላለህ/ሽ። ተጨማሪ ድጋፍ ካስፈለገህ/ሽ የድጋፍ ቡድናችንን እዚህ ማናገር ትችላለህ/ሽ፦ @{settings.SUPPORT_BOT_USERNAME}"
+"""
+    elif is_paid_issue:
+        mode_instruction = f"""
 🚨 አስቸኳይ ትዕዛዝ (POST-PAYMENT & UNLOCK RESOLUTION):
 ደንበኛው ከዚህ በፊት ክፍያ እንደከፈለ/ች፣ ደረሰኝ እንደላከ/ች፣ ወይም ቪዲዮው/እቅዱ እንዳልተከፈተለት/ላት እየተናገረ/ች ነው!
-- በጭራሽ ፕሮግራሙን እንዲገዛ/እንድትገዛ እንዳትጠይቅ! የዋጋ ሽያጭ (1299 ብር) እንዳታነሳ!
+- በጭራሽ ፕሮግራሙን እንዲገዛ/እንድትገዛ እንዳትጠይቅ! የዋጋ ሽያጭ እንዳታነሳ!
 - በሙሉ ልብ አረጋጋቸው፦ የላኩት የክፍያ ደረሰኝ በቡድናችን እየተጣራ መሆኑን እና እንደተረጋገጠ እቅዱ ወዲያውኑ እንደሚከፈት ንገራቸው።
 - ቪዲዮው ካልከፈተ ወይም ክፍያው ከዘገየ፣ ወዲያውኑ ችግሩን እንድንፈታላቸው የክፍያ ደረሰኛቸውን ይዘው የድጋፍ ቦቱን እንዲያናግሩ ንገራቸው፦ @{settings.SUPPORT_BOT_USERNAME}።
-- ደንበኛው በእንግሊዝኛ ከጻፈ በእንግሊዝኛ መልስላቸው፤ በአማርኛ ወይም በላቲን አማርኛ (Amglish) ከጻፈ በአማርኛ መልስላቸው።
+"""
+    elif is_payment_details_request:
+        mode_instruction = f"""
+🚨 የክፍያ እና የባንክ አካውንት ጥያቄ (PAYMENT DETAILS INTENT):
+ደንበኛው ክፍያ ለመፈጸም የባንክ ወይም የቴሌብር ቁጥር እየጠየቀ ነው!
+- አትዘባርቅ፣ ወዲያውኑ ይፋዊ የክፍያ አማራጮቻችንን በግልጽ አስቀምጥላቸው፦
+  1. ቴሌብር (Telebirr)፦ 0953462846 (Hilawe Semma)
+  2. ንግድ ባንክ (CBE)፦ 1000599533641 (Hilawe Semma)
+  3. አቢሲንያ ባንክ (BOA)፦ 53299555 (Hilawe Semma)
+- ክፍያውን በቴሌብር፣ በባንክ አፕ ወይም በቅርንጫፍ እንደፈጸሙ የደረሰኙን ስክሪንሾት (Screenshot) እዚሁ ቻት ውስጥ በቀጥታ እንዲልኩልን ንገራቸው፤ ደረሰኙ እንደደረሰን እቅዳቸው በደቂቃዎች ውስጥ ይከፈታል።
+"""
+    elif is_hardship_discount:
+        mode_instruction = f"""
+🚨 የገንዘብ እጥረት እና የቅናሽ ጥያቄ (HARDSHIP / BUDGET CONCESSION - 600 BR):
+ደንበኛው አቅም እንደሌለው፣ ገንዘብ እንደሚያጥረው፣ ተማሪ እንደሆነ/ች ወይም ቅናሽ እንደሚፈልግ/ት በግልጽ ተናግሯል!
+- በጭራሽ "የውሃ ዋጋ ነው" ወይም "ድህነት ማለት..." እያልክ እንዳታሸማቅቃቸው!
+- በእውነተኛ የወንድማማችነት/እህትማማችነት ፍቅርና አጋርነት መልስላቸው፦
+  ገንዘብ እጥረት ምክንያት ሆኖ ጤናቸውንና የሰውነት ለውጣቸውን እንዲያስተጓጉልባቸው እንደማትፈልግ፣ እሱ/ሷ ብቻ ቆርጦ/ጣ እንዲጀምር/ሪ ለ 24 ሰዓት ብቻ የሚቆይ ልዩ የ 600 ብር ድጋፍ እንደተደረገላቸው ንገራቸው።
+  ከታች ያለውን የ 600 ብር ቁልፍ ተጭነው አሁኑኑ እንዲጀምሩ አበረታታቸው!
+"""
+    elif is_meal_plan_request:
+        mode_instruction = f"""
+🚨 የምግብ ፕላን ጥያቄ (MEAL PLAN INTENT):
+ደንበኛው በተለይ ስለ የምግብ ፕላን (Personalized Meal Plan) እየጠየቀ ነው!
+- ግልጽ አድርግላቸው፦ የእኛ የ 8-ሳምንት ስልጠና በውስጡ ጠንካራ የአመጋገብ መመሪያ (Meal Guidance) እና የቪዲዮ ልምምዶችን ያካተተ ነው።
+- ነገር ግን ለግል ቁመት፣ ክብደት፣ የአለርጂ እና የጤና ሁኔታ ብቻ ተለክቶ የተዘጋጀ የተሟላ የምግብ ፕላን (Personalized Meal Plan) የሚፈልጉ ከሆነ፣ በልዩ የምግብ ፕላን ሲስተማችን ውስጥ ማግኘት እንደሚችሉ ንገራቸው።
+- ከታች ያለውን የምግብ ፕላን ቁልፍ ተጭነው ግምገማቸውን እንዲጀምሩ ምራቸው!
+"""
+    else:
+        mode_instruction = f"""
+🚨 አዲስ ደንበኛ (FITNESS & PROGRAM ADVICE):
+1. መጀመሪያ ለጠየቁት ጥያቄ 2-3 አጫጭርና ጠንካራ የጂም/የአመጋገብ ምክር ስጣቸው። (ምግብ ከጠየቁ ስለ ምግብ፣ ልምምድ ከጠየቁ ስለ ልምምድ ብቻ መልስላቸው)።
+2. ይህ የ 8-ሳምንት ፕሮግራም በስልክ የሚሰሩ HD ቪዲዮዎችን እና ጠንካራ የአመጋገብ መመሪያን (Meal Guidance) ያካተተ መሆኑን ግለጽ።
+3. በመጨረሻው አረፍተ ነገር ላይ ብቻ በተፈጥሮአዊ መንገድ ወደ 8-ሳምንቱ እቅድ ጋብዛቸው፦
+   "ይሄንን በዘፈቀደ ከመስራት ይልቅ፣ ለሰውነትህ/ሽ በተበጀው የ8-ሳምንት እቅዳችን በወር ውስጥ በልብስህ/ሽ ላይ ግልጽ ለውጥ ታያለህ/ሽ። ዋጋው {int(price)} ብር ብቻ ነው፤ ከታች ያለውን ቁልፍ ተጭነህ/ሽ ዛሬውኑ እንጀምር!"
 """
 
     return f"""
-You are Coach Hilawe (ኮች ህላዌ) — elite Ethiopian personal trainer based in Addis Ababa who has transformed over 3,500+ Ethiopians across the globe.
-You communicate warmly, like a passionate, brotherly/sisterly mentor.
+You are Coach Hilawe (ኮች ህላዌ) — Addis Ababa's leading fitness coach and founder of the 8-Week Habesha Transformation System, trusted by over 3,500+ Ethiopians worldwide.
+You communicate warmly, like a passionate, brotherly/sisterly mentor chatting in an Addis gym. You are direct, grounded, and empathetic.
 
-ቋንቋ እና የፊደል አጠቃቀም (MULTILINGUAL INTELLIGENCE):
-1. ደንበኛው በእንግሊዝኛ ከጻፈ (In English): Reply in fluent, authentic, motivating English as Coach Hilawe!
-2. ደንበኛው በላቲን ፊደል አማርኛ (Amglish e.g. 'kfya kefye neber', 'selam coach') ወይም በግዕዝ ፊደል ከጻፈ: በንጹህ፣ ሞቅ ባለና አቀላጣፊ አማርኛ (Fidel) መልስላቸው።
-3. ሁልጊዜ የደንበኛውን ቋንቋ ተረድተህ ተገቢውን ቃና ጠብቅ።
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. STRICT NEGATIVE CONSTRAINTS (የተከለከሉ ነገሮች - HARD BANS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚫 NEVER USE "አትሌት" OR "አትሌቴ" (ATHLETE):
+In Ethiopian culture, "አትሌት" strictly means an Olympic stadium distance runner (like Kenenisa, Haile, Derartu), NOT a regular person wanting to drop belly fat or build muscle.
+- NEVER say: "እንደ አትሌት...", "ለአትሌት የሚያስፈልገው...", or "አትሌቴ".
+- ALWAYS address them by their clean first name (e.g., "{clean_name or 'ወንድሜ'}"), or as "{vocative}", or "ስፖርተኛ" if referring to workouts.
 
-የአነጋገር እና የማሳመን መመሪያዎች (NATIVE COACH PERSUASION):
-1. ሮቦታዊ አትሁን፦ በፍጹም "ጥያቄሽን/ህን ተቀብያለሁ" ወይም "እንኳን ደህና መጣህ" የሚል የቢሮክራሲ ንግግር አትጠቀም።
-2. ሰላምታ፦ አንድ ጊዜ ብቻ "ሰላም {vocative}!" (ወይም በእንግሊዝኛ "Hey {clean_name or 'Champion'}!") በል።
-   - ጥብቅ ማስጠንቀቂያ፦ በጭራሽ "እህቴ ... የኔ እህት" ወይም "ወንድሜ ... የኔ ወንድም" ብለህ ቃል አትድገም።
-3. ፍፁም የሆነ የጾታ ሰዋሰው ጠብቅ፦
-   - ጾታ፦ {gender}
-   - መጠሪያ፦ {vocative}
-   - ተውላጠ ስም፦ {pronoun}
-   - ማሰሪያ፦ {verb_ending}
-4. አዲስ ደንበኛ ሲሆን (የአካል ብቃት፣ ቦርጭ፣ ሂፕ ዲፕ፣ ፆም፣ ምግብ ሲጠይቅ)፦
-   - ጥያቄያቸውን በግልጽ አስረዳቸው። 'ሰኞ እጀምራለሁ' እያሉ በዘፈቀደ ቪዲዮ ጊዜ ከማባከን በስርዓት መስራት በወር ውስጥ በልብስ ላይ ለውጥ እንደሚያመጣ አሳምናቸው።
-   - ከ3,500 በላይ ኢትዮጵያውያንን የቀየረ እና 100% በሀበሻ ምግቦች የተዘጋጀ ሲስተም መሆኑን ጥቀስ።
-   - የዋጋ ስሌቱን አቃለው፦ የ8-ሳምንቱ የተሟላ ፕሮግራም ዋጋው {int(price)} ብር ብቻ መሆኑን፣ ይህም በቀን ሲሰላ {daily_cost} ብር ብቻ (የአንድ ጠርሙስ ውሃ ወይም የግማሽ ማኪያቶ ዋጋ) መሆኑን እና አንድ ጊዜ ብቻ የሚከፈል መሆኑን አጉላ።
-   - መጨረሻ ላይ፦ "ከታች ያለውን ቁልፍ ተጭነሽ/ህ አሁኑኑ እቅድሽን/ህን ክፈቺ/ትና ዛሬውኑ እንጀምር!" በማለት ጨርስ።
-   - ማሳሰቢያ፦ በጽሁፍህ ውስጥ እንደ "[እዚህ ይጫኑ]" ያሉ የውሸት ሊንኮች ወይም ቅንፎች አትጻፍ።
-5. አጭር፣ ግልጽና ኃይለኛ ሁን (ከ 60 እስከ 100 ቃላት ብቻ)።
-6. ሙሉ አረፍተ ነገር ብቻ ተጠቀም። በጭራሽ ሳይጠናቀቅ እንዳይቀር።
+🚫 NEVER GASLIGHT OR SHAME CLIENTS WHO LACK MONEY:
+- NEVER say: "23 ብር ማውጣት አቅቶህ አይደለም", "ድህነት ማለት እጅን ማጣጠፍ ነው", or "የውሃ ዋጋ እንኳን አይሞላም" to someone who says they have no money. That insults the client.
 
-{intent_override}
+🚫 NEVER DUMP THE FULL 5-POINT TELEMARKETING BROCHURE:
+- Do NOT regurgitate the exact same speech on every message (don't force "ሰኞ እጀምራለሁ", "3500 ሰዎች", "የውሃ ዋጋ", and "እቅድህን ክፈት" into every single turn). 
+- Answer their specific question FIRST with real fitness knowledge.
 
-የእውቀት መሰረት (KNOWLEDGE BASE):
-{KNOWLEDGE_CHUNKS.format(price=int(price), daily_cost=daily_cost)}
+🚫 NO CORPORATE / ROBOTIC PHRASES:
+- NEVER say: "ጥያቄዎን ተቀብያለሁ", "እንኳን ደህና መጡ", "መገለጫዎን አረጋግጫለሁ", or fake brackets like "[እዚህ ይጫኑ]".
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. MULTILINGUAL & GENDER ACCURACY (ቋንቋ እና ጾታ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- ቋንቋ፦ ደንበኛው በእንግሊዝኛ ከጻፈ በእንግሊዝኛ ብቻ መልስላቸው። በአማርኛ ወይም በላቲን አማርኛ (Amglish e.g. "kefye neber", "birr yelegnm", "selam coach") ከጻፈ በንጹህ፣ ሞቅ ባለ የፊደል አማርኛ መልስላቸው።
+- ጾታ፦ {gender}
+  • መጠሪያ፦ {vocative}
+  • ተውላጠ ስም፦ {pronoun}
+  • ማሰሪያ፦ {verb_ending}
+  • ደንበኛው "ሴት ነኝ" ወይም "ወንድ ነኝ" ካለ ወዲያውኑ በተስተካከለው ጾታ ብቻ ጥራቸው!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. OPERATING MODE FOR THIS QUERY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{mode_instruction}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. KNOWLEDGE BASE & TONE GUIDELINES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{KNOWLEDGE_CHUNKS}
+
+• ርዝመት፦ ምላሽህ ግልጽ፣ ቀጥተኛና አጭር ይሁን (ከ 45 እስከ 85 ቃላት ብቻ)።
+• ሙሉ አረፍተ ነገር ብቻ ተጠቀም። በጭራሽ ሳይጠናቀቅ እንዳይቀር።
 """
 
 
@@ -168,7 +219,6 @@ async def call_gemini_api(prompt: str, system_instruction: str) -> Optional[str]
                         candidates = data.get("candidates", [])
                         if candidates:
                             parts = candidates[0].get("content", {}).get("parts", [])
-                            # Extract and concatenate all valid text parts (ignoring internal thinking/reasoning blocks)
                             text_chunks = [
                                 p["text"] for p in parts
                                 if isinstance(p, dict) and "text" in p and not p.get("thought", False)
@@ -193,10 +243,20 @@ async def call_gemini_api(prompt: str, system_instruction: str) -> Optional[str]
     return None
 
 
-async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None, price: float = 949.0) -> str:
+async def generate_coach_reply(
+    query: str, 
+    user: Optional[Dict[str, Any]] = None, 
+    price: float = 949.0,
+    is_paid_member: bool = False,
+    active_product: Optional[Dict[str, Any]] = None,
+    is_hardship_discount: bool = False,
+    is_payment_details_request: bool = False,
+    is_meal_plan_request: bool = False
+) -> str:
     """
-    Generates a localized, high-converting Addis-native response from Coach Hilawe.
-    Falls back gracefully to Support Bot on errors.
+    Generates a localized, authentic Addis-native response from Coach Hilawe.
+    Accurately differentiates paid members, banking requests, hardship downsells,
+    meal plan requests, and general fitness questions with modular fallbacks.
     """
     user = user or {}
     raw_name = user.get("full_name") or user.get("first_name") or ""
@@ -204,27 +264,56 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     gender = (user.get("gender") or "MALE").upper()
     goal = user.get("goal") or "ሰውነትህን መቀየር"
 
-    # Already Paid / Receipt Sent / Video Unlock Issue Detection
     lower_query = query.lower()
+
+    # 1. Already Paid / Receipt Sent / Unlock Issue Detection
     paid_already_keywords = [
         "paid", "payed", "already paid", "i paid", "i have paid", "paid already", "sent receipt", "receipt", "proof", 
         "screenshot", "transfer", "transferred", "not opening", "ain't opening", "opneing",
         "video not opening", "can't open", "cannot open", "haven't received", "plan not opened", "video problem", "videi",
         "kefye", "kefyalehu", "kefiyalehu", "kefelk", "kfya", "kifya", "deresegn", "deresen", 
-        "altekeftem", "alkefetem", "aykefetim", "video",
-        "ከፍያለሁ", "ከፈልኩ", "ክፍያ ከፍዬ", "ደረሰኝ", "አልተከፈተም", "አልከፈተም", "ቪዲዮ", "አይከፈትም", "አልከፈተልኝም", "እቅዴ አልተከፈተም"
+        "altekeftem", "alkefetem", "aykefetim",
+        "ከፍያለሁ", "ከፈልኩ", "ክፍያ ከፍዬ", "ደረሰኝ", "አልተከፈተም", "አልከፈተም", "አይከፈትም", "አልከፈተልኝም", "እቅዴ አልተከፈተም"
     ]
     is_paid_issue = any(k in lower_query for k in paid_already_keywords)
 
-    # Human support request detection
+    # 2. Payment details / Bank account request detection (if not already reporting paid)
+    if not is_paid_issue and not is_paid_member:
+        payment_info_keywords = [
+            "ስንቄ", "ባንክ", "ቴሌብር", "አካውንት", "ቁጥር", "የት ልክፈል", "የት ልላክ", "አከፋፈል", "ስንት ላስገባ", 
+            "ላክልኝ", "ቁጥርህን", "ቁጥርሽን", "ቁጥር ስጠኝ", "መላኪያ", "የባንክ ቁጥር", "ሂሳብ ቁጥር",
+            "telebirr", "cbe", "boa", "ebirr", "e-birr", "bank", "account", "how to pay", "send number", "account number", "where to pay"
+        ]
+        if any(k in lower_query for k in payment_info_keywords):
+            is_payment_details_request = True
+
+    # 3. Hardship / Budget / "No Money" detection
+    if not is_paid_member:
+        hardship_keywords = [
+            "ገንዘብ የለኝም", "ብር የለኝም", "አቅም የለኝም", "አልቻልኩም", "አልችልም", "ገንዘብ አጠረኝ", "ውድ ነው", "ተወደደ", "ተማሪ ነኝ",
+            "ቀንስልኝ", "ቅናሽ", "ቅናሽ የለም", "በነጻ", "በነፃ", "ክፍያ የለኝም", "ክፊያ የለይም", "ብርየለኝም", "ደሃ ነኝ", "ድሀ ነኝ",
+            "no money", "broke", "cant afford", "cannot afford", "too expensive", "student", "discount", "free program", "make it free"
+        ]
+        if any(k in lower_query for k in hardship_keywords):
+            is_hardship_discount = True
+
+    # 4. Meal Plan specific inquiry detection
+    meal_plan_keywords = [
+        "meal plan", "mealplan", "diet plan", "የምግብ ፕላን", "የምግብ እቅድ", "የምግብ ብቻ", 
+        "የአንድ ወር የምግብ", "የአመጋገብ ፕላን", "የአመጋገብ እቅድ", "one month meal plan", "nutrition plan"
+    ]
+    if any(k in lower_query for k in meal_plan_keywords):
+        is_meal_plan_request = True
+
+    # 5. Human support request detection
     support_keywords = [
-        "support", "admin", "ስልክ", "ሰው ማናገር", "ደውሉልኝ", "ኮል", 
-        "ማውራት እፈልጋለሁ", "አናግረኝ", "help desk", "ስልክ ቁጥር"
+        "support", "admin", "ሰው ማናገር", "ደውሉልኝ", "ኮል", 
+        "ማውራት እፈልጋለሁ", "አናግረኝ", "help desk"
     ]
     if any(k in lower_query for k in support_keywords):
         vocative = f"እህቴ {clean_name}".strip() if gender == "FEMALE" else f"ወንድሜ {clean_name}".strip()
         return (
-            f"ሠላም {vocative}! እኔን ወይም የድጋፍ ቡድናችንን በቀጥታ ማናገር ከፈለግክ/ሽ "
+            f"ሰላም {vocative}! እኔን ወይም የድጋፍ ቡድናችንን በቀጥታ ማናገር ከፈለግክ/ሽ "
             f"እዚህ አናግረን፦ @{settings.SUPPORT_BOT_USERNAME} 🙏\n\n"
             f"ስለ ፕሮግራሙ ተጨማሪ ጥያቄ ካለህ/ሽ እኔው እመልስልሃለሁ/ሻለሁ!"
         )
@@ -246,12 +335,19 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
         vocative=vocative,
         pronoun=pronoun,
         verb_ending=verb_ending,
+        is_paid_member=is_paid_member,
+        active_product=active_product,
+        is_hardship_discount=is_hardship_discount,
+        is_payment_details_request=is_payment_details_request,
+        is_meal_plan_request=is_meal_plan_request,
         is_paid_issue=is_paid_issue
     )
 
     user_context = (
         f"የደንበኛው ስም፦ {clean_name or 'አልተገለጸም'}\n"
-        f"ዋና አላማው፦ {goal}\n"
+        f"የደንበኛው ጾታ፦ {gender}\n"
+        f"የደንበኛው አላማ፦ {goal}\n"
+        f"የአባልነት ሁኔታ፦ {'የከፈለ አባል' if is_paid_member else 'ያልከፈለ ደንበኛ'}\n"
         f"ወቅታዊ ዋጋ፦ {int(price)} ብር\n"
         f"የደንበኛው ጥያቄ፦ \"{query}\""
     )
@@ -261,11 +357,17 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
     if ai_text:
         return ai_text
 
-    # Resilient fallback if AI is down or network blip
-    daily_cost = max(10, int(price / 56))
+    # Modular fallbacks matching the exact user situation
     fallback_voc = f"እህቴ {clean_name}".strip() if gender == "FEMALE" else f"ወንድሜ {clean_name}".strip()
     pronoun_suffix = "ሽ" if gender == "FEMALE" else "ህ"
     verb_imperative = "ጀምሪ" if gender == "FEMALE" else "ጀምር"
+
+    if is_paid_member:
+        return (
+            f"ሰላም {fallback_voc}! በስልጠናህ/ሽ ላይ ያለህን/ሽን ማንኛውንም ጥያቄ ለመመለስ ዝግጁ ነኝ። "
+            f"የስልጠና ቪዲዮዎችህን/ሽን ለማግኘት /start ብለህ/ሽ በመጫን የመገለጫ ካርድህን/ሽን ማየትና ቪዲዮዎችን መክፈት ትችላለህ/ሽ። "
+            f"ተጨማሪ እገዛ ካስፈለገህ/ሽ የድጋፍ ቡድናችንን እዚህ አናግር፦ @{settings.SUPPORT_BOT_USERNAME} 🙏"
+        )
 
     if is_paid_issue:
         if any(w in lower_query for w in ["already", "paid", "opening", "video", "help"]):
@@ -279,9 +381,30 @@ async def generate_coach_reply(query: str, user: Optional[Dict[str, Any]] = None
             f"ደረሰኙ እንደተረጋገጠ ፕላኑ ወዲያውኑ ይከፈታል። ቪዲዮው ካልከፈተ ወይም ክፍያህ/ሽ ዘግይቶ ከሆነ፣ "
             f"በፍጥነት እንድንፈታልህ/ሽ እባክህ/ሽ እዚህ አናግረን፦ @{settings.SUPPORT_BOT_USERNAME} 🙏"
         )
+
+    if is_payment_details_request:
+        return (
+            f"ሰላም {fallback_voc}! ክፍያውን በቴሌብር (Telebirr) 0953462846 ወይም በኢትዮጵያ ንግድ ባንክ (CBE) 1000599533641 "
+            f"ወይም በአቢሲንያ ባንክ 53299555 (በስም፦ Hilawe Semma) መላክ ትችላለህ/ሽ። "
+            f"እንደላክህ/ሽ የደረሰኙን ስክሪንሾት እዚሁ ቻት ውስጥ በቀጥታ ላክልኝና ወዲያውኑ እቅድህን/ሽን እንክፈት! 🤝"
+        )
+
+    if is_hardship_discount:
+        return (
+            f"ሰላም {fallback_voc}! ገንዘብ ምክንያት ሆኖ ጤናህን/ሽን እና የሰውነት ለውጥህን/ሽን እንዲያስተጓጉልብህ/ሽ በፍጹም አልፈልግም። "
+            f"አንተ/ቺ ብቻ ቆርጠህ/ሽ እንድትጀምር/ሪ ብዬ፣ ለ 24 ሰዓት ብቻ የሚቆይ ልዩ የ 600 ብር ድጋፍ አድርጌልሃለሁ/ሻለሁ። "
+            f"ከታች ያለውን የ 600 ብር ቁልፍ ተጭነህ/ሽ አሁኑኑ {verb_imperative}ና አብረን እንለውጠው! 🔥"
+        )
+
+    if is_meal_plan_request:
+        return (
+            f"ሰላም {fallback_voc}! የ 8-ሳምንቱ ስልጠናችን በውስጡ ጠንካራ የአመጋገብ መመሪያን (Meal Guidance) ያካተተ ነው። "
+            f"ነገር ግን ለግልህ/ሽ ቁመት፣ ክብደት እና የጤና ሁኔታ ብቻ ተለክቶ የተዘጋጀ የተሟላ የምግብ ፕላን (Personalized Meal Plan) የምትፈልግ/ጊ ከሆነ፣ "
+            f"በልዩ የምግብ ፕላን ሲስተማችን ውስጥ ማግኘት ትችላለህ/ሽ! ከታች ያለውን ቁልፍ ተጭነህ/ሽ ግምገማህን/ሽን ጀምር/ሪ! 🥗"
+        )
+
     return (
-        f"ሰላም {fallback_voc}! 'ሰኞ እጀምራለሁ' እያሉ በዘፈቀደ የቲክቶክ ወይም የዩቲዩብ ቪዲዮ ጊዜ ከማባከን፣ "
-        f"ከ3,500 በላይ ኢትዮጵያውያን የቀየረውንና 100% በሀበሻ ምግቦች የተሰራውን የ8-ሳምንት እቅድ መከተል በወር ውስጥ በልብስ{pronoun_suffix} ላይ የሚታይ ለውጥ ያመጣል። "
-        f"የ8-ሳምንቱ የተሟላ ፕሮግራም ዋጋ {int(price)} ብር ብቻ ነው — በቀን ሲሰላ {daily_cost} ብር ብቻ (የአንድ ጠርሙስ ውሃ ዋጋ እንኳን አይሞላም)! "
-        f"አንድ ጊዜ ብቻ የሚከፈል ነው፤ ከታች ያለውን ቁልፍ ተጭነ{pronoun_suffix} አሁኑኑ {verb_imperative}ና አብረን እንለውጠው! 🔥"
+        f"ሰላም {fallback_voc}! በዘፈቀደ የቪዲዮ ልምምዶች ጊዜ ከማባከን፣ በስርዓት የተዋቀረውን የ 8-ሳምንት የልምምድ ቪዲዮ እና የአመጋገብ መመሪያ መከተል "
+        f"በአጭር ጊዜ ውስጥ በልብስ{pronoun_suffix} ላይ ግልጽ ለውጥ ያመጣል። የ 8-ሳምንቱ የተሟላ ፕሮግራም ዋጋ {int(price)} ብር ብቻ ነው፤ "
+        f"ከታች ያለውን ቁልፍ ተጭነ{pronoun_suffix} ዛሬውኑ {verb_imperative}ና አብረን እንጀምር! 🔥"
     )

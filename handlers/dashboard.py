@@ -87,7 +87,7 @@ async def settings_view(message: types.Message, db: Database):
         f"————————————————————\n"
         f"💡 *Select a field below to update your profile instantly.*"
     ) if lang == "EN" else (
-        f"🛡️ *የአትሌት መገለጫ*\n"
+        f"🛡️ *የደንበኛ መገለጫ*\n"
         f"————————————————————\n"
         f"📊 *ብቃት:* `{user['level']}`\n"
         f"📅 *ቀናት:* በሳምንት `{user['frequency']} ቀን`\n"

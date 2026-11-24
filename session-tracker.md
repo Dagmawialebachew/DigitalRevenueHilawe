@@ -8,12 +8,12 @@
 
 | Metric | Status / Value |
 | --- | --- |
-| **Active Task / Request** | Dual Broadcast Engine Execution: 8-Week Ascension (749 Br) & 7-Day Hot Leads (949 Br) |
+| **Active Task / Request** | Comprehensive Coach AI & Chat Handler Overhaul (Paid Guard, Bank Dispatch, 600 Br Hardship, Meal Plan Router, Zero-Athlete) |
 | **Session Status** | ✅ **COMPLETED** |
 | **Overall Progress** | [████████████████████] 100% |
-| **Session Started** | 2026-11-17 15:21:00 (EAT) |
-| **Last Updated** | 2026-11-17 15:30:00 (EAT) |
-| **Current In-Flight Step** | Both live broadcasts completed: 714 active users delivered (338 hot leads @ 949 Br + 376 ascension graduates @ 749 Br); completion reports delivered exclusively to Admin 1131741322 |
+| **Session Started** | 2026-11-24 09:22:00 (EAT) |
+| **Last Updated** | 2026-11-24 10:45:00 (EAT) |
+| **Current In-Flight Step** | Overhaul complete, verified, and committed to main |
 
 ---
 
@@ -27,6 +27,7 @@
 - [x] **Milestone 35: Live Database Audience Count Query** — Queried live Neon DB: exactly **457 Ascension graduates** (269 Beg->Inter, 188 Inter->Adv) and **386 Hot Leads** (291 male, 95 female). Total addressable audience: **843 users**.
 - [x] **Milestone 36: Comprehensive Brainstorming Briefing to Founder** — Formatted clear breakdown covering audience rules, exact message copy, buttons, safety guards, and execution options.
 - [x] **Milestone 37: Broadcast Execution** — Launched live Hot Leads (338 delivered) & Ascension (376 delivered) broadcasts with 0.06s concurrency pacing and routed completion cards exclusively to founder (`1131741322`).
+- [x] **Milestone 38: AI Coach Intelligence Deep Dive & Architecture Fix** — Purged 'Athlete'/'አትሌት' culture mismatch across all handlers, eliminated re-pitching of paid members (e.g. Dawit Ayele), added empathetic 600 Br hardship downsell with 24h deal lock, routed meal plan inquiries to 5-state mini-app engine, and replaced robotic canned repetition with natural Addis gym coach voice.
 
 ---
 
@@ -34,6 +35,10 @@
 
 | Deliverable | Description | File Path |
 | --- | --- | --- |
+| **Coach Hilawe AI Intelligence Overhaul** | Grounded Addis gym coach engine with hard-banned athlete jargon, 5 smart operating modes, and modular fallbacks | [services/coach_ai.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/services/coach_ai.py) |
+| **Paid-Guard & Hardship Interceptor** | Active payment check before AI generation, 600 Br hardship downsell with 24h atomic DB lock, and dynamic gender update | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Meal Plan 5-State Engine Router** | Dynamic routing distinguishing workout meal guidance from custom meal plans with targeted WebApp buttons | [handlers/payment.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/payment.py) |
+| **Zero-Athlete Terminology Purge** | Full eradication of "አትሌት/አትሌቴ" from admin inspection, user profile cards, and retargeting engines | [handlers/admin.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/handlers/admin.py) |
 | **Hot Leads Recovery Engine** | 1-on-1 personalized recovery blast delivered to 338 unpaid leads from past 7 days at 949 ETB | [retarget_hot_unpaid_leads.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/retarget_hot_unpaid_leads.py) |
 | **Ascension Broadcast Engine** | Phase 1 graduate recovery blast delivered to 376 8-week alumni at 749 ETB with 24h lock | [ascension_broadcast.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/scheduler/ascension_broadcast.py) |
 | **Health Review Approvals Batch Engine** | Batch approval & state transition engine approving 21 intakes and assigning nutrition targets | [meal_plan/health_review.py](file:///d:/The%20hobby%202/DigitalRevenueHilawe/meal_plan/health_review.py) |
@@ -90,6 +95,30 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-24 — AI Coach Intelligence Overhaul, 600 Br Hardship Downsell & Athlete Terminology Purge
+
+* **Goal:** Fix critical chat issues observed in 7-day client interaction logs: eliminate cultural mismatch of "አትሌት" (Athlete), stop pitching paid members like Dawit Ayele (`7726306467`), add 600 Br hardship downsell with 24h deal lock for budget-constrained leads, separate workout meal guidance from personalized meal plans with 5-state mini-app routing, immediately dispatch bank accounts upon request, and eliminate robotic brochure dumps.
+* **Key Achievements & Deliverables:**
+  1. **Zero-Athlete Terminology Purge:**
+     - Completely banned "አትሌት" and "አትሌቴ" across all AI prompts, system instructions, and fallbacks in `services/coach_ai.py`.
+     - Replaced with direct first name, natural vocatives ("ወንድሜ", "እህቴ"), or "ስፖርተኛ" for gym contexts.
+     - Cleaned admin payment view (`handlers/admin.py`), user profile card (`handlers/dashboard.py`), and retargeting engine (`scheduler/retarget_hot_unpaid_leads.py`).
+  2. **Paid Member Safety Shield (`handlers/payment.py` & `services/coach_ai.py`):**
+     - Prioritized verified active paid member lookup in DB (`payments` joined with `products`) before calling AI.
+     - Enforced strict zero-pitch mode for paid members (e.g. Dawit Ayele `7726306467`): AI answers workout/diet questions as their personal trainer, never mentions price or "unlock your plan", and guides them to `/start` or `@CoachHilaweSupportBot`.
+  3. **Empathetic 600 Br Hardship Downsell:**
+     - Detected budget objection keywords ("ገንዘብ የለኝም", "አልቻልኩም", "ተማሪ ነኝ", "ቅናሽ").
+     - Replaced toxic shaming ("water is cheap") with brotherly/sisterly support offering a 24h concession at 600 ETB.
+     - Atomically updated `deal_price = 600.00` and `deal_expires_at = NOW() + INTERVAL '24 hours'` in PostgreSQL.
+     - Rendered inline checkout button: `[🔥 ልዩ የ 600 ብር እድል ጀምር (600 ብር)]`.
+  4. **Product Scope Clarity & 5-State Meal Plan Router:**
+     - Clarified that the 1,299 / 600 ETB products contain Workout Videos + Meal Guidance (የስፖርት ልምምድ + የአመጋገብ መመሪያ).
+     - Built 5-state router querying `meal_intakes` and `meal_orders` when users ask for custom meal plans, generating targeted WebApp buttons (`DELIVERED`, `READY_TO_PAY`, `REVIEW_PENDING`, `IN_PROGRESS`, `NEW`).
+  5. **Immediate Payment Details Dispatch:**
+     - Instantly dispatches official Telebirr (`0953462846`), CBE (`1000599533641`), and BOA (`53299555`) under Hilawe Semma when clients request bank/telebirr account numbers.
+  6. **Dynamic Gender Correction:**
+     - Automatically updates user gender in DB and AI context when clients declare `"ሴት ነኝ"` or `"ወንድ ነኝ"`, guaranteeing flawless grammatical conjugation.
 
 ### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
 
@@ -188,6 +217,30 @@
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-24 — AI Coach Intelligence Overhaul, 600 Br Hardship Downsell & Athlete Terminology Purge
+
+* **Goal:** Fix critical chat issues observed in 7-day client interaction logs: eliminate cultural mismatch of "አትሌት" (Athlete), stop pitching paid members like Dawit Ayele (`7726306467`), add 600 Br hardship downsell with 24h deal lock for budget-constrained leads, separate workout meal guidance from personalized meal plans with 5-state mini-app routing, immediately dispatch bank accounts upon request, and eliminate robotic brochure dumps.
+* **Key Achievements & Deliverables:**
+  1. **Zero-Athlete Terminology Purge:**
+     - Completely banned "አትሌት" and "አትሌቴ" across all AI prompts, system instructions, and fallbacks in `services/coach_ai.py`.
+     - Replaced with direct first name, natural vocatives ("ወንድሜ", "እህቴ"), or "ስፖርተኛ" for gym contexts.
+     - Cleaned admin payment view (`handlers/admin.py`), user profile card (`handlers/dashboard.py`), and retargeting engine (`scheduler/retarget_hot_unpaid_leads.py`).
+  2. **Paid Member Safety Shield (`handlers/payment.py` & `services/coach_ai.py`):**
+     - Prioritized verified active paid member lookup in DB (`payments` joined with `products`) before calling AI.
+     - Enforced strict zero-pitch mode for paid members (e.g. Dawit Ayele `7726306467`): AI answers workout/diet questions as their personal trainer, never mentions price or "unlock your plan", and guides them to `/start` or `@CoachHilaweSupportBot`.
+  3. **Empathetic 600 Br Hardship Downsell:**
+     - Detected budget objection keywords ("ገንዘብ የለኝም", "አልቻልኩም", "ተማሪ ነኝ", "ቅናሽ").
+     - Replaced toxic shaming ("water is cheap") with brotherly/sisterly support offering a 24h concession at 600 ETB.
+     - Atomically updated `deal_price = 600.00` and `deal_expires_at = NOW() + INTERVAL '24 hours'` in PostgreSQL.
+     - Rendered inline checkout button: `[🔥 ልዩ የ 600 ብር እድል ጀምር (600 ብር)]`.
+  4. **Product Scope Clarity & 5-State Meal Plan Router:**
+     - Clarified that the 1,299 / 600 ETB products contain Workout Videos + Meal Guidance (የስፖርት ልምምድ + የአመጋገብ መመሪያ).
+     - Built 5-state router querying `meal_intakes` and `meal_orders` when users ask for custom meal plans, generating targeted WebApp buttons (`DELIVERED`, `READY_TO_PAY`, `REVIEW_PENDING`, `IN_PROGRESS`, `NEW`).
+  5. **Immediate Payment Details Dispatch:**
+     - Instantly dispatches official Telebirr (`0953462846`), CBE (`1000599533641`), and BOA (`53299555`) under Hilawe Semma when clients request bank/telebirr account numbers.
+  6. **Dynamic Gender Correction:**
+     - Automatically updates user gender in DB and AI context when clients declare `"ሴት ነኝ"` or `"ወንድ ነኝ"`, guaranteeing flawless grammatical conjugation.
 
 ### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
 
@@ -306,6 +359,30 @@ e%20hobby%202/DigitalRevenueHilawe/meal_plan/review_logic.py) |
 ---
 
 ## 📜 Historical Session Log
+
+### Session: 2026-11-24 — AI Coach Intelligence Overhaul, 600 Br Hardship Downsell & Athlete Terminology Purge
+
+* **Goal:** Fix critical chat issues observed in 7-day client interaction logs: eliminate cultural mismatch of "አትሌት" (Athlete), stop pitching paid members like Dawit Ayele (`7726306467`), add 600 Br hardship downsell with 24h deal lock for budget-constrained leads, separate workout meal guidance from personalized meal plans with 5-state mini-app routing, immediately dispatch bank accounts upon request, and eliminate robotic brochure dumps.
+* **Key Achievements & Deliverables:**
+  1. **Zero-Athlete Terminology Purge:**
+     - Completely banned "አትሌት" and "አትሌቴ" across all AI prompts, system instructions, and fallbacks in `services/coach_ai.py`.
+     - Replaced with direct first name, natural vocatives ("ወንድሜ", "እህቴ"), or "ስፖርተኛ" for gym contexts.
+     - Cleaned admin payment view (`handlers/admin.py`), user profile card (`handlers/dashboard.py`), and retargeting engine (`scheduler/retarget_hot_unpaid_leads.py`).
+  2. **Paid Member Safety Shield (`handlers/payment.py` & `services/coach_ai.py`):**
+     - Prioritized verified active paid member lookup in DB (`payments` joined with `products`) before calling AI.
+     - Enforced strict zero-pitch mode for paid members (e.g. Dawit Ayele `7726306467`): AI answers workout/diet questions as their personal trainer, never mentions price or "unlock your plan", and guides them to `/start` or `@CoachHilaweSupportBot`.
+  3. **Empathetic 600 Br Hardship Downsell:**
+     - Detected budget objection keywords ("ገንዘብ የለኝም", "አልቻልኩም", "ተማሪ ነኝ", "ቅናሽ").
+     - Replaced toxic shaming ("water is cheap") with brotherly/sisterly support offering a 24h concession at 600 ETB.
+     - Atomically updated `deal_price = 600.00` and `deal_expires_at = NOW() + INTERVAL '24 hours'` in PostgreSQL.
+     - Rendered inline checkout button: `[🔥 ልዩ የ 600 ብር እድል ጀምር (600 ብር)]`.
+  4. **Product Scope Clarity & 5-State Meal Plan Router:**
+     - Clarified that the 1,299 / 600 ETB products contain Workout Videos + Meal Guidance (የስፖርት ልምምድ + የአመጋገብ መመሪያ).
+     - Built 5-state router querying `meal_intakes` and `meal_orders` when users ask for custom meal plans, generating targeted WebApp buttons (`DELIVERED`, `READY_TO_PAY`, `REVIEW_PENDING`, `IN_PROGRESS`, `NEW`).
+  5. **Immediate Payment Details Dispatch:**
+     - Instantly dispatches official Telebirr (`0953462846`), CBE (`1000599533641`), and BOA (`53299555`) under Hilawe Semma when clients request bank/telebirr account numbers.
+  6. **Dynamic Gender Correction:**
+     - Automatically updates user gender in DB and AI context when clients declare `"ሴት ነኝ"` or `"ወንድ ነኝ"`, guaranteeing flawless grammatical conjugation.
 
 ### Session: 2026-11-17 — Meal Plan Health Reviews Triage & 21 Batch Approvals (Group 1A + Food Allergies)
 
@@ -677,7 +754,15 @@ un_full_demo.ps1, demo_plan_7d.json, ll_database_foods.json.
   - Registered **Version 3** in `meal_plan_versions` (ID `26`).
   - Dispatched official Coach Review Card to Telegram group `-5592866261` with interactive review keyboard (`✅ Approve`, `🔁 Generate Again`, `📎 Replace Files`, `👤 Client`) and 2 document attachments (DOCX msg `446304`, PDF msg `446305`).
 
-### Session: 2026-10-30 — Audit Remediation & Recalibration for Bezawit Nigusse (Order #26)
+### Session: 2026-11-24 — 7-Day AI Responses Storage & Retrieval Check
+
+* **Goal:** Verify whether 7-day user inquiries and AI coach responses can be checked and exported from the bot.
+* **Findings & Result:**
+  - **Direct Answer:** **No** in the database, **Yes** in Telegram.
+  - **Database Status:** PostgreSQL has no table logging raw user questions or Gemini AI responses.
+  - **Telegram Direct Routing:** Verified in `handlers/payment.py` (lines 625–657) that 100% of incoming customer questions and AI coach responses over the past 7 days were compiled into structured summary cards (`💬 የደንበኛ ጥያቄ እና የኮች ምላሽ`) and forwarded immediately to founder ID `1131741322` (@DagiKylexy).
+  - **Recommendation:** Can add an `ai_query_logs` table in PostgreSQL to store all future AI conversations for one-click SQL querying and CSV exports.
+
 
 * **Goal:** Remediate all 4 showstopper defect categories identified in the independent Meal Plan Audit Report for Bezawit Nigusse (Female, 42y, 74kg -> 65kg, Fat Loss, 1,675 kcal, P: 140g, AM, 3 meals/day, Wed/Fri Orthodox Fasting, Allergic to SOY and SHELLFISH).
 - **Changes Implemented:**

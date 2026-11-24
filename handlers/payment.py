@@ -18,10 +18,12 @@ from config import settings
 # 🚨 IMPORT THE CORE ENGINES FROM VERIFY.PY Safely
 import io
 import time
+from aiogram.types import WebAppInfo
 from handlers.verify import extract_local_data, verify_external, is_hilawe_receiver
 from handlers.forensic_stamp import process_and_stamp_incoming_proof
 from services.coach_ai import generate_coach_reply
 from scheduler.retarget_hot_unpaid_leads import get_fallback_product_id
+from meal_plan.runtime import frontend_url, frontend_url_is_valid
 REPORT_CACHE = {}
 
 router = Router(name="payment")
@@ -477,31 +479,18 @@ def build_contextual_query_keyboard(
         kb.adjust(1)
         return kb.as_markup()
 
-    # 2. Paid Members
+    # 2. Active Paid Members: strictly no checkout button
     if has_active_plan:
-        plan_keywords = ["እቅድ", "ፕላን", "ልምምድ", "ምግብ", "ስፖርት", "ወርክአውት", "ፕሮግራም", "plan", "workout", "meal"]
-        help_keywords = ["ስልክ", "ሰው", "ድጋፍ", "ጥያቄ", "help", "support", "call"]
-        
-        if any(k in q for k in plan_keywords):
-            kb.button(text="📦 የእኔን እቅድ ተመልከት", callback_data="view_current_plan")
-        elif any(k in q for k in help_keywords):
-            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
-        
-        if kb.buttons:
-            kb.adjust(1)
-            return kb.as_markup()
-        return None
+        kb.button(text="📦 የእኔን እቅድ ተመልከት", callback_data="view_current_plan")
+        kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.adjust(1)
+        return kb.as_markup()
 
-    # 3. Hot Unpaid Leads (Context-Specific Routing)
-    
-    # Reason 0: Already Paid / Payment Verification / Video or Plan Unlock Issue
+    # 3. Already Paid / Payment Verification / Video or Plan Unlock Issue
     paid_already_keywords = [
-        # Latin Amharic (Amglish)
         "kefye", "kefyalehu", "kefiyalehu", "kefelk", "kfya", "kifya", "deresegn", "deresen", 
         "altekeftem", "alkefetem", "aykefetim", "video", "videi",
-        # Fidel Amharic
         "ከፍያለሁ", "ከፈልኩ", "ክፍያ ከፍዬ", "ደረሰኝ", "አልተከፈተም", "አልከፈተም", "ቪዲዮ", "አይከፈትም", "አልከፈተልኝም", "እቅዴ አልተከፈተም",
-        # English (resilient tokens + phrases)
         "paid", "payed", "already paid", "i paid", "i have paid", "receipt", "proof", "screenshot", 
         "transfer", "transferred", "not opening", "ain't opening", "opneing", "video not opening", 
         "can't open", "cannot open", "video issue", "unlock plan", "haven't received"
@@ -512,14 +501,62 @@ def build_contextual_query_keyboard(
         kb.adjust(1)
         return kb.as_markup()
 
-    # Reason A: Settings / Profile Change Intent
-    settings_keywords = ["ስህተት", "መቀየር", "ልቀይር", "መገለጫ", "ማስተካከያ", "ተሳስቻለሁ", "አስተካክል", "change", "profile", "settings"]
-    if any(k in q for k in settings_keywords):
-        kb.button(text="⚙️ መገለጫዬን አስተካክል", callback_data="open_settings")
+    # 4. Meal Plan specific inquiry routing (5-State Engine)
+    meal_plan_keywords = [
+        "meal plan", "mealplan", "diet plan", "የምግብ ፕላን", "የምግብ እቅድ", "የምግብ ብቻ", 
+        "የአንድ ወር የምግብ", "የአመጋገብ ፕላን", "የአመጋገብ እቅድ", "one month meal plan", "nutrition plan"
+    ]
+    if any(k in q for k in meal_plan_keywords):
+        # Determine meal plan state from DB lookup
+        meal_state = user.get("_meal_state", "NEW") if user else "NEW"
+        m_url = user.get("_mini_app_url", "") if user else ""
+
+        if meal_state == "DELIVERED":
+            kb.button(text="📥 የምግብ ፕላኔን እይ (PDF)", callback_data="view_current_plan")
+            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        elif meal_state == "READY_TO_PAY":
+            kb.button(text="💳 የምግብ ፕላኔን ምረጥና ክፈት", callback_data="meal_plan_precheckout")
+            kb.button(text="💬 የክፍያ ድጋፍ አግኝ", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        elif meal_state == "REVIEW_PENDING":
+            kb.button(text="⏳ የግምገማ ሁኔታዬን እይ", callback_data="meal_plan_status")
+            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        elif meal_state == "IN_PROGRESS" and m_url:
+            kb.button(text="🥗 የምግብ ፕላን ግምገማህን ቀጥል", web_app=WebAppInfo(url=m_url))
+            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        elif m_url:
+            kb.button(text="🥗 የምግብ ፕላን ግምገማ ጀምር", web_app=WebAppInfo(url=m_url))
+            kb.button(text="💬 ስለ ምግብ ፕላኑ ጠይቅ", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        else:
+            kb.button(text="🥗 የምግብ ፕላን ምዘና ጀምር", url=f"https://t.me/{bot_username}?start=meal_plan")
+            kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
         kb.adjust(1)
         return kb.as_markup()
 
-    # Reason B: Direct Human Contact / Support Request
+    # 5. Financial Hardship Objection (600 Br Downsell)
+    hardship_keywords = [
+        "ገንዘብ የለኝም", "ብር የለኝም", "አቅም የለኝም", "አልቻልኩም", "አልችልም", "ገንዘብ አጠረኝ", "ውድ ነው", "ተወደደ", "ተማሪ ነኝ",
+        "ቀንስልኝ", "ቅናሽ", "ቅናሽ የለም", "በነጻ", "በነፃ", "ክፍያ የለኝም", "ክፊያ የለይም", "ብርየለኝም", "ደሃ ነኝ", "ድሀ ነኝ",
+        "no money", "broke", "cant afford", "cannot afford", "too expensive", "student", "discount", "free program", "make it free"
+    ]
+    if any(k in q for k in hardship_keywords):
+        kb.button(text="🔥 ልዩ የ 600 ብር እድል ጀምር (600 ብር)", callback_data=f"pay_{product_id}")
+        kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # 6. Payment / Banking / Transfer / Account Inquiries
+    payment_keywords = [
+        "ስንቄ", "ባንክ", "ቴሌብር", "አካውንት", "ቁጥር", "የት ልክፈል", "የት ልላክ", "አከፋፈል", "ስንት ላስገባ", 
+        "ላክልኝ", "ቁጥርህን", "ቁጥርሽን", "ቁጥር ስጠኝ", "መላኪያ", "የባንክ ቁጥር", "ሂሳብ ቁጥር",
+        "telebirr", "cbe", "boa", "ebirr", "e-birr", "bank", "account", "how to pay", "send number", "account number", "where to pay"
+    ]
+    if any(k in q for k in payment_keywords):
+        kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb.button(text="💬 የክፍያ ደረሰኝ ላክ / ድጋፍ አግኝ", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+        kb.adjust(1)
+        return kb.as_markup()
+
+    # 7. Direct Human Contact / Support Request
     contact_keywords = ["ስልክ", "ማናገር", "ደውል", "ደውሉልኝ", "ኮል", "ሰው ማናገር", "አድራሻ", "call", "support", "phone"]
     if any(k in q for k in contact_keywords):
         kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
@@ -527,39 +564,30 @@ def build_contextual_query_keyboard(
         kb.adjust(1)
         return kb.as_markup()
 
-    # Reason C: Payment / Banking / Transfer / Account Inquiries
-    payment_keywords = ["ባንክ", "ቴሌብር", "አካውንት", "መክፈል", "የት ልክፈል", "አከፋፈል", "cbe", "boa", "telebirr", "bank"]
-    if any(k in q for k in payment_keywords):
-        kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
-        if any(w in q for w in ["የለኝም", "ችግር", "አልችልም", "እንዴት"]):
-            kb.button(text="💬 የክፍያ ድጋፍ አግኝ", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
+    # 8. Settings / Profile Change Intent
+    settings_keywords = ["ስህተት", "መቀየር", "ልቀይር", "መገለጫ", "ማስተካከያ", "ተሳስቻለሁ", "አስተካክል", "change", "profile", "settings"]
+    if any(k in q for k in settings_keywords):
+        kb.button(text="⚙️ መገለጫዬን አስተካክል", callback_data="open_settings")
         kb.adjust(1)
         return kb.as_markup()
 
-    # Reason D: Fitness Advice, Goals, Problem Inquiries (Hip dips, belly, skinny, fatloss, program)
+    # 9. Fitness Advice & Problem Inquiries
     fitness_keywords = [
-        # Fidel
         "ሂፕ ዲፕ", "ቦርጭ", "ክብደት", "ጡንቻ", "ዳሌ", "ቅጥነት", "ውፍረት", "ስብ", 
         "ምግብ", "ፆም", "ፕሮቲን", "ውጤት", "ሳምንት", "ጂም", "ቤት", "ልምምድ", 
         "ምከር", "አማክረኝ", "ምን ላድርግ", "ምን ባደርግ", "ሆድ", "ወገብ",
-        # English & Latin Amharic
         "hip dip", "hip dips", "belly", "belly fat", "fat loss", "fatloss", "weight", "weight loss",
         "muscle", "gain weight", "skinny", "workout", "exercise", "diet", "tsom", "fasting", "protein"
     ]
     if any(k in q for k in fitness_keywords):
         kb.button(text=f"🔥 የ8-ሳምንት እቅዴን ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+        kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
         kb.adjust(1)
         return kb.as_markup()
 
-    # Reason E: Greetings / Introduction ("ማነህ", "ማን ነህ", etc.)
-    intro_keywords = ["ማነህ", "ማን ነህ", "who are you", "ስለ አንተ"]
-    if any(k in q for k in intro_keywords):
-        kb.button(text=f"🎯 ለእኔ የተዘጋጀውን እቅድ እይ ({int(price)} ብር)", callback_data=f"pay_{product_id}")
-        kb.adjust(1)
-        return kb.as_markup()
-
-    # Default fallback for unclassified sales questions: provide direct checkout
+    # Default fallback: provide direct checkout + support
     kb.button(text=f"💳 ክፍያ ጀምር ({int(price)} ብር)", callback_data=f"pay_{product_id}")
+    kb.button(text="💬 አሰልጣኝ ህላዌን አናግር", url=f"https://t.me/{settings.SUPPORT_BOT_USERNAME}")
     kb.adjust(1)
     return kb.as_markup()
 
@@ -580,6 +608,7 @@ async def handle_user_query_message(message: types.Message, bot: Bot, db: Databa
     """
     user_id = message.from_user.id
     user = await db.get_user(user_id)
+    text_lower = (message.text or "").lower().strip()
 
     # 1. Typing action for realistic feedback
     try:
@@ -587,44 +616,123 @@ async def handle_user_query_message(message: types.Message, bot: Bot, db: Databa
     except Exception:
         pass
 
-    # 2. Resolve checkout details (product ID and dynamic price)
+    # 2. Dynamic Gender Correction: If client states their gender, update DB immediately
+    female_declarations = ["ሴት ነኝ", "ሴትነኝ", "ሴት እኮ ነኝ", "i am female", "i am a girl", "female"]
+    male_declarations = ["ወንድ ነኝ", "ወንድነኝ", "ወንድ እኮ ነኝ", "i am male", "i am a boy", "male"]
+    if any(w in text_lower for w in female_declarations):
+        await db.execute("UPDATE users SET gender = 'FEMALE' WHERE telegram_id = $1", user_id)
+        if user:
+            user["gender"] = "FEMALE"
+    elif any(w in text_lower for w in male_declarations):
+        await db.execute("UPDATE users SET gender = 'MALE' WHERE telegram_id = $1", user_id)
+        if user:
+            user["gender"] = "MALE"
+
+    # 3. Check active approved workout plan status BEFORE calling AI
+    active_payment = await db.fetchrow("""
+        SELECT p.product_id, pr.title, pr.level, pr.frequency, pr.gender
+        FROM payments p
+        JOIN products pr ON p.product_id = pr.id
+        WHERE p.user_id = $1 AND p.status = 'approved'
+        ORDER BY p.approved_at DESC NULLS LAST, p.created_at DESC
+        LIMIT 1
+    """, user_id)
+    has_active_plan = bool(active_payment)
+    active_product = dict(active_payment) if active_payment else None
+
+    # 4. Resolve checkout details (product ID and dynamic price)
     product_id = resolve_user_product_id(user)
     price = resolve_user_price(user)
 
-    # 3. Generate Coach Hilawe reply via AI service
+    # 5. Check Hardship / Budget Objection (600 Br Downsell)
+    hardship_keywords = [
+        "ገንዘብ የለኝም", "ብር የለኝም", "አቅም የለኝም", "አልቻልኩም", "አልችልም", "ገንዘብ አጠረኝ", "ውድ ነው", "ተወደደ", "ተማሪ ነኝ",
+        "ቀንስልኝ", "ቅናሽ", "ቅናሽ የለም", "በነጻ", "በነፃ", "ክፍያ የለኝም", "ክፊያ የለይም", "ብርየለኝም", "ደሃ ነኝ", "ድሀ ነኝ",
+        "no money", "broke", "cant afford", "cannot afford", "too expensive", "student", "discount", "free program", "make it free"
+    ]
+    is_hardship = False
+    if not has_active_plan and any(k in text_lower for k in hardship_keywords):
+        is_hardship = True
+        price = 600.0
+        await db.execute("""
+            UPDATE users 
+            SET deal_price = 600.00, deal_expires_at = NOW() + INTERVAL '24 hours'
+            WHERE telegram_id = $1
+        """, user_id)
+        if user:
+            user["deal_price"] = 600.0
+
+    # 6. Check Meal Plan Inquiry and resolve user's Meal Plan DB state
+    meal_plan_keywords = [
+        "meal plan", "mealplan", "diet plan", "የምግብ ፕላን", "የምግብ እቅድ", "የምግብ ብቻ", 
+        "የአንድ ወር የምግብ", "የአመጋገብ ፕላን", "የአመጋገብ እቅድ", "one month meal plan", "nutrition plan"
+    ]
+    is_meal_plan_query = any(k in text_lower for k in meal_plan_keywords)
+    meal_state = "NEW"
+    if is_meal_plan_query:
+        intake_row = await db.fetchrow("SELECT state FROM meal_intakes WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 1", user_id)
+        has_delivered_meal_plan = await db.fetchval("SELECT 1 FROM meal_plan_versions WHERE order_id IN (SELECT id FROM meal_orders WHERE user_id = $1) LIMIT 1", user_id)
+        if has_delivered_meal_plan:
+            meal_state = "DELIVERED"
+        elif intake_row:
+            st = intake_row["state"]
+            if st == "HEALTH_REVIEW_REQUIRED":
+                meal_state = "REVIEW_PENDING"
+            elif st in ("PROFILE_READY", "CHECKOUT_READY"):
+                meal_state = "READY_TO_PAY"
+            elif st in ("INTAKE_IN_PROGRESS", "COUNTRY_REQUIRED"):
+                meal_state = "IN_PROGRESS"
+
+    # 7. Check Payment Details Request Intent
+    payment_info_keywords = [
+        "ስንቄ", "ባንክ", "ቴሌብር", "አካውንት", "ቁጥር", "የት ልክፈል", "የት ልላክ", "አከፋፈል", "ስንት ላስገባ", 
+        "ላክልኝ", "ቁጥርህን", "ቁጥርሽን", "ቁጥር ስጠኝ", "መላኪያ", "የባንክ ቁጥር", "ሂሳብ ቁጥር",
+        "telebirr", "cbe", "boa", "ebirr", "e-birr", "bank", "account", "how to pay", "send number", "account number", "where to pay"
+    ]
+    is_payment_info = (not has_active_plan) and any(k in text_lower for k in payment_info_keywords)
+
+    # 8. Generate Coach Hilawe reply via AI service
     ai_reply = await generate_coach_reply(
         query=message.text,
         user=user,
-        price=price
+        price=price,
+        is_paid_member=has_active_plan,
+        active_product=active_product,
+        is_hardship_discount=is_hardship,
+        is_payment_details_request=is_payment_info,
+        is_meal_plan_request=is_meal_plan_query
     )
 
-    # 4. Check active approved workout plan status
-    has_active_plan = await db.fetchval(
-        "SELECT 1 FROM payments WHERE user_id = $1 AND status = 'approved' LIMIT 1",
-        user_id
-    )
-
-    # 5. Build context-aware dynamic action buttons
+    # 9. Build context-aware dynamic action buttons
     bot_user = await bot.get_me()
     bot_username = bot_user.username or "CoachHilaweBot"
+    
+    # Resolve valid Mini App URL
+    m_url = frontend_url() if frontend_url_is_valid(frontend_url()) else "https://digital-revenue-hilawe-mini-app.vercel.app"
+    if user:
+        user["_meal_state"] = meal_state
+        user["_mini_app_url"] = m_url
+
     reply_markup = build_contextual_query_keyboard(
         query=message.text,
         user=user,
-        has_active_plan=bool(has_active_plan),
+        has_active_plan=has_active_plan,
         product_id=product_id,
         price=price,
         bot_username=bot_username
     )
 
-    # 6. Send reply to user
+    # 10. Send reply to user
     try:
         await message.answer(ai_reply, reply_markup=reply_markup, parse_mode="HTML")
     except Exception:
         await message.answer(ai_reply, reply_markup=reply_markup)
 
-    # 7. Forward summary card strictly to Founder ID (1131741322)
+    # 11. Forward summary card strictly to Founder ID (1131741322)
     user_status = (
         "✅ Paid Member" if has_active_plan else
+        "🔥 600 Br Hardship Lead" if is_hardship else
+        "🥗 Meal Plan Prospect" if is_meal_plan_query else
         "🔥 Hot Unpaid Lead" if (user and user.get("onboarding_completed")) else
         "🆕 New Prospect"
     )

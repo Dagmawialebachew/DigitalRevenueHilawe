@@ -117,7 +117,7 @@ def render_hot_lead_message(user: Dict[str, Any]) -> Tuple[str, InlineKeyboardMa
             elif "MUSCLE" in goal:
                 goal_phrased = "ጡንቻሽን አጠንክረሽ ቅርጽሽን ለማጉላት"
             else:
-                goal_phrased = "የአትሌት ብቃትና ጥንካሬሽን ለማሳደግ"
+                goal_phrased = "አጠቃላይ ጥንካሬሽንና የአካል ብቃትሽን ለማሳደግ"
 
             # Obstacle phrasing (Female)
             if "DIET" in obstacle:
@@ -152,7 +152,7 @@ def render_hot_lead_message(user: Dict[str, Any]) -> Tuple[str, InlineKeyboardMa
             elif "MUSCLE" in goal:
                 goal_phrased = "ጠንካራ ጡንቻ ገንብተህ ሰውነትህን ለመቀየር"
             else:
-                goal_phrased = "የአትሌት ብቃትና ጥንካሬህን ለማሳደግ"
+                goal_phrased = "አጠቃላይ ጥንካሬህንና የአካል ብቃትህን ለማሳደግ"
 
             # Obstacle phrasing (Male)
             if "DIET" in obstacle:

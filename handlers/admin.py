@@ -359,9 +359,9 @@ async def inspect_single_payment(callback: types.CallbackQuery, db: Database, bo
     lang_display = "🇺🇸 English" if pay['language'] == "EN" else "🇪🇹 አማርኛ (Amharic)"
 
     ledger_detail = (
-    f"📑 <b>TRANSACTION AUDIT: #{pay['id']}</b>\n"
+    f"📑 <b>TRANSACTION DETAILS: #{pay['id']}</b>\n"
     f"———————————————\n"
-    f"👤 <b>Athlete:</b> {pay['full_name']} (@{pay['username']})\n"
+    f"👤 <b>Client:</b> {pay['full_name']} (@{pay['username']})\n"
     f"🌍 <b>Language:</b> {lang_display}\n"
     f"📦 <b>Plan:</b> {pay['title']}\n"
     f"💰 <b>Amount:</b> {pay['amount']} ETB\n"
